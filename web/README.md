@@ -1,0 +1,36 @@
+# HighTower Web
+
+React + TypeScript + Vite 管理端。
+
+## 目录
+
+```text
+src/
+├── app/              应用入口组件和全局样式
+├── shared/           跨功能共享类型
+└── main.tsx          浏览器入口
+```
+
+全部管理页面均通过 `src/shared/api.ts` 连接 `pam-control`，不使用演示或 Mock 数据。认证使用 HttpOnly 管理员会话 Cookie，浏览器存储不保存 JWT。
+
+Connector 页面支持三种接入方式：Operator 配对向导（安装 Helm Chart、输入短期配对码、确认 Namespace 权限范围并等待 Connector 就绪）、Linux 主机配对（输入配对码、选择可管理的 systemd 服务），以及旧版清单 onboarding（兼容）。Connector 列表还支持健康检查、Namespace/systemd 服务范围热更新、安全下线和归档；动作抽屉可按执行环境、范围和资源选择 Linux 主机、systemd 服务与 Docker 容器只读动作。
+
+## 命令
+
+从仓库根目录执行：
+
+```bash
+make web-install
+make web-dev
+make web-build
+```
+
+或在本目录执行：
+
+```bash
+npm install
+npm run dev
+npm run build
+```
+
+真实 API 接入时按业务 Feature 拆分，避免继续扩大 `app/App.tsx`。

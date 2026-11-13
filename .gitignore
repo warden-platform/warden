@@ -1,0 +1,28 @@
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
+server/bin/
+server/pam-control
+.cache/
+.secrets/
+.DS_Store
+# Documentation is private by default. Only reviewed, reusable documents are
+# explicitly allowlisted for version control; local reports and environment
+# walkthroughs may contain internal addresses, usernames, or machine paths.
+docs/*
+!docs/README.md
+!docs/api.md
+!docs/federated-authorization.md
+!docs/multica/
+docs/multica/*
+!docs/multica/pam-readonly-agent-instructions.md
+!docs/multica/pam-readonly-skill.md
+!docs/multica/pam-aiops-skill.md
+!docs/multica/pam-resource-registration-skill.md
+!docs/e2e/
+docs/e2e/*
+!docs/e2e/03-test-agent.md
+.idea/
+/Jenkinsfile

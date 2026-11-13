@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pam-system
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pam-demo
+  labels:
+    pam.example.io/environment: testing

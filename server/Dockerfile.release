@@ -1,0 +1,11 @@
+ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12:nonroot
+FROM ${RUNTIME_IMAGE}
+ARG TARGET
+COPY server/bin/linux-amd64/${TARGET} /app
+COPY deploy/ /app-artifacts/deploy/
+COPY server/migrations/ /app-artifacts/server/migrations/
+COPY server/bin/linux-amd64/ /app-artifacts/server/bin/linux-amd64/
+COPY server/bin/linux-arm64/ /app-artifacts/server/bin/linux-arm64/
+ENV PAM_ARTIFACT_ROOT=/app-artifacts
+USER 65532:65532
+ENTRYPOINT ["/app"]

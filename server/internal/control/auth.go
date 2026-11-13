@@ -1,0 +1,443 @@
+package control
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"log"
+	"net"
+	"net/http"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
+	"sync"
+	"time"
+
+	"gitee.com/pam-platform/pam/server/internal/config"
+	"gitee.com/pam-platform/pam/server/internal/domain"
+	"github.com/golang-jwt/jwt/v5"
+	"golang.org/x/crypto/bcrypt"
+)
+
+// adminPrincipalID is the seeded admin user (migration 002_seed.sql).
+const adminPrincipalID = "00000000-0000-0000-0000-000000000003"
+
+const (
+	jwtIssuer   = "hightower-control"
+	jwtAudience = "hightower-admin"
+)
+
+// PrincipalStore abstracts principal persistence so auth-related handlers
+// can be unit-tested without a live PostgreSQL connection.
+type PrincipalStore interface {
+	GetByID(ctx context.Context, id string) (*domain.Principal, error)
+	GetByName(ctx context.Context, name string) (*domain.Principal, error)
+	List(ctx context.Context, kind string) ([]domain.Principal, error)
+	Create(ctx context.Context, p *domain.Principal) error
+	UpdatePassword(ctx context.Context, id, hash string) error
+	UpdateLastLogin(ctx context.Context, id string) error
+	Delete(ctx context.Context, id string) error
+}
+
+// --- Password hashing (bcrypt) ---
+
+func hashPassword(password string) (string, error) {
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), 12)
+	if err != nil {
+		return "", err
+	}
+	return string(hash), nil
+}
+
+func verifyPassword(password, hash string) bool {
+	return bcrypt.CompareHashAndPassword([]byte(hash), []byte(password)) == nil
+}
+
+// --- JWT (HMAC-SHA256) ---
+
+type pamClaims struct {
+	Name   string   `json:"name"`
+	Tenant string   `json:"tenant"`
+	Scope  []string `json:"scope"`
+	jwt.RegisteredClaims
+}
+
+// jwtTTL returns the JWT lifetime. Defaults to 8 hours; overridable via
+// PAM_JWT_TTL_HOURS (must parse as a positive integer).
+func jwtTTL() time.Duration {
+	if raw := os.Getenv("PAM_JWT_TTL_HOURS"); raw != "" {
+		if hours, err := strconv.Atoi(raw); err == nil && hours > 0 {
+			return time.Duration(hours) * time.Hour
+		}
+	}
+	return 8 * time.Hour
+}
+
+func (h *Handler) issueJWT(principal *domain.Principal) (string, time.Time, error) {
+	return h.issueJWTWithTTL(principal, jwtTTL())
+}
+
+// issueJWTWithTTL is used by federation exchanges so an external assertion
+// cannot be traded for the normal browser session lifetime. Federated callers
+// should re-assert when this short token expires; refresh tokens are
+// intentionally not introduced in this phase.
+func (h *Handler) issueJWTWithTTL(principal *domain.Principal, ttl time.Duration) (string, time.Time, error) {
+	if ttl <= 0 {
+		return "", time.Time{}, errors.New("JWT TTL must be positive")
+	}
+	expiresAt := time.Now().Add(ttl)
+	jti, err := randomToken(24)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	scopes := []string{"pam:resources:read", "pam:executions:create", "pam:executions:read:self", "pam:executions:cancel:self"}
+	if principal != nil && principal.ID == adminPrincipalID {
+		scopes = []string{"pam:admin"}
+	} else if principal != nil && principal.Metadata != nil {
+		if role, _ := principal.Metadata["role"].(string); role == "tenant_admin" {
+			scopes = []string{"pam:tenant:admin", "pam:resources:read", "pam:executions:create", "pam:executions:read:self", "pam:executions:cancel:self", "pam:credentials:manage", "pam:approve", "pam:audit:read", "pam:registration:read", "pam:registration:write"}
+		}
+	}
+	claims := pamClaims{
+		Name:   principal.Name,
+		Tenant: principal.TenantID,
+		Scope:  scopes,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ID:        jti,
+			Subject:   principal.ID,
+			Issuer:    jwtIssuer,
+			Audience:  jwt.ClaimStrings{jwtAudience},
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+			ExpiresAt: jwt.NewNumericDate(expiresAt),
+		},
+	}
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	signed, err := token.SignedString(h.jwtSigningKey)
+	if err != nil {
+		return "", time.Time{}, err
+	}
+	return signed, expiresAt, nil
+}
+
+func (h *Handler) parseJWT(raw string) (*pamClaims, error) {
+	claims := &pamClaims{}
+	_, err := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {
+		if t.Method != jwt.SigningMethodHS256 {
+			return nil, errors.New("unexpected signing method")
+		}
+		return h.jwtSigningKey, nil
+	}, jwt.WithIssuer(jwtIssuer), jwt.WithAudience(jwtAudience), jwt.WithIssuedAt(),
+		jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(claims.Subject) == "" || len(claims.Scope) == 0 {
+		return nil, errors.New("JWT subject and scope are required")
+	}
+	return claims, nil
+}
+
+// --- Admin password seeding ---
+
+// EnsureAdminPassword synchronizes the admin principal's password_hash from
+// PAM_ADMIN_PASSWORD. This makes the configured Secret the source of truth and
+// allows password rotation by updating the Secret and restarting pam-control.
+// If the setting is absent, an existing database password remains unchanged.
+func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
+	if h.principals == nil {
+		return nil
+	}
+	password, err := config.Secret("PAM_ADMIN_PASSWORD")
+	if err != nil {
+		return fmt.Errorf("read PAM_ADMIN_PASSWORD: %w", err)
+	}
+	if password == "" {
+		password, err = localDevelopmentAdminPassword()
+		if err != nil {
+			return fmt.Errorf("read local admin password: %w", err)
+		}
+		if password == "" {
+			log.Println("警告: PAM_ADMIN_PASSWORD 未设置，Web 登录不可用")
+			return nil
+		}
+	}
+	if len(password) < 8 || len(password) > 72 {
+		return fmt.Errorf("PAM_ADMIN_PASSWORD must contain 8-72 bytes")
+	}
+	// The platform administrator is the bootstrap identity. Its tenant is
+	// deliberately fixed to the migrated platform tenant for this lookup; normal
+	// business repositories must never infer a tenant this way.
+	principal, err := h.principals.GetByID(domain.WithTenantID(ctx, "platform"), adminPrincipalID)
+	if err != nil {
+		return fmt.Errorf("query admin principal: %w", err)
+	}
+	if principal == nil {
+		return fmt.Errorf("admin principal %s does not exist", adminPrincipalID)
+	}
+	if principal.PasswordHash != "" && verifyPassword(password, principal.PasswordHash) {
+		return nil
+	}
+	hash, err := hashPassword(password)
+	if err != nil {
+		return fmt.Errorf("hash admin password: %w", err)
+	}
+	if err := h.principals.UpdatePassword(ctx, adminPrincipalID, hash); err != nil {
+		return fmt.Errorf("save admin password hash: %w", err)
+	}
+	log.Println("admin 密码已同步，Web 登录已启用")
+	return nil
+}
+
+// localDevelopmentAdminPassword supports the repository-local launchd setup.
+// Packaged deployments should continue to configure PAM_ADMIN_PASSWORD_FILE;
+// the fallback is only active when .secrets/admin_password exists next to the
+// source tree containing the running binary.
+func localDevelopmentAdminPassword() (string, error) {
+	executable, err := os.Executable()
+	if err != nil {
+		return "", nil
+	}
+	candidates := []string{filepath.Join(filepath.Dir(executable), "..", "..", ".secrets", "admin_password")}
+	if root := strings.TrimSpace(os.Getenv("PAM_ARTIFACT_ROOT")); root != "" {
+		candidates = append([]string{filepath.Join(root, ".secrets", "admin_password")}, candidates...)
+	}
+	for _, candidate := range candidates {
+		data, readErr := os.ReadFile(filepath.Clean(candidate))
+		if os.IsNotExist(readErr) {
+			continue
+		}
+		if readErr != nil {
+			return "", readErr
+		}
+		return strings.TrimSpace(string(data)), nil
+	}
+	return "", nil
+}
+
+// --- HTTP handlers ---
+
+type loginRequest struct {
+	Username string `json:"username"`
+	Password string `json:"password"`
+	Tenant   string `json:"tenant,omitempty"`
+}
+
+type loginResponse struct {
+	Token     string    `json:"token"`
+	ExpiresAt time.Time `json:"expiresAt"`
+	User      struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+	} `json:"user"`
+}
+
+type loginAttempt struct {
+	count int
+	reset time.Time
+}
+
+var loginAttempts = struct {
+	sync.Mutex
+	items map[string]loginAttempt
+}{items: make(map[string]loginAttempt)}
+
+func allowLoginAttempt(remoteAddr, username string, now time.Time) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	key := host + "\x00" + strings.ToLower(strings.TrimSpace(username))
+	loginAttempts.Lock()
+	defer loginAttempts.Unlock()
+	for candidate, item := range loginAttempts.items {
+		if !item.reset.After(now) {
+			delete(loginAttempts.items, candidate)
+		}
+	}
+	attempt := loginAttempts.items[key]
+	if !attempt.reset.After(now) {
+		attempt = loginAttempt{reset: now.Add(5 * time.Minute)}
+	}
+	if attempt.count >= 10 {
+		return false
+	}
+	if _, exists := loginAttempts.items[key]; !exists && len(loginAttempts.items) >= 10000 {
+		return false
+	}
+	attempt.count++
+	loginAttempts.items[key] = attempt
+	return true
+}
+
+func requestClientAddress(r *http.Request) string {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAM_TRUST_PROXY_HEADERS")), "true") && requestFromTrustedProxy(r.RemoteAddr) {
+		if forwarded := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); net.ParseIP(forwarded) != nil {
+			return forwarded
+		}
+		if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); net.ParseIP(realIP) != nil {
+			return realIP
+		}
+	}
+	return r.RemoteAddr
+}
+
+func requestFromTrustedProxy(remoteAddr string) bool {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	ip := net.ParseIP(strings.TrimSpace(host))
+	if ip == nil {
+		return false
+	}
+	for _, raw := range strings.Split(os.Getenv("PAM_TRUSTED_PROXY_CIDRS"), ",") {
+		_, network, parseErr := net.ParseCIDR(strings.TrimSpace(raw))
+		if parseErr == nil && network.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+func clearLoginAttempts(remoteAddr, username string) {
+	host, _, err := net.SplitHostPort(remoteAddr)
+	if err != nil {
+		host = remoteAddr
+	}
+	loginAttempts.Lock()
+	delete(loginAttempts.items, host+"\x00"+strings.ToLower(strings.TrimSpace(username)))
+	loginAttempts.Unlock()
+}
+
+func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		jsonError(w, http.StatusServiceUnavailable, "NO_DATABASE", "数据库未连接")
+		return
+	}
+	if h.principals == nil {
+		jsonError(w, http.StatusServiceUnavailable, "LOGIN_DISABLED", "登录服务未配置")
+		return
+	}
+	r.Body = http.MaxBytesReader(w, r.Body, 8<<10)
+	var req loginRequest
+	decoder := json.NewDecoder(r.Body)
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		jsonError(w, http.StatusBadRequest, "INVALID_REQUEST_BODY", "请求体解析失败")
+		return
+	}
+	username := strings.TrimSpace(req.Username)
+	if username == "" || len(req.Password) < 8 || len(req.Password) > 72 {
+		jsonError(w, http.StatusBadRequest, "INVALID_CREDENTIALS", "用户名或密码格式不正确")
+		return
+	}
+	clientAddress := requestClientAddress(r)
+	if !allowLoginAttempt(clientAddress, username, time.Now()) {
+		w.Header().Set("Retry-After", "300")
+		jsonError(w, http.StatusTooManyRequests, "LOGIN_RATE_LIMITED", "登录尝试过于频繁，请稍后重试")
+		return
+	}
+	loginCtx := r.Context()
+	if tenant := strings.TrimSpace(req.Tenant); tenant != "" {
+		if !h.tenantIsActive(loginCtx, tenant) {
+			jsonError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "用户名或密码错误")
+			return
+		}
+		loginCtx = WithTenantContext(loginCtx, tenant)
+	} else {
+		// Keep the existing Web login contract working while tenant selection
+		// is introduced in the UI. The migrated platform administrator and
+		// legacy users belong to platform; repository lookups must still carry an
+		// explicit tenant context after isolation was enabled.
+		loginCtx = WithTenantContext(loginCtx, "platform")
+	}
+	principal, err := h.principals.GetByName(loginCtx, username)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询用户失败")
+		return
+	}
+	if principal == nil || principal.Kind != domain.PrincipalKindUser ||
+		principal.Status != domain.PrincipalStatusActive || principal.PasswordHash == "" {
+		jsonError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "用户名或密码错误")
+		return
+	}
+	if !verifyPassword(req.Password, principal.PasswordHash) {
+		jsonError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "用户名或密码错误")
+		return
+	}
+	clearLoginAttempts(clientAddress, username)
+	token, expiresAt, err := h.issueJWT(principal)
+	if err != nil {
+		log.Printf("签发 JWT 失败: %v", err)
+		jsonError(w, http.StatusInternalServerError, "TOKEN_ISSUE_FAILED", "签发登录令牌失败")
+		return
+	}
+	claims, err := h.parseJWT(token)
+	if err != nil || claims.ID == "" {
+		jsonError(w, http.StatusInternalServerError, "TOKEN_ISSUE_FAILED", "登录会话创建失败")
+		return
+	}
+	if _, err := h.pool.Exec(r.Context(), `INSERT INTO admin_sessions (jti,principal_id,expires_at) VALUES ($1,$2,$3)`, claims.ID, principal.ID, expiresAt); err != nil {
+		jsonError(w, http.StatusInternalServerError, "SESSION_CREATE_FAILED", "登录会话创建失败")
+		return
+	}
+	if err := h.principals.UpdateLastLogin(r.Context(), principal.ID); err != nil {
+		log.Printf("更新 last_login_at 失败: %v", err)
+	}
+	h.writeIdentityAudit(r.Context(), "user.login", principal.ID, "")
+	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: token, Path: "/", HttpOnly: true,
+		Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, Expires: expiresAt})
+	// The JWT is deliberately not exposed to browser JavaScript; the response
+	// field remains for wire compatibility but is empty.
+	resp := loginResponse{ExpiresAt: expiresAt}
+	resp.User.ID = principal.ID
+	resp.User.Name = principal.Name
+	jsonResp(w, http.StatusOK, resp)
+}
+
+func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
+	if identity := identityFromContext(r.Context()); identity != nil && identity.Kind == "JWT" && identity.SessionID != "" && h.pool != nil {
+		_, _ = h.pool.Exec(r.Context(), `UPDATE admin_sessions SET revoked_at=now() WHERE jti=$1 AND revoked_at IS NULL`, identity.SessionID)
+	}
+	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: "", Path: "/", HttpOnly: true,
+		Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
+	jsonResp(w, http.StatusOK, map[string]string{"status": "logged_out"})
+}
+
+func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
+	identity := identityFromContext(r.Context())
+	if identity == nil || identity.Principal == nil {
+		jsonError(w, http.StatusUnauthorized, "UNAUTHORIZED", "未认证")
+		return
+	}
+	role := "user"
+	if identity.IsPlatformAdmin {
+		role = "platform_admin"
+	} else if value, _ := identity.Principal.Metadata["role"].(string); value != "" {
+		role = value
+	}
+	var tenant *domain.Tenant
+	if h.pool != nil && identity.TenantID != "" {
+		var current domain.Tenant
+		if err := h.pool.QueryRow(r.Context(), `SELECT id,slug,name,status,settings,created_at,updated_at FROM tenants WHERE slug=$1`, identity.TenantID).
+			Scan(&current.ID, &current.Slug, &current.Name, &current.Status, &current.Settings, &current.CreatedAt, &current.UpdatedAt); err != nil {
+			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询当前租户失败")
+			return
+		}
+		tenant = &current
+	}
+	var expiresAt *time.Time
+	if h.pool != nil && identity.SessionID != "" {
+		var value time.Time
+		if err := h.pool.QueryRow(r.Context(), `SELECT expires_at FROM admin_sessions WHERE jti=$1`, identity.SessionID).Scan(&value); err == nil {
+			expiresAt = &value
+		}
+	}
+	jsonResp(w, http.StatusOK, map[string]any{
+		"id": identity.Principal.ID, "name": identity.Principal.Name, "kind": identity.Principal.Kind,
+		"tenant": tenant, "role": role, "scopes": append([]string(nil), identity.Scopes...),
+		"is_platform_admin": identity.IsPlatformAdmin, "expires_at": expiresAt,
+	})
+}

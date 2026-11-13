@@ -1,0 +1,4 @@
+interface:
+  display_name: "PAM Platform Access"
+  short_description: "Discover and operate infrastructure safely through PAM"
+  default_prompt: "Use $pam-platform-access to discover the target resource and perform the requested PAM-governed action."

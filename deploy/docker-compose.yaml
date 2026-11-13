@@ -1,0 +1,63 @@
+services:
+  postgresql:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: pam
+      POSTGRES_USER: pam
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    ports:
+      - "5433:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../server/migrations:/migrations
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pam"]
+      interval: 3s
+      timeout: 3s
+      retries: 5
+
+  opa:
+    image: openpolicyagent/opa:0.68.0-static
+    profiles: ["optional"]
+    command:
+      - run
+      - --server
+      - --log-level=info
+      - --addr=0.0.0.0:8181
+      - /policies
+    ports:
+      - "8181:8181"
+    volumes:
+      - ./opa:/policies:ro
+
+  openbao:
+    image: openbao/openbao:2.2.0
+    profiles: ["optional"]
+    cap_add:
+      - IPC_LOCK
+    environment:
+      BAO_ADDR: "http://0.0.0.0:8200"
+      BAO_API_ADDR: "http://0.0.0.0:8200"
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - exec bao server -dev -dev-root-token-id="$$(cat /run/secrets/openbao_root_token)"
+    ports:
+      - "8200:8200"
+    healthcheck:
+      test: ["CMD", "bao", "status"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    secrets:
+      - openbao_root_token
+
+volumes:
+  pgdata:
+
+secrets:
+  postgres_password:
+    file: ../.secrets/postgres_password
+  openbao_root_token:
+    file: ../.secrets/openbao_root_token
