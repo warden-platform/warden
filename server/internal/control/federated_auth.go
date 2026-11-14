@@ -330,7 +330,7 @@ func (h *Handler) FederatedLogin(w http.ResponseWriter, r *http.Request) {
 	if claims.DisplayName != "" {
 		metadata["display_name"] = claims.DisplayName
 	}
-	principal, err := h.federated.ProvisionIdentity(ctx, claims.Issuer, claims.Subject, claims.Email, claims.DisplayName, binding.TenantID, metadata)
+	principal, err := h.federated.ProvisionIdentity(ctx, claims.Issuer, claims.Subject, claims.Email, claims.DisplayName, binding.TenantID, "", metadata)
 	if err != nil {
 		if errors.Is(err, postgres.ErrFederatedIdentityTenant) {
 			jsonError(w, http.StatusForbidden, "FEDERATED_IDENTITY_TENANT_MISMATCH", "联邦用户已绑定其他 PAM Tenant")

@@ -739,7 +739,10 @@ type ProjectMembership struct {
 	ProjectName   string                  `json:"project_name"`
 	PrincipalID   string                  `json:"principal_id"`
 	PrincipalName string                  `json:"principal_name"`
-	PrincipalKind PrincipalKind           `json:"principal_kind"`
+	// PrincipalDisplayName is the human-readable IdP label for federated
+	// users. Empty for local identities, whose name is already readable.
+	PrincipalDisplayName string                  `json:"principal_display_name,omitempty"`
+	PrincipalKind        PrincipalKind           `json:"principal_kind"`
 	Role          ProjectRole             `json:"role"`
 	Status        ProjectMembershipStatus `json:"status"`
 	CreatedBy     string                  `json:"created_by,omitempty"`
@@ -752,6 +755,9 @@ type ProjectMembership struct {
 type ProjectUser struct {
 	ID          string              `json:"id"`
 	Name        string              `json:"name"`
+	// DisplayName carries the IdP profile label for federated users; the
+	// stable internal name stays in Name for audit and lookup purposes.
+	DisplayName string              `json:"display_name,omitempty"`
 	Status      PrincipalStatus     `json:"status"`
 	TenantID    string              `json:"tenant_id"`
 	LastLoginAt *time.Time          `json:"last_login_at,omitempty"`

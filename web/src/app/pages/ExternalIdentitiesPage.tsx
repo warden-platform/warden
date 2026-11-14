@@ -2,8 +2,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { Bot, Link2, Loader2, Plus, RefreshCw, ShieldCheck, Trash2, UserRound } from 'lucide-react'
 import type { ApiError, ApiExternalBinding, ApiFederatedProjectBinding, ApiFederatedTenantBinding, ApiPrincipal, ApiProject } from '../../shared/api'
 import {
-  bindFederatedProject, bindFederatedTenant, createExternalBinding, listExternalBindings, listFederatedProjects,
-  listFederatedTenants, listPrincipals, listProjects, revokeExternalBinding, revokeFederatedProject,
+  apiPrincipalDisplayName, bindFederatedProject, bindFederatedTenant, createExternalBinding, listExternalBindings,
+  listFederatedProjects, listFederatedTenants, listPrincipals, listProjects, revokeExternalBinding, revokeFederatedProject,
 } from '../../shared/api'
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
@@ -52,7 +52,7 @@ export function ExternalIdentitiesPage() {
   }
   useEffect(load, [])
 
-  const principalNames = useMemo(() => new Map([...agents, ...users].map((p) => [p.id, p.name])), [agents, users])
+  const principalNames = useMemo(() => new Map([...agents, ...users].map((p) => [p.id, apiPrincipalDisplayName(p)])), [agents, users])
   const projectNames = useMemo(() => new Map(projects.map((p) => [p.id, p.name])), [projects])
   const selectedPrincipals = form.identityType === 'AGENT' ? agents : users
   const selectedPrincipal = selectedPrincipals.find((p) => p.id === form.principalId)
@@ -156,9 +156,9 @@ export function ExternalIdentitiesPage() {
         <label><span>身份类型</span><select value={form.identityType} onChange={(e) => updateType(e.target.value as BindingType)}><option value="AGENT">AGENT · 外部 Agent</option><option value="USER">USER · 外部用户</option></select></label>
         <label><span>外部 ID</span><input required maxLength={255} value={form.externalId} onChange={(e) => setForm({ ...form, externalId: e.target.value })} placeholder={form.identityType === 'AGENT' ? 'agent-release-01' : 'user-1001'} /></label>
         <label><span>外部 Project ID {form.identityType === 'USER' ? '（可选）' : ''}</span><input maxLength={255} value={form.externalProjectId} onChange={(e) => setForm({ ...form, externalProjectId: e.target.value })} placeholder={form.identityType === 'USER' ? '留空表示整个 Workspace' : 'external-project-payments'} /></label>
-        <label><span>PAM Principal</span><select required value={form.principalId} onChange={(e) => setForm({ ...form, principalId: e.target.value })}><option value="">选择 Principal</option>{selectedPrincipals.map((principal) => <option key={principal.id} value={principal.id}>{principal.name} · {principal.kind}</option>)}</select></label>
+        <label><span>PAM Principal</span><select required value={form.principalId} onChange={(e) => setForm({ ...form, principalId: e.target.value })}><option value="">选择 Principal</option>{selectedPrincipals.map((principal) => <option key={principal.id} value={principal.id}>{apiPrincipalDisplayName(principal)} · {principal.kind}</option>)}</select></label>
         {form.identityType === 'AGENT' && <label><span>PAM Project</span><select required value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}><option value="">选择项目</option>{projects.map((project) => <option key={project.id} value={project.id}>{project.name}{project.is_default ? '（默认）' : ''}</option>)}</select></label>}
-        <div className="external-identity-form-hint">{selectedPrincipal ? `已选择：${selectedPrincipal.name}` : form.identityType === 'AGENT' ? 'Agent Binding 必须固定一个 PAM Project。' : 'User Binding 可限制到外部 Project，也可覆盖整个 Workspace。'}</div>
+        <div className="external-identity-form-hint">{selectedPrincipal ? `已选择：${apiPrincipalDisplayName(selectedPrincipal)}` : form.identityType === 'AGENT' ? 'Agent Binding 必须固定一个 PAM Project。' : 'User Binding 可限制到外部 Project，也可覆盖整个 Workspace。'}</div>
         <div className="form-actions"><button type="button" className="quiet-button" onClick={() => setCreating(false)}>取消</button><button className="primary-button" disabled={busy === 'create' || !form.principalId}>{busy === 'create' ? <Loader2 size={16} className="spin" /> : <Link2 size={16} />}创建 Binding</button></div>
       </form>
     </section>}

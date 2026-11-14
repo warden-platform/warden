@@ -1,7 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from '../../shared/router'
-import { Loader2, Lock, ShieldCheck } from 'lucide-react'
-import { ApiError, getMe, login } from '../../shared/api'
+import { Loader2, Lock, LogIn, ShieldCheck } from 'lucide-react'
+import { ApiError, canUser, getMe, getOIDCConfig, login, oidcLoginUrl } from '../../shared/api'
 import { useApp } from '../components/Toast'
 
 // Login page: centered card, reuses the Keep-style design-system classes
@@ -16,6 +16,19 @@ export function LoginPage() {
   const [tenant, setTenant] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [oidcEnabled, setOIDCEnabled] = useState(false)
+  const [oidcHref, setOidcHref] = useState(oidcLoginUrl)
+
+  useEffect(() => {
+    getOIDCConfig()
+      .then((c) => {
+        setOIDCEnabled(c.enabled)
+        // Always start the flow from the origin registered with the IdP so the
+        // host-only state/nonce cookies come back on the callback.
+        if (c.login_url) setOidcHref(c.login_url)
+      })
+      .catch(() => setOIDCEnabled(false))
+  }, [])
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -26,7 +39,7 @@ export function LoginPage() {
       .then(() => getMe())
       .then((user) => {
         signIn(user)
-        navigate(user.is_platform_admin ? '/platform/tenants' : '/overview')
+        navigate(canUser(user, 'pam:admin') ? '/platform/tenants' : '/overview')
       })
       .catch((err: ApiError) => {
         setError(err.code === 'INVALID_CREDENTIALS' ? '用户名或密码错误' : err.message || '登录失败')
@@ -86,6 +99,19 @@ export function LoginPage() {
           {loading ? <Loader2 size={18} className="spin" /> : <Lock size={18} />}
           {loading ? '登录中' : '登录'}
         </button>
+        {oidcEnabled && (
+          <>
+            <div className="my-4 flex items-center gap-3 text-xs text-content-subtle dark:text-content-dark-subtle">
+              <span className="h-px flex-1 bg-border dark:bg-border-dark" />
+              或
+              <span className="h-px flex-1 bg-border dark:bg-border-dark" />
+            </div>
+            <a className="secondary-button login-submit" href={oidcHref}>
+              <LogIn size={18} />
+              使用企业账号登录（SSO）
+            </a>
+          </>
+        )}
       </form>
     </div>
   )

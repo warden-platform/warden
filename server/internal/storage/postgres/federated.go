@@ -121,7 +121,11 @@ func (r *FederatedRepo) ConsumeAssertion(ctx context.Context, issuer, assertionI
 // refreshes its display attributes on subsequent logins. No project
 // membership is created here; a PAM tenant/project administrator must assign
 // it explicitly.
-func (r *FederatedRepo) ProvisionIdentity(ctx context.Context, issuer, subject, email, displayName, tenantID string, metadata map[string]any) (*domain.Principal, error) {
+//
+// defaultRole is applied whenever the principal has no role yet. An existing
+// role always wins, so a later role change made by an administrator in PAM is
+// never silently overwritten by the next IdP login.
+func (r *FederatedRepo) ProvisionIdentity(ctx context.Context, issuer, subject, email, displayName, tenantID, defaultRole string, metadata map[string]any) (*domain.Principal, error) {
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return nil, err
@@ -130,26 +134,35 @@ func (r *FederatedRepo) ProvisionIdentity(ctx context.Context, issuer, subject, 
 
 	var existingPrincipalID string
 	var existingTenant string
-	err = tx.QueryRow(ctx, `SELECT principal_id::text,tenant_id FROM federated_identities WHERE issuer=$1 AND subject=$2 FOR UPDATE`, issuer, subject).Scan(&existingPrincipalID, &existingTenant)
-	if err == nil && existingTenant != tenantID {
+	// Keep the lookup error in its own variable. Reusing err for json.Marshal
+	// below would overwrite pgx.ErrNoRows and make every first-time federated
+	// login take the "update existing principal" branch with an empty UUID.
+	lookupErr := tx.QueryRow(ctx, `SELECT principal_id::text,tenant_id FROM federated_identities WHERE issuer=$1 AND subject=$2 FOR UPDATE`, issuer, subject).Scan(&existingPrincipalID, &existingTenant)
+	if lookupErr == nil && existingTenant != tenantID {
 		return nil, ErrFederatedIdentityTenant
 	}
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		return nil, err
+	if lookupErr != nil && !errors.Is(lookupErr, pgx.ErrNoRows) {
+		return nil, lookupErr
 	}
 
 	metadataJSON, err := json.Marshal(metadata)
 	if err != nil {
 		return nil, err
 	}
+	// Passing JSON as text lets the SQL expressions below cast it explicitly;
+	// pgx would otherwise encode []byte as bytea, which is not castable here.
+	metadataText := string(metadataJSON)
+	const returning = `RETURNING id::text,kind,name,status,tenant_id,metadata,COALESCE(password_hash,''),last_login_at,created_at,updated_at`
+
 	var principal domain.Principal
-	if errors.Is(err, pgx.ErrNoRows) {
+	if errors.Is(lookupErr, pgx.ErrNoRows) {
 		name := federatedPrincipalName(issuer, subject)
 		err = tx.QueryRow(ctx, `
 			INSERT INTO principals(kind,name,status,tenant_id,metadata)
-			VALUES('user',$1,'ACTIVE',$2,$3)
-			RETURNING id::text,kind,name,status,tenant_id,metadata,COALESCE(password_hash,''),last_login_at,created_at,updated_at`,
-			name, tenantID, metadataJSON).Scan(&principal.ID, &principal.Kind, &principal.Name, &principal.Status,
+			VALUES('user',$1,'ACTIVE',$2,
+				jsonb_strip_nulls($3::jsonb || jsonb_build_object('role', NULLIF($4::text,''))))
+			`+returning,
+			name, tenantID, metadataText, defaultRole).Scan(&principal.ID, &principal.Kind, &principal.Name, &principal.Status,
 			&principal.TenantID, &principal.Metadata, &principal.PasswordHash, &principal.LastLoginAt,
 			&principal.CreatedAt, &principal.UpdatedAt)
 		if err != nil {
@@ -157,11 +170,17 @@ func (r *FederatedRepo) ProvisionIdentity(ctx context.Context, issuer, subject, 
 		}
 		_, err = tx.Exec(ctx, `INSERT INTO federated_identities(tenant_id,issuer,subject,principal_id,email,display_name,last_login_at) VALUES($1,$2,$3,$4::uuid,NULLIF($5,''),NULLIF($6,''),now())`, tenantID, issuer, subject, principal.ID, email, displayName)
 	} else {
+		// Preserve an administrator-assigned role across IdP logins. Every
+		// other metadata field (display_name, email, avatar) is refreshed from
+		// the latest id_token.
 		err = tx.QueryRow(ctx, `
-			UPDATE principals SET status='ACTIVE',metadata=$2,updated_at=now()
+			UPDATE principals SET status='ACTIVE',
+				metadata = jsonb_strip_nulls($2::jsonb || jsonb_build_object('role',
+					COALESCE(NULLIF(principals.metadata->>'role',''), NULLIF($4::text,'')))),
+				updated_at=now()
 			WHERE id=$1::uuid AND tenant_id=$3
-			RETURNING id::text,kind,name,status,tenant_id,metadata,COALESCE(password_hash,''),last_login_at,created_at,updated_at`,
-			existingPrincipalID, metadataJSON, tenantID).Scan(&principal.ID, &principal.Kind, &principal.Name, &principal.Status,
+			`+returning,
+			existingPrincipalID, metadataText, tenantID, defaultRole).Scan(&principal.ID, &principal.Kind, &principal.Name, &principal.Status,
 			&principal.TenantID, &principal.Metadata, &principal.PasswordHash, &principal.LastLoginAt,
 			&principal.CreatedAt, &principal.UpdatedAt)
 		if err == nil {

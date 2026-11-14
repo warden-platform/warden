@@ -21,7 +21,7 @@ func NewProjectUserRepo(pool *pgxpool.Pool) *ProjectUserRepo {
 
 func (r *ProjectUserRepo) List(ctx context.Context) ([]domain.ProjectUser, error) {
 	tenantID := repositoryTenant(ctx)
-	rows, err := r.pool.Query(ctx, `SELECT id,name,status,tenant_id,last_login_at,created_at,updated_at
+	rows, err := r.pool.Query(ctx, `SELECT id,name,COALESCE(metadata->>'display_name',''),status,tenant_id,last_login_at,created_at,updated_at
 		FROM principals
 		WHERE tenant_id=$1 AND kind='user' AND metadata->>'role'='project_user'
 		ORDER BY created_at DESC`, tenantID)
@@ -32,7 +32,7 @@ func (r *ProjectUserRepo) List(ctx context.Context) ([]domain.ProjectUser, error
 	users := make([]domain.ProjectUser, 0)
 	for rows.Next() {
 		var user domain.ProjectUser
-		if err := rows.Scan(&user.ID, &user.Name, &user.Status, &user.TenantID, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt); err != nil {
+		if err := rows.Scan(&user.ID, &user.Name, &user.DisplayName, &user.Status, &user.TenantID, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			return nil, err
 		}
 		user.Memberships = []domain.ProjectMembership{}
@@ -50,10 +50,10 @@ func (r *ProjectUserRepo) List(ctx context.Context) ([]domain.ProjectUser, error
 func (r *ProjectUserRepo) GetByID(ctx context.Context, id string) (*domain.ProjectUser, error) {
 	tenantID := repositoryTenant(ctx)
 	var user domain.ProjectUser
-	err := r.pool.QueryRow(ctx, `SELECT id,name,status,tenant_id,last_login_at,created_at,updated_at
+	err := r.pool.QueryRow(ctx, `SELECT id,name,COALESCE(metadata->>'display_name',''),status,tenant_id,last_login_at,created_at,updated_at
 		FROM principals
 		WHERE tenant_id=$1 AND id=$2 AND kind='user' AND metadata->>'role'='project_user'`, tenantID, id).
-		Scan(&user.ID, &user.Name, &user.Status, &user.TenantID, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt)
+		Scan(&user.ID, &user.Name, &user.DisplayName, &user.Status, &user.TenantID, &user.LastLoginAt, &user.CreatedAt, &user.UpdatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil
 	}
@@ -78,7 +78,8 @@ func (r *ProjectUserRepo) attachMemberships(ctx context.Context, users []domain.
 		byID[users[i].ID] = &users[i]
 		ids = append(ids, users[i].ID)
 	}
-	rows, err := r.pool.Query(ctx, `SELECT pm.tenant_id,pm.project_id,p.name,pm.principal_id,pr.name,pr.kind,
+	rows, err := r.pool.Query(ctx, `SELECT pm.tenant_id,pm.project_id,p.name,pm.principal_id,pr.name,
+		COALESCE(pr.metadata->>'display_name',''),pr.kind,
 		pm.role,pm.status,COALESCE(pm.created_by::text,''),pm.created_at,pm.updated_at
 		FROM project_memberships pm
 		JOIN projects p ON p.id=pm.project_id AND p.tenant_id=pm.tenant_id
@@ -92,8 +93,8 @@ func (r *ProjectUserRepo) attachMemberships(ctx context.Context, users []domain.
 	for rows.Next() {
 		var membership domain.ProjectMembership
 		if err := rows.Scan(&membership.TenantID, &membership.ProjectID, &membership.ProjectName,
-			&membership.PrincipalID, &membership.PrincipalName, &membership.PrincipalKind,
-			&membership.Role, &membership.Status, &membership.CreatedBy,
+			&membership.PrincipalID, &membership.PrincipalName, &membership.PrincipalDisplayName,
+			&membership.PrincipalKind, &membership.Role, &membership.Status, &membership.CreatedBy,
 			&membership.CreatedAt, &membership.UpdatedAt); err != nil {
 			return err
 		}

@@ -3,7 +3,7 @@
 // current pending-approval count, or read the logged-in user without prop drilling.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
 import { CheckCircle2 } from 'lucide-react'
-import { getMe, logout, type AuthUser } from '../../shared/api'
+import { getMe, getOIDCConfig, logout, type AuthUser } from '../../shared/api'
 
 type ToastEntry = { id: number; message: string }
 
@@ -24,6 +24,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<ToastEntry[]>([])
   const [pendingApprovals, setPendingApprovals] = useState(0)
   const [auth, setAuth] = useState<AuthState>({ user: null, loading: true })
+  const [oidcLogoutUrl, setOIDCLogoutUrl] = useState('')
   const seq = useRef(0)
 
   const notify = useCallback((message: string) => {
@@ -34,23 +35,32 @@ export function AppProvider({ children }: { children: ReactNode }) {
     }, 3200)
   }, [])
 
-  // On mount, validate the HttpOnly session cookie through /auth/me.
+  // On mount, validate the HttpOnly session cookie through /auth/me and
+  // fetch the canonical RP-initiated logout URL (only present when SSO is on).
   useEffect(() => {
     getMe()
       .then((user: AuthUser) => setAuth({ user, loading: false }))
       .catch(() => {
         setAuth({ user: null, loading: false })
       })
+    getOIDCConfig().then((config) => setOIDCLogoutUrl(config.logout_url ?? '')).catch(() => undefined)
   }, [])
 
   const signIn = useCallback((user: AuthUser) => {
     setAuth({ user, loading: false })
   }, [])
 
+  const isFederated = auth.user?.auth_source === 'oidc'
   const signOut = useCallback(() => {
+    // A federated session must also be terminated at the IdP; otherwise the
+    // next SSO click silently signs the user straight back in.
+    if (isFederated && oidcLogoutUrl) {
+      window.location.assign(oidcLogoutUrl)
+      return
+    }
     void logout().catch(() => undefined)
     setAuth({ user: null, loading: false })
-  }, [])
+  }, [isFederated, oidcLogoutUrl])
 
   const value = useMemo(() => ({ notify, pendingApprovals, setPendingApprovals, auth, signIn, signOut }), [notify, pendingApprovals, auth, signIn, signOut])
 
