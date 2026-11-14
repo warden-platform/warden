@@ -175,7 +175,7 @@ func TestJenkinsPipelineMetadataPrefersLastSuccessfulBuildWorkloadRepository(t *
 	if got := pipeline["definition_repository_keys"]; !reflect.DeepEqual(got, []string{"gitee.com/acme/devops"}) {
 		t.Fatalf("definition repositories = %#v", got)
 	}
-	if got := pipeline["runtime_repository_keys"]; !reflect.DeepEqual(got, []string{"gitee.com/acme/devops", "gitee.com/acme/app"}) {
+	if got := pipeline["runtime_repository_keys"]; !reflect.DeepEqual(got, []string{"gitee.com/acme/app", "gitee.com/acme/devops"}) {
 		t.Fatalf("runtime repositories = %#v", got)
 	}
 	if pipeline["repository_evidence_source"] != "last_successful_build" || pipeline["repository_observed_build"] != int64(2622) {
@@ -246,8 +246,8 @@ func TestJenkinsPipelineConfigAcceptsJenkinsXML11AndExtractsInlineRepositories(t
 		t.Fatal(err)
 	}
 	if !reflect.DeepEqual(config.RepositoryKeys, []string{
-		"gitee.com/acme/fallback-service",
 		"gitee.com/acme/example-global-frontend",
+		"gitee.com/acme/fallback-service",
 	}) {
 		t.Fatalf("unexpected repository keys: %#v", config.RepositoryKeys)
 	}

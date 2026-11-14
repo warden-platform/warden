@@ -7,6 +7,8 @@ server/bin/
 server/pam-control
 .cache/
 .secrets/
+# Local workbench data (session memory, work logs). Never commit.
+.workbuddy/
 .DS_Store
 # Documentation is private by default. Only reviewed, reusable documents are
 # explicitly allowlisted for version control; local reports and environment
@@ -14,7 +16,21 @@ server/pam-control
 docs/*
 !docs/README.md
 !docs/api.md
+!docs/authorization.md
 !docs/federated-authorization.md
+# Diátaxis 文档体系：教程 / 操作指南 / 参考 / 解释
+!docs/quickstart.md
+!docs/concepts.md
+!docs/architecture.md
+!docs/glossary.md
+!docs/configuration.md
+!docs/actions.md
+!docs/installation.md
+!docs/oidc-setup.md
+!docs/onboarding.md
+!docs/operations.md
+!docs/troubleshooting.md
+!docs/roadmap.md
 !docs/multica/
 docs/multica/*
 !docs/multica/pam-readonly-agent-instructions.md
@@ -25,4 +41,6 @@ docs/multica/*
 docs/e2e/*
 !docs/e2e/03-test-agent.md
 .idea/
+# Editor-local scratch documents (TrAE). Keep the files on disk, never commit.
+.trae/
 /Jenkinsfile
