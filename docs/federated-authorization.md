@@ -1,5 +1,9 @@
 # 联邦授权与 Provisioning（第一期）
 
+> **面向**：需要把外部平台身份 / 企业 / 项目接入 PAM 的集成方。本文是「解释 + 契约」文档，说明绑定关系、断言登录流程与权限边界。
+> 概念见 [concepts.md](concepts.md)，OIDC/SSO 见 [oidc-setup.md](oidc-setup.md)，接口见 [api.md](api.md)，配置项见 [configuration.md](configuration.md)。
+> 文中「外部」指代对接的外部平台（脱敏口径）。
+
 本期新增 PAM 侧的联邦授权基础层，兼容 外部 当前 `pam-ops` 的服务端 Token 调用方式。
 外部 最新的 Issue Agent 发布治理仍然通过现有 `/api/v1/projects`、`/api/v1/resources` 和
 `/api/v1/executions` 接口执行，不需要改动现有执行链路。
@@ -138,3 +142,11 @@ PAM Project 的 `PROJECT_ADMIN`、`OPERATOR`、`VIEWER` 角色必须由 PAM 管�
 普通 外部 member 不获得 PAM 控制台登录权限；如果其在 外部 中触发一个已经绑定且被策略允许的
 Agent 任务，PAM 仍会以 Agent Principal 执行，并记录 `on_behalf_of` 和
 `accountable_principal` 归因。
+
+## 已知限制与下一步
+
+- 断言登录签发的是 15 分钟 Bearer Token，**没有 Refresh Token**；过期后由外部后端重新生成一次性 Assertion 交换。
+- 该短 JWT 当前未写入 `admin_sessions`，而会话认证分支会查这张表，因此它**暂不能调用 `/api/v1/` 的常规接口**；这是已知设计债，见 [roadmap.md](roadmap.md)。
+- 外部平台成员不会因为联邦登录自动加入 PAM Project；项目成员与资源权限必须由 PAM 管理员显式分配。
+- 配置项 `PAM_FEDERATED_ASSERTION_*` 完整说明见 [configuration.md](configuration.md)。
+- 排障（如 `PROJECT_BINDING_REQUIRED`、`FEDERATED_AUTH_NOT_CONFIGURED`）见 [troubleshooting.md](troubleshooting.md)。

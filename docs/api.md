@@ -1,6 +1,10 @@
-# HighTower REST API
+# REST API 参考
 
-本文档以 `server/internal/control/handler.go` 的路由注册为准。API 前缀为 `/api/v1`；健康检查和下载接口除外。
+> **面向**：前后端开发者与集成方。用于查接口、认证方式、权限守卫、请求体与错误码。
+> 这是参考手册；上手见 [quickstart.md](quickstart.md)，概念见 [concepts.md](concepts.md)，权限规则见 [authorization.md](authorization.md)，配置见 [configuration.md](configuration.md)。
+> 文档地图见 [README.md](README.md)。
+
+本文档以 `server/internal/control/handler.go` 的 `RegisterRoutes` 为准。**路由、权限守卫与代码冲突时以代码为准并顺手修正本文档。** API 前缀为 `/api/v1`；健康检查和下载接口除外。
 
 ## 认证模型
 
@@ -8,6 +12,7 @@
 |---|---|---|
 | Public | 健康检查、管理员登录、安装包下载、配对启动 | 无通用身份认证；配对后续请求使用短期配对凭据 |
 | Admin session | 管理 Web | `POST /auth/login` 设置 HttpOnly Cookie；浏览器请求携带 `credentials: include` |
+| OIDC session | 企业 IdP 登录的 Web 用户 | 授权码 + PKCE S256；回调校验 state/nonce 后复用同一份 `pam_session` Cookie |
 | Agent API Key | 外部 Agent | `Authorization: Bearer <agent-api-key>`，按 Key Scope 授权 |
 | Registration Key | Multica 资源注册机器人 | `Authorization: Bearer <pam_rgk_...>`；绑定指定 PAM API audience，仅开放注册白名单 |
 | Connector signature | Connector Runtime | 每 Connector 独立任务 Key签名；覆盖时间戳、nonce、方法、路径和请求体 |
@@ -60,9 +65,13 @@
 | GET | `/readyz` | 数据库就绪检查 |
 | GET | `/api/v1/health` | 与 readiness 等价的兼容端点 |
 | POST | `/api/v1/auth/login` | 管理员密码登录并设置会话 Cookie |
-| GET | `/api/v1/auth/me` | 查询当前管理员、租户、角色、Scope 和会话过期时间，需租户管理员权限 |
-| POST | `/api/v1/auth/logout` | 撤销当前管理员会话，需平台管理员或租户管理员 |
+| GET | `/api/v1/auth/me` | 查询当前登录身份、租户、角色、Scope、`capabilities`、展示名/邮箱/头像、登录来源与会话过期时间 |
+| POST | `/api/v1/auth/logout` | 撤销当前会话并清除 Cookie；**只需已认证，无额外 Scope 包装**（SSO 用户请改用 `/auth/oidc/logout` 以同时终止 IdP 会话） |
 | PUT | `/api/v1/auth/password` | 登录用户修改自己的密码；成功后撤销该用户的全部会话并清除当前 Cookie |
+| GET | `/api/v1/auth/oidc/config` | 返回 `enabled`、`login_url`、`logout_url`（未启用时仅 `enabled:false`） |
+| GET | `/api/v1/auth/oidc/start` | 生成 state/nonce/PKCE verifier（HttpOnly Cookie）并 302 到 IdP authorize 端点 |
+| GET | `/api/v1/auth/oidc/callback` | 校验 state、nonce、PKCE 与 id_token，联邦建档后签发 `pam_session` 并 302 回控制台 |
+| GET | `/api/v1/auth/oidc/logout` | RP-initiated logout：撤销本地会话并 302 到 IdP `end_session_endpoint` |
 
 登录请求：
 
@@ -76,11 +85,34 @@
 登录成功响应中的 `token` 为兼容字段，浏览器认证以 HttpOnly Cookie 为准，不应把 JWT 保存到 localStorage。
 
 租户管理员登录时在请求体中增加 `tenant` slug；平台管理员及迁移后的 `platform` 管理员可省略。`/auth/me`
-返回 `tenant`、`role`、`scopes`、`is_platform_admin` 和 `expires_at`，Web 应以这些服务端字段决定菜单和操作权限。
+返回 `tenant`、`role`、`scopes`、`capabilities`、`is_platform_admin`、`expires_at`、`display_name`、`email`、`avatar_url` 和 `auth_source`。**Web 应只用 `capabilities` 决定菜单和操作权限**：它由服务端把 scopes 规范化而来，`pam:admin` 会展开为全量能力点，因此后端 `RequireScope` 守卫与前端菜单读的是同一份名单；`role` / `is_platform_admin` 仅用于展示。联邦用户保留稳定的内部标识 `name`（`federated:<hash>`）用于登录、会话与审计，UI 一律展示 `display_name`。
+
+### OIDC 单点登录
+
+启用条件与环境变量见 `README.md` 的「OIDC/SSO 配置」。要点：
+
+- 三个端点均为 Public；`login_url` / `logout_url` 由服务端按注册的 `redirect_uri` 推导，浏览器必须使用这两个绝对地址发起跳转。host-only 的 state/nonce cookie 要求登录与回调同源，混用 `localhost` 与 `127.0.0.1` 会返回 `INVALID_OIDC_STATE`。
+- 授权码流强制 PKCE S256；缺失 `oidc_verifier` cookie 返回 `OIDC_PKCE_MISSING`，不会降级为无 PKCE 兑换。失败的回调不清除 state cookie，允许重试。
+- 首次登录按 `(issuer, subject)` 建立 `federated_identities` 与 `principals` 记录；缺少 `sub` 返回 `OIDC_INVALID_SUBJECT`，避免所有用户被合并为同一身份。后续登录刷新展示名、邮箱、头像，但保留管理员在 PAM 中调整过的 `role`。
+- 默认角色由 `PAM_OIDC_DEFAULT_ROLE` 决定，取值只允许 `user`（默认）/ `tenant_admin`；**配置 `platform_admin` 会导致启动失败**，非法值同样拒绝启动。生产环境保持最小权限，超级管理员只能通过账号接口手工指派。
+- 联邦用户登出走 `/auth/oidc/logout`，同时终止 IdP 会话；普通登出仍用 `/auth/logout`。
+
+### 账号与权限管理
+
+以下接口需同时满足 `pam:admin` 与 `RequirePlatformTenant`（身份必须属于 `platform` 租户），用于给 SSO 用户指派角色：
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| GET | `/api/v1/accounts` | 列出**当前租户**的登录账号：内部标识、IdP 展示名/邮箱/头像、来源（`oidc` / `local`）、角色、状态、租户、最近登录、`is_builtin_admin` / `is_self` |
+| PUT | `/api/v1/accounts/{id}/role` | 请求体 `{"role":"user|tenant_admin|platform_admin"}`；返回新角色、原角色与撤销的会话数 |
+
+账号列表、目标查询、管理员计数与更新 SQL 均带 `tenant_id` 过滤，跨租户目标返回 `ACCOUNT_NOT_FOUND`（404）。角色变更会立即 `UPDATE admin_sessions SET revoked_at=now()`，被改的账号需要重新登录才能拿到新的 JWT scope；审计事件 `account.role_updated` 与角色变更在**同一事务**内提交，审计写入失败则整个变更回滚。约束：内置应急超管 `00000000-…-0003` 不可修改（`BUILTIN_ADMIN_PROTECTED`）、不能给自己降权（`CANNOT_DEMOTE_SELF`）、必须保留至少一个非内置 `platform_admin`（`LAST_PLATFORM_ADMIN`）、非法角色返回 `INVALID_ACCOUNT_ROLE`、非平台租户返回 `PLATFORM_TENANT_REQUIRED`（403）。
+
+`PAM_OIDC_DEFAULT_ROLE` 只允许 `user` / `tenant_admin`；配置 `platform_admin` 会导致启动失败——超级管理员只能由管理员在本接口手工指派。完整权限模型见 [`authorization.md`](authorization.md)。
 
 ## 平台租户管理
 
-以下接口仅接受平台管理员 `pam:admin`：
+以下接口需同时满足 `pam:admin` 与 `RequirePlatformTenant`（仅 `platform` 租户）：
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
@@ -245,16 +277,18 @@ AppSecret、AccessToken、免登码和会话 JWT 不写入数据库、审计或 
 
 ## Agent Principal 与 API Key
 
-| 方法 | 路径 | Scope | 说明 |
+以下路由在 `handler.go` 中由 `RequireTenantAdmin` 保护（等效于 `pam:tenant:admin` 或通配的 `pam:admin`），不是 `pam:credentials:manage`。
+
+| 方法 | 路径 | 守卫 | 说明 |
 |---|---|---|---|
-| GET | `/api/v1/principals?kind=agent_instance` | `pam:credentials:manage` | 查询 Agent Principal |
-| POST | `/api/v1/principals` | `pam:credentials:manage` | 创建 Agent Principal |
-| DELETE | `/api/v1/principals/{id}` | `pam:credentials:manage` | 禁用 Principal 并撤销 Key |
-| GET | `/api/v1/principals/{id}/api-keys` | `pam:credentials:manage` | 查询 Key元数据，不返回明文或 Hash |
-| POST | `/api/v1/principals/{id}/api-keys` | `pam:credentials:manage` | 创建只显示一次的 Key |
-| POST | `/api/v1/principals/{id}/registration-api-keys` | `pam:credentials:manage` | 为 `workload` Principal 创建固定 Scope、绑定 audience、默认 30 天的注册专用 Key |
-| POST | `/api/v1/api-keys/{id}/revoke` | `pam:credentials:manage` | 立即撤销 Key |
-| POST | `/api/v1/api-keys/{id}/rotate` | `pam:credentials:manage` | 创建新 Key并撤销旧 Key |
+| GET | `/api/v1/principals?kind=agent_instance` | `RequireTenantAdmin` | 查询 Agent Principal |
+| POST | `/api/v1/principals` | `RequireTenantAdmin` | 创建 Agent Principal；请求体中的 `metadata.role` 会被剥离，无法借此写入角色 |
+| DELETE | `/api/v1/principals/{id}` | `RequireTenantAdmin` | 禁用 Principal 并撤销 Key |
+| GET | `/api/v1/principals/{id}/api-keys` | `RequireTenantAdmin` | 查询 Key 元数据，不返回明文或 Hash |
+| POST | `/api/v1/principals/{id}/api-keys` | `RequireTenantAdmin` | 创建只显示一次的 Key |
+| POST | `/api/v1/principals/{id}/registration-api-keys` | `RequireTenantAdmin` | 为 `workload` Principal 创建固定 Scope、绑定 audience、默认 30 天的注册专用 Key |
+| POST | `/api/v1/api-keys/{id}/revoke` | `RequireTenantAdmin` | 立即撤销 Key |
+| POST | `/api/v1/api-keys/{id}/rotate` | `RequireTenantAdmin` | 创建新 Key 并撤销旧 Key |
 
 创建 Principal：
 

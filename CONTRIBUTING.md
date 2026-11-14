@@ -1,25 +1,78 @@
-# Contributing
+# 贡献指南
 
-Contributions should be based on the latest `master` branch and should not
-contain credentials, kubeconfigs, internal hostnames, generated binaries,
-`node_modules`, build output or local test reports.
+> **面向**：要给 HighTower PAM 提交代码或文档的人。
+> 第一次上手先跑一遍 [docs/quickstart.md](docs/quickstart.md)，改架构相关的代码前读 [docs/architecture.md](docs/architecture.md)。
 
-Before submitting a change, run:
+## 基本要求
+
+- 基于最新的主开发分支，提交前先同步。
+- 提交中**不得包含**：凭据、kubeconfig、内网主机名、生成的二进制、`node_modules`、构建产物、`.secrets/`、本地测试报告或截图。
+- 命令示例使用 `<placeholder>`；不要把可直接工作的弱默认凭据写进代码或文档。
+
+## 本地验证
+
+在仓库根目录执行：
+
+```bash
+make verify          # = server-test + server-vet + server-build + web-build
+git diff --check
+```
+
+等价的分步命令：
 
 ```bash
 cd server
 go test ./...
 go vet ./...
+go build ./...
 
 cd ../web
 npm ci
-npm run build
+npm run build        # tsc -b && vite build
 
 cd ..
 helm lint deploy/helm/pam-operator --set controlPlaneURL=https://pam.example.com
-git diff --check
 ```
 
-Security-sensitive changes should include negative tests covering authorization,
-scope validation, replay protection, request-size limits or credential redaction
-as applicable. Report vulnerabilities using `SECURITY.md`, not a public issue.
+补充约定：
+
+- `go test ./...` 目前存在**既有的** `internal/connector` Jenkins pipeline 顺序断言基线失败；确认没有新增其它失败再提交，不要用它掩盖新问题。
+- 依赖 PostgreSQL 的集成测试是 opt-in 的：设置 `PAM_TEST_DATABASE_URL` 才会执行，否则 `t.Skip`。这类测试的 cleanup 用 `t.Cleanup`（LIFO），不要用 `defer pool.Close()`。
+- 前端没有独立的 `typecheck` script；需要纯类型检查时用 `npx tsc --noEmit`，完整构建用 `npm run build`。
+- 改了数据库迁移必须验证：`deploy/release/migrations.txt` 包含全部编号 ≥ 035 的迁移，且清单内迁移可重复重放（`internal/control/migration_files_test.go` 会强制校验）。
+
+## 代码约定
+
+- 依赖方向：`domain` 是叶子包；`policy` / `connector` / `storage/postgres` 依赖 `domain`；`control` 聚合上述包；`cmd` 只做装配。不要反向依赖。
+- 新增 REST 路由：在 `server/internal/control/handler.go` 的 `RegisterRoutes` 注册，并同步更新 [docs/api.md](docs/api.md)。
+- 新增权限点：只在 `server/internal/control/authorization.go` 定义，后端守卫与前端菜单的 `requires` 共用同一批字符串；同步 [docs/authorization.md](docs/authorization.md)。
+- 新增环境变量：同步 [docs/configuration.md](docs/configuration.md)；敏感项复用 `config.Secret` 的 `*_FILE` 约定。
+- 新增审计动作名：**必须补一条 `ALTER TYPE audit_action ADD VALUE` 迁移**，否则审计会静默丢失。
+- 新增迁移：编号 ≥ 035 的必须登记 `deploy/release/migrations.txt`，且写成可重复重放。
+- 新增动作 / 版本：同步 [docs/actions.md](docs/actions.md) 与 Connector capabilities。
+
+## 安全相关改动
+
+涉及授权、Scope 校验、重放防护、请求体大小限制、凭据脱敏的改动，必须包含**负向测试**（越权应被拒绝、重放应失败、敏感字段不应出现在响应 / 审计里）。决策 Provider 异常必须保持默认 `DENY`，不要新增"失败即放行"的分支。
+
+漏洞请按 [SECURITY.md](SECURITY.md) **私下报告**，不要开公开 Issue。
+
+## 文档规范
+
+完整规范见 [docs/README.md](docs/README.md)。要点：
+
+- 文档分四类：教程 / 操作指南 / 参考 / 解释，一篇只做一件事。
+- 必须区分「已实现 / 设计中 / 未实现 / 已知限制」。
+- 路由以 `handler.go` 为准、变量以代码为准、迁移以 `migrations/` 与发布清单为准；发现冲突顺手修文档。
+- `docs/*` 在 `.gitignore` 里**默认排除**，新增文档必须加一行 `!docs/<文件名>.md` 才会入库。
+- 新增或改名文档时，同步根 `README.md` 的导航与 `docs/README.md` 的目录表。
+
+## 提交前检查清单
+
+- [ ] `make verify` 通过，或明确记录既有基线失败
+- [ ] `git diff --check` 无空白错误
+- [ ] 没有凭据 / 内网地址 / 个人路径 / 构建产物进入暂存区
+- [ ] 新增路由、变量、动作、权限点、审计动作、迁移都同步了对应文档
+- [ ] 新增文档已加入 `.gitignore` 白名单，导航链接可达
+- [ ] 安全改动有负向测试
+- [ ] 描述里说明「改了什么、为什么、怎么验证、如何回滚」
