@@ -2,7 +2,7 @@ import { useEffect, useDeferredValue, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from '../../shared/router'
 import { AlertTriangle, FolderKanban, History, RefreshCw, Search } from 'lucide-react'
 import type { ApiConnector, ApiError, ApiProject, ApiResource, ApiResourceStats, Integration } from '../../shared/api'
-import { getResourceStats, listConnectors, listIntegrations, listProjects, listResources } from '../../shared/api'
+import { canUser, getResourceStats, listConnectors, listIntegrations, listProjects, listResources } from '../../shared/api'
 import { ErrorState, LoadingState } from '../components/States'
 import { ActionPanel } from '../components/ActionPanel'
 import { KubernetesResources } from '../components/resources/KubernetesResources'
@@ -60,7 +60,7 @@ const mergeProjectStatusCounts = (projects: Array<Record<string, StatusCounts> |
 // rendered with a layout matching its data shape.
 export function ResourcesPage() {
   const { auth, notify } = useApp()
-  const isTenantAdmin = Boolean(auth.user?.is_platform_admin || auth.user?.role === 'tenant_admin')
+  const isTenantAdmin = canUser(auth.user, 'pam:tenant:admin')
   const [apiResources, setApiResources] = useState<ApiResource[]>([])
   const [connectors, setConnectors] = useState<ApiConnector[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])

@@ -24,15 +24,17 @@ import { ProjectsPage } from './pages/ProjectsPage'
 import { TenantsPage } from './pages/TenantsPage'
 import { ProjectUsersPage } from './pages/ProjectUsersPage'
 import { ExternalIdentitiesPage } from './pages/ExternalIdentitiesPage'
+import { AccountsPage } from './pages/AccountsPage'
+import { canUser } from '../shared/api'
 
 function PlatformOnly({ children }: { children: React.ReactElement }) {
   const { auth } = useApp()
-  return auth.user?.is_platform_admin ? children : <Navigate to="/overview" replace />
+  return canUser(auth.user, 'pam:admin') ? children : <Navigate to="/overview" replace />
 }
 
 function TenantAdminOnly({ children }: { children: React.ReactElement }) {
   const { auth } = useApp()
-  return auth.user?.is_platform_admin || auth.user?.role === 'tenant_admin' ? children : <Navigate to="/overview" replace />
+  return canUser(auth.user, 'pam:tenant:admin') ? children : <Navigate to="/overview" replace />
 }
 
 function AppShell() {
@@ -50,6 +52,7 @@ function AppShell() {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/project-users" element={<TenantAdminOnly><ProjectUsersPage /></TenantAdminOnly>} />
             <Route path="/platform/tenants" element={<PlatformOnly><TenantsPage /></PlatformOnly>} />
+            <Route path="/platform/accounts" element={<PlatformOnly><AccountsPage /></PlatformOnly>} />
             <Route path="/topology" element={<TopologyPage />} />
             <Route path="/integrations" element={<IntegrationsPage />} />
             <Route path="/integrations/new" element={<IntegrationCreatePage />} />
@@ -78,7 +81,7 @@ function AppRoutes() {
   if (auth.loading) return <LoadingState label="正在验证登录状态" />
   return (
     <Routes>
-      <Route path="/login" element={auth.user ? <Navigate to={auth.user.is_platform_admin ? '/platform/tenants' : '/overview'} replace /> : <LoginPage />} />
+      <Route path="/login" element={auth.user ? <Navigate to={canUser(auth.user, 'pam:admin') ? '/platform/tenants' : '/overview'} replace /> : <LoginPage />} />
       <Route path="*" element={auth.user ? <AppShell /> : <Navigate to="/login" replace />} />
     </Routes>
   )

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Activity, ArrowRight, Clock3, FileClock, Network, Plus, ShieldCheck } from 'lucide-react'
 import type { ApiAccessRequest, ApiConnector, ApiError, ApiExecution, ApiResourceStats } from '../../shared/api'
-import { connectorHealthLabel, getResourceStats, isConnectorHealthy, listAccessRequests, listConnectors, listExecutions } from '../../shared/api'
+import { canUser, connectorHealthLabel, getResourceStats, isConnectorHealthy, listAccessRequests, listConnectors, listExecutions } from '../../shared/api'
 import { useNavigate } from '../../shared/router'
 import { useApp } from '../components/Toast'
 import { Kpi } from '../components/Kpi'
@@ -24,12 +24,12 @@ export function OverviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [now, setNow] = useState(() => Date.now())
+  const canApprove = canUser(auth.user, 'pam:approve')
+  const canManage = canUser(auth.user, 'pam:tenant:admin')
 
   const load = (showSpinner = true) => {
     if (showSpinner) setLoading(true)
     setError('')
-    const canApprove = Boolean(auth.user?.scopes.includes('pam:approve') || auth.user?.scopes.includes('pam:admin'))
-    const canManage = Boolean(auth.user?.is_platform_admin || auth.user?.role === 'tenant_admin')
     Promise.all([listExecutions(), canApprove ? listAccessRequests('PENDING') : Promise.resolve([]), canManage ? listConnectors() : Promise.resolve([]), getResourceStats()])
       .then(([execs, reqs, conns, resStats]) => {
         setExecutions(execs ?? [])
@@ -74,7 +74,7 @@ export function OverviewPage() {
       </section>
 
       <section className="overview-grid">
-        {(auth.user?.scopes.includes('pam:approve') || auth.user?.scopes.includes('pam:admin')) && <div className="panel">
+        {canApprove && <div className="panel">
           <div className="panel-header"><div><h2>待处理审批</h2><p>需要人工确认的生产动作</p></div><button className="quiet-button" onClick={() => navigate('/approvals')}>查看全部<ArrowRight size={15} /></button></div>
           {requests.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: '#85919a', fontSize: 11 }}>当前没有待处理的审批</div> : (
             <div className="approval-list">
@@ -87,7 +87,7 @@ export function OverviewPage() {
             </div>
           )}
         </div>}
-        {(auth.user?.is_platform_admin || auth.user?.role === 'tenant_admin') && <div className="panel">
+        {canManage && <div className="panel">
           <div className="panel-header"><div><h2>执行通道健康</h2><p>Connector 心跳状态</p></div><button className="quiet-button" onClick={() => navigate('/connectors')}>管理<ArrowRight size={15} /></button></div>
           {connectors.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: '#85919a', fontSize: 11 }}>尚未接入执行通道</div> : (
             <div className="connector-health-list">

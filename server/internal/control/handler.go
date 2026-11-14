@@ -55,7 +55,8 @@ type Handler struct {
 	externalIdentities   *postgres.ExternalIdentityRepo
 	delegationTokens     *postgres.DelegationTokenRepo
 	federated            *postgres.FederatedRepo
-	federatedAssertion       *federatedAssertionVerifier
+	federatedAssertion   *federatedAssertionVerifier
+	oidc                 *oidcState
 	queryTemplates       *postgres.QueryTemplateRepo
 	notificationChannels NotificationChannelStore
 	dingTalkRepo         *postgres.DingTalkRepo
@@ -194,6 +195,13 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 	} else {
 		h.federatedAssertion = verifier
 	}
+	oidcConfig, err := loadOIDCConfig()
+	if err != nil {
+		return nil, fmt.Errorf("invalid OIDC configuration: %w", err)
+	}
+	if oidcConfig != nil {
+		h.oidc = &oidcState{config: oidcConfig}
+	}
 	return h, nil
 }
 
@@ -205,6 +213,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	// Public auth route: login issues a JWT, no middleware required.
 	mux.HandleFunc("POST /api/v1/auth/login", h.Login)
 	mux.HandleFunc("POST /api/v1/auth/federated/login", h.FederatedLogin)
+	mux.HandleFunc("GET /api/v1/auth/oidc/start", h.OIDCLoginStart)
+	mux.HandleFunc("GET /api/v1/auth/oidc/callback", h.OIDCLoginCallback)
+	mux.HandleFunc("GET /api/v1/auth/oidc/config", h.OIDCConfig)
+	mux.HandleFunc("GET /api/v1/auth/oidc/logout", h.OIDCLogout)
 	mux.HandleFunc("GET /api/v1/dingtalk/config", h.DingTalkConfig)
 	mux.HandleFunc("POST /api/v1/dingtalk/auth", h.DingTalkAuth)
 	mux.HandleFunc("GET /api/v1/dingtalk/access-requests", h.DingTalkListAccessRequests)
@@ -267,6 +279,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("POST /api/v1/access-requests/{id}/approve", RequireScope("pam:approve", h.ApproveRequest))
 	protected.HandleFunc("POST /api/v1/access-requests/{id}/reject", RequireScope("pam:approve", h.RejectRequest))
 	protected.HandleFunc("GET /api/v1/audit-events", RequireScope("pam:audit:read", h.ListAuditEvents))
+	protected.HandleFunc("GET /api/v1/accounts", RequireScope("pam:admin", RequirePlatformTenant(h.ListAccounts)))
+	protected.HandleFunc("PUT /api/v1/accounts/{id}/role", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateAccountRole)))
 	protected.HandleFunc("GET /api/v1/principals", RequireTenantAdmin(h.ListPrincipals))
 	protected.HandleFunc("POST /api/v1/principals", RequireTenantAdmin(h.CreatePrincipal))
 	protected.HandleFunc("DELETE /api/v1/principals/{id}", RequireTenantAdmin(h.DeletePrincipal))
@@ -344,14 +358,14 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("PUT /api/v1/resources/{id}/consumer-projects", RequireTenantAdmin(h.UpdateResourceConsumerProjects))
 	protected.HandleFunc("GET /api/v1/auth/me", h.GetMe)
 	protected.HandleFunc("PUT /api/v1/auth/password", h.ChangeOwnPassword)
-	protected.HandleFunc("GET /api/v1/tenants", RequireScope("pam:admin", h.ListTenants))
-	protected.HandleFunc("POST /api/v1/tenants", RequireScope("pam:admin", h.CreateTenant))
-	protected.HandleFunc("POST /api/v1/tenants/bootstrap", RequireScope("pam:admin", h.BootstrapTenant))
-	protected.HandleFunc("GET /api/v1/tenants/{slug}", RequireScope("pam:admin", h.GetTenant))
-	protected.HandleFunc("GET /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", h.ListTenantAdmins))
-	protected.HandleFunc("POST /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", h.CreateTenantAdmin))
-	protected.HandleFunc("PUT /api/v1/tenants/{slug}/quota", RequireScope("pam:admin", h.UpdateTenantQuota))
-	protected.HandleFunc("POST /api/v1/tenants/{slug}/disable", RequireScope("pam:admin", h.DisableTenant))
+	protected.HandleFunc("GET /api/v1/tenants", RequireScope("pam:admin", RequirePlatformTenant(h.ListTenants)))
+	protected.HandleFunc("POST /api/v1/tenants", RequireScope("pam:admin", RequirePlatformTenant(h.CreateTenant)))
+	protected.HandleFunc("POST /api/v1/tenants/bootstrap", RequireScope("pam:admin", RequirePlatformTenant(h.BootstrapTenant)))
+	protected.HandleFunc("GET /api/v1/tenants/{slug}", RequireScope("pam:admin", RequirePlatformTenant(h.GetTenant)))
+	protected.HandleFunc("GET /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", RequirePlatformTenant(h.ListTenantAdmins)))
+	protected.HandleFunc("POST /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", RequirePlatformTenant(h.CreateTenantAdmin)))
+	protected.HandleFunc("PUT /api/v1/tenants/{slug}/quota", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateTenantQuota)))
+	protected.HandleFunc("POST /api/v1/tenants/{slug}/disable", RequireScope("pam:admin", RequirePlatformTenant(h.DisableTenant)))
 	protected.HandleFunc("POST /api/v1/auth/logout", h.Logout)
 	protected.HandleFunc("GET /api/v1/approval-rules", RequireTenantAdmin(h.ListApprovalRules))
 	protected.HandleFunc("PUT /api/v1/approval-rules/{id}", RequireTenantAdmin(h.UpdateApprovalRule))

@@ -232,6 +232,10 @@ func (h *Handler) CreatePrincipal(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, 400, "INVALID_PRINCIPAL", "name 为必填")
 		return
 	}
+	// Only the account administration endpoint may assign a role. Stripping
+	// it here prevents a tenant admin from planting an elevated marker on a
+	// machine identity created through the principal API.
+	delete(req.Metadata, "role")
 	if req.Kind == "" {
 		req.Kind = domain.PrincipalKindAgentInstance
 	}

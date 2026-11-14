@@ -92,12 +92,20 @@ func (h *Handler) issueJWTWithTTL(principal *domain.Principal, ttl time.Duration
 	if err != nil {
 		return "", time.Time{}, err
 	}
-	scopes := []string{"pam:resources:read", "pam:executions:create", "pam:executions:read:self", "pam:executions:cancel:self"}
+	// Roles map to scopes in exactly one place (authorization.go); the same
+	// scope names are expanded into the console's capability list so the UI
+	// and the backend guards never disagree about what a role can do.
+	scopes := defaultUserScopes()
 	if principal != nil && principal.ID == adminPrincipalID {
-		scopes = []string{"pam:admin"}
+		scopes = []string{ScopeAdmin}
 	} else if principal != nil && principal.Metadata != nil {
-		if role, _ := principal.Metadata["role"].(string); role == "tenant_admin" {
-			scopes = []string{"pam:tenant:admin", "pam:resources:read", "pam:executions:create", "pam:executions:read:self", "pam:executions:cancel:self", "pam:credentials:manage", "pam:approve", "pam:audit:read", "pam:registration:read", "pam:registration:write"}
+		switch role, _ := principal.Metadata["role"].(string); role {
+		case RolePlatformAdmin:
+			// Federated administrators receive the same wildcard scope as the
+			// seeded break-glass admin; IsPlatformAdmin is derived from it.
+			scopes = []string{ScopeAdmin}
+		case RoleTenantAdmin:
+			scopes = tenantAdminScopes()
 		}
 	}
 	claims := pamClaims{
@@ -368,20 +376,34 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	clearLoginAttempts(clientAddress, username)
-	token, expiresAt, err := h.issueJWT(principal)
+	expiresAt, err := h.establishSession(w, r.WithContext(loginCtx), principal)
 	if err != nil {
-		log.Printf("签发 JWT 失败: %v", err)
+		log.Printf("establish session: %v", err)
 		jsonError(w, http.StatusInternalServerError, "TOKEN_ISSUE_FAILED", "签发登录令牌失败")
 		return
 	}
+	// The JWT is deliberately not exposed to browser JavaScript; the response
+	// field remains for wire compatibility but is empty.
+	resp := loginResponse{ExpiresAt: expiresAt}
+	resp.User.ID = principal.ID
+	resp.User.Name = principal.Name
+	jsonResp(w, http.StatusOK, resp)
+}
+
+// establishSession issues a PAM JWT, records the session, and sets the
+// pam_session cookie. It is shared by the password login and OIDC login paths
+// so both produce an identical session contract.
+func (h *Handler) establishSession(w http.ResponseWriter, r *http.Request, principal *domain.Principal) (time.Time, error) {
+	token, expiresAt, err := h.issueJWT(principal)
+	if err != nil {
+		return time.Time{}, err
+	}
 	claims, err := h.parseJWT(token)
 	if err != nil || claims.ID == "" {
-		jsonError(w, http.StatusInternalServerError, "TOKEN_ISSUE_FAILED", "登录会话创建失败")
-		return
+		return time.Time{}, errors.New("session token validation failed")
 	}
 	if _, err := h.pool.Exec(r.Context(), `INSERT INTO admin_sessions (jti,principal_id,expires_at) VALUES ($1,$2,$3)`, claims.ID, principal.ID, expiresAt); err != nil {
-		jsonError(w, http.StatusInternalServerError, "SESSION_CREATE_FAILED", "登录会话创建失败")
-		return
+		return time.Time{}, err
 	}
 	if err := h.principals.UpdateLastLogin(r.Context(), principal.ID); err != nil {
 		log.Printf("更新 last_login_at 失败: %v", err)
@@ -389,12 +411,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	h.writeIdentityAudit(r.Context(), "user.login", principal.ID, "")
 	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: token, Path: "/", HttpOnly: true,
 		Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, Expires: expiresAt})
-	// The JWT is deliberately not exposed to browser JavaScript; the response
-	// field remains for wire compatibility but is empty.
-	resp := loginResponse{ExpiresAt: expiresAt}
-	resp.User.ID = principal.ID
-	resp.User.Name = principal.Name
-	jsonResp(w, http.StatusOK, resp)
+	return expiresAt, nil
 }
 
 func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
@@ -412,11 +429,47 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusUnauthorized, "UNAUTHORIZED", "未认证")
 		return
 	}
-	role := "user"
+	role := RoleUser
 	if identity.IsPlatformAdmin {
-		role = "platform_admin"
+		role = RolePlatformAdmin
 	} else if value, _ := identity.Principal.Metadata["role"].(string); value != "" {
 		role = value
+	}
+	// Federated identities keep an opaque, stable principals.name
+	// (federated:<hash>) because it is unique per tenant and is referenced by
+	// login, session and audit records. The human-readable label is published
+	// separately so the console never has to show that hash.
+	displayName, _ := identity.Principal.Metadata["display_name"].(string)
+	email, _ := identity.Principal.Metadata["email"].(string)
+	avatarURL, _ := identity.Principal.Metadata["avatar_url"].(string)
+	displayName, email = strings.TrimSpace(displayName), strings.TrimSpace(email)
+	avatarURL = strings.TrimSpace(avatarURL)
+	authSource, _ := identity.Principal.Metadata["source"].(string)
+	if authSource == "" {
+		authSource = "local"
+	}
+	if h.pool != nil && (displayName == "" || email == "") {
+		// Fallback for profiles provisioned before display attributes were
+		// stored in metadata, or by a federation path that did not set them.
+		var storedName, storedEmail *string
+		if err := h.pool.QueryRow(r.Context(), `
+			SELECT NULLIF(display_name,''), NULLIF(email,'')
+			FROM federated_identities WHERE principal_id=$1::uuid
+			ORDER BY last_login_at DESC NULLS LAST LIMIT 1`, identity.Principal.ID).
+			Scan(&storedName, &storedEmail); err == nil {
+			if displayName == "" && storedName != nil {
+				displayName = *storedName
+			}
+			if email == "" && storedEmail != nil {
+				email = *storedEmail
+			}
+		}
+	}
+	if displayName == "" && email != "" {
+		displayName = email
+	}
+	if displayName == "" {
+		displayName = identity.Principal.Name
 	}
 	var tenant *domain.Tenant
 	if h.pool != nil && identity.TenantID != "" {
@@ -437,7 +490,10 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 	}
 	jsonResp(w, http.StatusOK, map[string]any{
 		"id": identity.Principal.ID, "name": identity.Principal.Name, "kind": identity.Principal.Kind,
-		"tenant": tenant, "role": role, "scopes": append([]string(nil), identity.Scopes...),
+		"display_name": displayName, "email": email, "avatar_url": avatarURL,
+		"auth_source": authSource,
+		"tenant":      tenant, "role": role, "scopes": append([]string(nil), identity.Scopes...),
+		"capabilities":      Capabilities(identity.Scopes),
 		"is_platform_admin": identity.IsPlatformAdmin, "expires_at": expiresAt,
 	})
 }

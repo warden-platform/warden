@@ -2,6 +2,7 @@ package control
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -74,6 +75,7 @@ func TestIssueJWTScopesByUserRole(t *testing.T) {
 	}{
 		{name: "project member", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000001", Name: "member", Metadata: map[string]any{}}, want: "pam:resources:read", dontWant: "pam:tenant:admin"},
 		{name: "tenant admin", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000002", Name: "tenant-admin", Metadata: map[string]any{"role": "tenant_admin"}}, want: "pam:tenant:admin", dontWant: "pam:admin"},
+		{name: "federated platform admin", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000004", Name: "federated:platform", Metadata: map[string]any{"role": "platform_admin", "source": "oidc"}}, want: "pam:admin", dontWant: "pam:resources:read"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -462,5 +464,86 @@ func TestRequestClientAddressTrustsOnlyConfiguredProxy(t *testing.T) {
 	untrusted.Header.Set("X-Forwarded-For", "203.0.113.9")
 	if got := requestClientAddress(untrusted); got != untrusted.RemoteAddr {
 		t.Fatalf("untrusted proxy header was accepted: %q", got)
+	}
+}
+
+func getMeBody(t *testing.T, metadata map[string]any) map[string]any {
+	t.Helper()
+	h := newTestHandler() // pool is nil: tenant / session lookups are skipped
+	const opaqueName = "federated:8df500f56388a7b974169b14f3299ac6"
+	identity := &AuthenticatedIdentity{
+		Principal: &domain.Principal{
+			ID: "11111111-1111-4111-8111-111111111111", Name: opaqueName,
+			Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive,
+			TenantID: "platform", Metadata: metadata,
+		},
+		TenantID: "platform", Scopes: []string{"pam:resources:read"}, Kind: "JWT",
+	}
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
+	req = req.WithContext(context.WithValue(req.Context(), identityContextKey{}, identity))
+	rec := httptest.NewRecorder()
+	h.GetMe(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d body = %s", rec.Code, rec.Body.String())
+	}
+	var body map[string]any
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	return body
+}
+
+// The opaque federated name must stay intact for login/audit, while the UI
+// receives the IdP-provided display name and email separately.
+func TestGetMeReturnsFederatedDisplayName(t *testing.T) {
+	body := getMeBody(t, map[string]any{
+		"oidc": true, "display_name": "  黄  ", "email": "huang@example.com",
+	})
+	if got := body["display_name"]; got != "黄" {
+		t.Fatalf("display_name = %v, want 黄 (trimmed)", got)
+	}
+	if got := body["email"]; got != "huang@example.com" {
+		t.Fatalf("email = %v", got)
+	}
+	if got := body["name"]; got != "federated:8df500f56388a7b974169b14f3299ac6" {
+		t.Fatalf("stable internal name changed: %v", got)
+	}
+}
+
+// An IdP that only supplies an email should still avoid showing the hash.
+func TestGetMeUsesEmailWhenDisplayNameMissing(t *testing.T) {
+	body := getMeBody(t, map[string]any{"oidc": true, "email": "huang@example.com"})
+	if got := body["display_name"]; got != "huang@example.com" {
+		t.Fatalf("display_name = %v, want email fallback", got)
+	}
+}
+
+// The console needs the IdP picture and the login source so it can render an
+// avatar and choose RP-initiated logout instead of a local-only logout.
+func TestGetMeExposesAvatarAndAuthSource(t *testing.T) {
+	body := getMeBody(t, map[string]any{
+		"oidc": true, "source": "oidc", "display_name": "黄",
+		"avatar_url": "https://idp.example/avatar.png",
+	})
+	if got := body["avatar_url"]; got != "https://idp.example/avatar.png" {
+		t.Fatalf("avatar_url = %v", got)
+	}
+	if got := body["auth_source"]; got != "oidc" {
+		t.Fatalf("auth_source = %v, want oidc", got)
+	}
+	local := getMeBody(t, map[string]any{})
+	if got := local["auth_source"]; got != "local" {
+		t.Fatalf("local auth_source = %v, want local", got)
+	}
+}
+
+// Profiles without IdP display attributes must still render something useful.
+func TestGetMeFallsBackToPrincipalName(t *testing.T) {
+	body := getMeBody(t, map[string]any{"oidc": true})
+	if got := body["display_name"]; got != "federated:8df500f56388a7b974169b14f3299ac6" {
+		t.Fatalf("display_name = %v, want fallback to name", got)
+	}
+	if got := body["email"]; got != "" {
+		t.Fatalf("email = %v, want empty", got)
 	}
 }

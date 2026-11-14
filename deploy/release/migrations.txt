@@ -56,3 +56,4 @@
 094_external_identity_delegation.sql
 095_external_delegation_operations.sql
 096_federated_authorization.sql
+097_account_role_audit.sql

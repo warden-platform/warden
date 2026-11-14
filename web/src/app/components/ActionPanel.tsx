@@ -8,6 +8,7 @@ import {
   createExecution, getExecution, listAvailableActions, listAvailableResources, listConnectors, listProjects, listQueryTemplates, listResourceActions, listResources,
 } from '../../shared/api'
 import type { ApiProject } from '../../shared/api'
+import { canUser } from '../../shared/api'
 import { mapActionName, mapRiskHint, mapRiskLevel } from '../../shared/types'
 import { useApp } from './Toast'
 import { apiResourceToView } from '../lib/mappers'
@@ -87,7 +88,7 @@ function withTimeout<T>(promise: Promise<T>, milliseconds = 10_000): Promise<T> 
 // resource instead of a top-level cascade.
 export function ActionPanel({ initialResource, initialAction, initialActingProjectId, onClose }: { initialResource: ApiResource | null; initialAction?: string; initialActingProjectId?: string; onClose: () => void }) {
   const { notify, auth } = useApp()
-  const isTenantAdmin = Boolean(auth.user?.is_platform_admin || auth.user?.role === 'tenant_admin')
+  const isTenantAdmin = canUser(auth.user, 'pam:tenant:admin')
   const [resources, setResources] = useState<ApiResource[]>([])
   const [connectors, setConnectors] = useState<ApiConnector[]>([])
   const [actions, setActions] = useState<ApiAction[]>([])
