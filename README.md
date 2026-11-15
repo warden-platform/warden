@@ -1,4 +1,4 @@
-# Warden Warden
+# Warden
 
 > 面向 AI Agent 的**动作级授权与代理执行平台**。
 > Agent 拿到的不是 kubeconfig、长期 Token 或数据库口令，而是一次受策略、审批、签名与审计约束的**执行**，以及一个可追溯的 `execution_id`。
