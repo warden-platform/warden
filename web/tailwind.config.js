@@ -32,6 +32,12 @@ export default {
       },
       boxShadow: {
         card: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
+        // Glassmorphism: soft ambient drop + 1px inner top highlight for the
+        // "lit edge" of frosted surfaces.
+        glass: '0 8px 32px rgb(31 38 135 / 0.10), inset 0 1px 0 rgb(255 255 255 / 0.55)',
+        'glass-strong': '0 16px 48px rgb(31 38 135 / 0.16), inset 0 1px 0 rgb(255 255 255 / 0.65)',
+        'glass-dark': '0 8px 32px rgb(0 0 0 / 0.38), inset 0 1px 0 rgb(255 255 255 / 0.08)',
+        'glass-dark-strong': '0 16px 48px rgb(0 0 0 / 0.48), inset 0 1px 0 rgb(255 255 255 / 0.10)',
       },
     },
   },

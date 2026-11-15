@@ -62,8 +62,8 @@ function TopologyNode({ data, selected }: NodeProps) {
   const Icon = iconFor(d.kind, d.entity)
   return (
     <div
-      className={`flex w-[220px] items-center gap-3 rounded-lg border bg-surface px-3 py-2.5 shadow-card transition dark:bg-surface-dark ${
-        selected ? 'border-brand ring-2 ring-brand/30 dark:border-brand-dark dark:ring-brand-dark/30' : 'border-border dark:border-border-dark'
+      className={`flex w-[220px] items-center gap-3 rounded-lg border bg-white/80 px-3 py-2.5 shadow-glass backdrop-blur-xl transition dark:bg-surface-dark/80 dark:shadow-glass-dark ${
+        selected ? 'border-brand ring-2 ring-brand/30 dark:border-brand-dark dark:ring-brand-dark/30' : 'border-white/70 dark:border-white/10'
       }`}
     >
       <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-0 !bg-gray-400" />

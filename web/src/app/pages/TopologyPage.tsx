@@ -39,7 +39,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
         active
           ? 'border-brand bg-brand/10 text-brand dark:border-brand-dark dark:bg-brand-dark/15 dark:text-brand-dark'
-          : 'border-border bg-surface text-content-subtle hover:bg-surface-muted dark:border-border-dark dark:bg-surface-dark dark:text-content-dark-subtle dark:hover:bg-surface-dark-muted'
+          : 'border-white/60 bg-white/60 text-content-subtle backdrop-blur-md hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-content-dark-subtle dark:hover:bg-white/10'
       }`}
     >
       {children}
@@ -122,7 +122,7 @@ export function TopologyPage() {
 
   return (
     <div className="view-stack">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-3 dark:border-border-dark dark:bg-surface-dark">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/60 bg-white/70 p-3 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-surface-dark/70 dark:shadow-glass-dark">
         <div className="search-box">
           <Search size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索节点..." />

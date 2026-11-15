@@ -23,10 +23,31 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
-    @apply bg-surface-muted text-content font-sans antialiased;
+    @apply text-content font-sans antialiased;
+  }
+  /* Glassmorphism canvas: fixed color blobs behind frosted surfaces.
+     Uses body::before (not background-attachment:fixed) for iOS Safari. */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+      radial-gradient(640px 420px at 10% -6%, rgb(249 115 22 / 0.14), transparent 62%),
+      radial-gradient(560px 420px at 92% 8%, rgb(59 130 246 / 0.13), transparent 60%),
+      radial-gradient(720px 540px at 72% 102%, rgb(139 92 246 / 0.10), transparent 64%),
+      linear-gradient(180deg, #f7f8fb 0%, #edf0f6 100%);
   }
   :root.dark body {
-    @apply bg-surface-dark text-content-dark;
+    @apply text-content-dark;
+  }
+  :root.dark body::before {
+    background:
+      radial-gradient(640px 420px at 10% -6%, rgb(59 130 246 / 0.18), transparent 62%),
+      radial-gradient(560px 420px at 92% 8%, rgb(99 102 241 / 0.15), transparent 60%),
+      radial-gradient(720px 540px at 72% 102%, rgb(14 165 233 / 0.11), transparent 64%),
+      linear-gradient(180deg, #050a18 0%, #0a1128 100%);
   }
   h1, h2, h3, p { margin: 0; }
   code {
@@ -51,11 +72,11 @@
   .page-content { @apply mx-auto max-w-[1500px] px-7 py-6; }
   .view-stack { @apply flex flex-col gap-4; }
 
-  /* ---------- Sidebar (light, brand-highlighted) ---------- */
+  /* ---------- Sidebar (frosted glass, brand-highlighted) ---------- */
   .sidebar {
-    @apply fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-border bg-surface px-3 py-5;
+    @apply fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-white/60 bg-white/60 px-3 py-5 shadow-glass backdrop-blur-2xl;
   }
-  :root.dark .sidebar { @apply border-border-dark bg-surface-dark; }
+  :root.dark .sidebar { @apply border-white/10 bg-surface-dark/60 shadow-glass-dark; }
   .brand { @apply flex items-center gap-3 px-2 pb-5; }
   .brand-mark {
     @apply grid h-9 w-9 place-items-center rounded-lg bg-brand text-white;
@@ -81,9 +102,9 @@
   /* ---------- Topbar ---------- */
   main { @apply min-h-screen md:ml-56; }
   .topbar {
-    @apply sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-surface/95 px-7 backdrop-blur;
+    @apply sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/60 bg-white/55 px-7 shadow-glass backdrop-blur-2xl;
   }
-  :root.dark .topbar { @apply border-border-dark bg-surface-dark/95; }
+  :root.dark .topbar { @apply border-white/10 bg-surface-dark/55 shadow-glass-dark; }
   .title-row { @apply flex items-center gap-3; }
   .title-row h1 { @apply text-lg font-semibold text-content; }
   :root.dark .title-row h1 { @apply text-content-dark; }
@@ -97,31 +118,31 @@
   }
   .primary-button.compact { @apply min-h-[34px]; }
   .secondary-button {
-    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-content transition hover:bg-surface-muted whitespace-nowrap;
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-white/70 bg-white/60 px-4 text-sm font-semibold text-content shadow-glass backdrop-blur-md transition hover:bg-white/80 whitespace-nowrap;
   }
-  :root.dark .secondary-button { @apply border-border-dark bg-surface-dark text-content-dark hover:bg-surface-dark-muted; }
+  :root.dark .secondary-button { @apply border-white/10 bg-surface-dark/60 text-content-dark shadow-glass-dark hover:bg-surface-dark/80; }
   .quiet-button {
-    @apply inline-flex min-h-[34px] items-center justify-center gap-2 rounded-lg border border-border bg-transparent px-3 text-sm font-semibold text-content-subtle transition hover:bg-surface-muted hover:text-content whitespace-nowrap;
+    @apply inline-flex min-h-[34px] items-center justify-center gap-2 rounded-lg border border-white/60 bg-white/40 px-3 text-sm font-semibold text-content-subtle backdrop-blur-md transition hover:bg-white/70 hover:text-content whitespace-nowrap;
   }
-  :root.dark .quiet-button { @apply border-border-dark text-content-dark-subtle hover:bg-surface-dark-muted hover:text-content-dark; }
+  :root.dark .quiet-button { @apply border-white/10 bg-white/5 text-content-dark-subtle hover:bg-white/10 hover:text-content-dark; }
   .danger-button {
-    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-red-200 bg-surface px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50 whitespace-nowrap;
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-red-200/80 bg-white/55 px-4 text-sm font-semibold text-red-600 backdrop-blur-md transition hover:bg-red-50/80 whitespace-nowrap;
   }
-  :root.dark .danger-button { @apply border-red-900 bg-surface-dark text-red-400 hover:bg-red-950; }
+  :root.dark .danger-button { @apply border-red-900 bg-surface-dark/55 text-red-400 hover:bg-red-950/80; }
   .icon-button {
-    @apply grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-content-subtle transition hover:bg-surface-muted hover:text-brand;
+    @apply grid h-9 w-9 place-items-center rounded-lg border border-white/70 bg-white/60 text-content-subtle shadow-glass backdrop-blur-md transition hover:bg-white/80 hover:text-brand;
   }
-  :root.dark .icon-button { @apply border-border-dark bg-surface-dark text-content-dark-subtle hover:bg-surface-dark-muted hover:text-brand-dark; }
+  :root.dark .icon-button { @apply border-white/10 bg-surface-dark/60 text-content-dark-subtle shadow-glass-dark hover:bg-surface-dark/80 hover:text-brand-dark; }
   .link-button { @apply bg-transparent p-0 text-sm font-semibold text-brand hover:underline; }
   :root.dark .link-button { @apply text-brand-dark; }
 
-  /* ---------- Surfaces ---------- */
+  /* ---------- Surfaces (frosted glass) ---------- */
   .card {
-    @apply rounded-lg border border-border bg-surface p-5 shadow-card;
+    @apply rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl;
   }
-  :root.dark .card { @apply border-border-dark bg-surface-dark; }
-  .panel { @apply overflow-hidden rounded-lg border border-border bg-surface; }
-  :root.dark .panel { @apply border-border-dark bg-surface-dark; }
+  :root.dark .card { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
+  .panel { @apply overflow-hidden rounded-lg border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl; }
+  :root.dark .panel { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .panel-header {
     @apply flex min-h-[60px] items-center justify-between gap-4 border-b border-border px-5 py-3;
   }
@@ -149,9 +170,9 @@
   /* ---------- KPI ---------- */
   .kpi-grid { @apply grid grid-cols-4 gap-4; }
   .kpi {
-    @apply flex min-h-[112px] items-start gap-4 rounded-lg border border-border bg-surface p-5 shadow-card;
+    @apply flex min-h-[112px] items-start gap-4 rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl;
   }
-  :root.dark .kpi { @apply border-border-dark bg-surface-dark; }
+  :root.dark .kpi { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .kpi-icon { @apply grid h-9 w-9 flex-none place-items-center rounded-lg; }
   .kpi-icon.blue { @apply bg-blue-50 text-blue-600; }
   .kpi-icon.green { @apply bg-green-50 text-green-600; }
@@ -172,8 +193,8 @@
   /* ---------- Tables ---------- */
   .table-wrap { @apply overflow-x-auto; }
   table { @apply w-full border-collapse text-sm; }
-  th { @apply border-b border-border bg-surface-muted px-4 py-3 text-left text-xs font-semibold text-content-subtle; }
-  :root.dark th { @apply border-border-dark bg-surface-dark-muted text-content-dark-subtle; }
+  th { @apply border-b border-border bg-white/50 px-4 py-3 text-left text-xs font-semibold text-content-subtle backdrop-blur-sm; }
+  :root.dark th { @apply border-border-dark bg-white/5 text-content-dark-subtle; }
   td { @apply border-b border-border px-4 py-3 align-middle text-content-subtle; }
   :root.dark td { @apply border-border-dark text-content-dark-subtle; }
   tbody tr:last-child td { @apply border-b-0; }
@@ -185,10 +206,10 @@
 
   /* ---------- Forms ---------- */
   .input, .form-grid input, .form-grid select, .form-grid textarea {
-    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-content transition focus:border-brand focus:ring-2 focus:ring-brand/20;
+    @apply w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-content shadow-glass backdrop-blur-md transition focus:border-brand focus:ring-2 focus:ring-brand/20;
   }
   :root.dark .input, :root.dark .form-grid input, :root.dark .form-grid select, :root.dark .form-grid textarea {
-    @apply border-border-dark bg-surface-dark text-content-dark focus:border-brand-dark focus:ring-brand-dark/20;
+    @apply border-white/10 bg-white/5 text-content-dark shadow-glass-dark focus:border-brand-dark focus:ring-brand-dark/20;
   }
   .form-grid { @apply grid gap-4; }
   .form-grid label > span { @apply mb-2 block text-xs font-semibold text-content-subtle; }
@@ -198,15 +219,15 @@
   .form-label { @apply mb-2 block text-xs font-semibold text-content-subtle; }
   :root.dark .form-label { @apply text-content-dark-subtle; }
   .search-box {
-    @apply flex h-9 min-w-[280px] items-center gap-2 rounded-lg border border-border bg-surface px-3 text-content-subtle focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20;
+    @apply flex h-9 min-w-[280px] items-center gap-2 rounded-lg border border-white/70 bg-white/70 px-3 text-content-subtle shadow-glass backdrop-blur-md focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20;
   }
-  :root.dark .search-box { @apply border-border-dark bg-surface-dark text-content-dark-subtle focus-within:border-brand-dark focus-within:ring-brand-dark/20; }
+  :root.dark .search-box { @apply border-white/10 bg-white/5 text-content-dark-subtle shadow-glass-dark focus-within:border-brand-dark focus-within:ring-brand-dark/20; }
   .search-box input { @apply w-full border-0 bg-transparent text-sm text-content outline-none; }
   :root.dark .search-box input { @apply text-content-dark; }
   .select-wrap {
-    @apply relative flex h-9 min-w-[125px] items-center rounded-lg border border-border bg-surface;
+    @apply relative flex h-9 min-w-[125px] items-center rounded-lg border border-white/70 bg-white/70 backdrop-blur-md;
   }
-  :root.dark .select-wrap { @apply border-border-dark bg-surface-dark; }
+  :root.dark .select-wrap { @apply border-white/10 bg-white/5; }
   .select-wrap select { @apply h-full w-full cursor-pointer appearance-none rounded-lg border-0 bg-transparent py-0 pl-3 pr-8 text-sm text-content-subtle outline-none; }
   :root.dark .select-wrap select { @apply text-content-dark-subtle; }
   .select-wrap svg { @apply pointer-events-none absolute right-2 text-content-subtle; }
@@ -225,9 +246,9 @@
 
   /* ---------- Empty state ---------- */
   .empty-state {
-    @apply flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-border bg-surface p-8 text-center;
+    @apply flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-white/60 bg-white/70 p-8 text-center shadow-glass backdrop-blur-xl;
   }
-  :root.dark .empty-state { @apply border-border-dark bg-surface-dark; }
+  :root.dark .empty-state { @apply border-white/10 bg-surface-dark/70 shadow-glass-dark; }
   .empty-state > div { @apply grid h-14 w-14 place-items-center rounded-full bg-surface-muted text-content-subtle; }
   :root.dark .empty-state > div { @apply bg-surface-dark-muted text-content-dark-subtle; }
   .empty-state h2 { @apply mt-4 mb-2 text-base font-semibold text-content; }
@@ -238,13 +259,13 @@
 
   /* ---------- Login ---------- */
   .login-shell {
-    @apply flex min-h-screen items-center justify-center bg-gray-50 px-4 py-10;
+    @apply flex min-h-screen items-center justify-center px-4 py-10;
   }
-  :root.dark .login-shell { @apply bg-slate-950; }
+  :root.dark .login-shell { @apply text-content-dark; }
   .login-card {
-    @apply w-full max-w-[380px] rounded-xl border border-border bg-surface p-7 shadow-card;
+    @apply w-full max-w-[380px] rounded-xl border border-white/70 bg-white/70 p-7 shadow-glass-strong backdrop-blur-2xl;
   }
-  :root.dark .login-card { @apply border-border-dark bg-surface-dark; }
+  :root.dark .login-card { @apply border-white/15 bg-surface-dark/70 shadow-glass-dark-strong; }
   .login-brand {
     @apply mb-6 flex items-center gap-3 text-brand;
   }
@@ -277,24 +298,24 @@
 
   /* ---------- Toast ---------- */
   .toast {
-    @apply flex min-h-[42px] items-center gap-2 rounded-lg border border-green-700 bg-green-900 px-4 py-2.5 text-sm text-white shadow-lg;
+    @apply flex min-h-[42px] items-center gap-2 rounded-lg border border-green-400/40 bg-green-900/80 px-4 py-2.5 text-sm text-white shadow-glass-dark-strong backdrop-blur-xl;
   }
   .toast-stack { @apply fixed bottom-6 right-6 z-[100] flex max-w-[min(400px,calc(100vw-32px))] flex-col gap-2; }
 
   /* ---------- Segmented control ---------- */
   .segmented {
-    @apply flex h-9 rounded-lg border border-border bg-surface-muted p-0.5;
+    @apply flex h-9 rounded-lg border border-white/60 bg-white/40 p-0.5 backdrop-blur-md;
   }
-  :root.dark .segmented { @apply border-border-dark bg-surface-dark-muted; }
+  :root.dark .segmented { @apply border-white/10 bg-white/5; }
   .segmented button { @apply min-w-[60px] rounded-md border-0 bg-transparent px-3 text-xs text-content-subtle; }
   :root.dark .segmented button { @apply text-content-dark-subtle; }
-  .segmented button.selected { @apply bg-surface text-content shadow-sm; }
+  .segmented button.selected { @apply bg-white/90 text-content shadow-sm; }
   :root.dark .segmented button.selected { @apply bg-surface-dark text-content-dark; }
 
   /* ---------- Connectors ---------- */
   .connector-grid { @apply grid grid-cols-2 gap-4; }
-  .connector-card { @apply rounded-lg border border-border bg-surface p-5 shadow-card; }
-  :root.dark .connector-card { @apply border-border-dark bg-surface-dark; }
+  .connector-card { @apply rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl; }
+  :root.dark .connector-card { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .connector-head { @apply flex items-center gap-3; }
   .connector-head > div:nth-child(2) { @apply flex-1; }
   .connector-head h2 { @apply text-sm font-semibold text-content; }
@@ -381,8 +402,8 @@
   .connector-explainer span { @apply text-xs text-content-subtle; }
   :root.dark .connector-explainer span { @apply text-content-dark-subtle; }
   .connector-channel-list { @apply grid gap-3; }
-  .connector-channel-row { @apply grid grid-cols-[auto_1.3fr_1fr_1fr_auto] items-center gap-4 rounded-lg border border-border bg-surface p-4 shadow-card; }
-  :root.dark .connector-channel-row { @apply border-border-dark bg-surface-dark; }
+  .connector-channel-row { @apply grid grid-cols-[auto_1.3fr_1fr_1fr_auto] items-center gap-4 rounded-lg border border-white/60 bg-white/75 p-4 shadow-glass backdrop-blur-xl; }
+  :root.dark .connector-channel-row { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .channel-identity, .channel-target, .channel-health { @apply grid min-w-0 gap-1; }
   .channel-identity > span, .channel-target > span, .channel-health > span { @apply text-[10px] font-semibold uppercase tracking-wide text-content-subtle; }
   .channel-identity strong { @apply truncate text-sm text-content; }
@@ -451,8 +472,8 @@
   .cloud-section-title small { @apply text-[10px] font-normal text-content-subtle; }
   :root.dark .cloud-section-title small { @apply text-content-dark-subtle; }
   .cloud-account-grid { @apply grid gap-3 md:grid-cols-2; }
-  .cloud-account-card { @apply rounded-xl border border-border bg-surface p-4 shadow-sm; }
-  :root.dark .cloud-account-card { @apply border-border-dark bg-surface-dark; }
+  .cloud-account-card { @apply rounded-xl border border-white/60 bg-white/75 p-4 shadow-glass backdrop-blur-xl; }
+  :root.dark .cloud-account-card { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .cloud-account-card-heading { @apply flex items-center gap-3; }
   .cloud-account-card-heading > div:nth-child(2) { @apply min-w-0 flex-1; }
   .cloud-account-card-heading strong { @apply block truncate text-sm font-semibold text-content; }
@@ -490,8 +511,8 @@
   .cloud-service-tabs button span { @apply flex-1; }
   .cloud-service-tabs button small { @apply rounded-full bg-border/60 px-1.5 text-[9px] font-semibold; }
   :root.dark .cloud-service-tabs button small { @apply bg-border-dark/60; }
-  .cloud-resource-tree { @apply overflow-hidden rounded-xl border border-border bg-surface; }
-  :root.dark .cloud-resource-tree { @apply border-border-dark bg-surface-dark; }
+  .cloud-resource-tree { @apply overflow-hidden rounded-xl border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl; }
+  :root.dark .cloud-resource-tree { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .cloud-tree-node { @apply min-w-0; }
   .cloud-tree-node + .cloud-tree-node { @apply border-t border-border; }
   :root.dark .cloud-tree-node + .cloud-tree-node { @apply border-border-dark; }
@@ -785,8 +806,8 @@
   :root.dark .policy-simulation-detail > span { @apply bg-surface-dark; }
 
   /* ---------- Summary strip ---------- */
-  .summary-strip { @apply grid grid-cols-4 overflow-hidden rounded-lg border border-border bg-surface; }
-  :root.dark .summary-strip { @apply border-border-dark bg-surface-dark; }
+  .summary-strip { @apply grid grid-cols-4 overflow-hidden rounded-lg border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl; }
+  :root.dark .summary-strip { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .summary-strip > div { @apply flex min-h-[60px] items-center gap-2.5 border-r border-border px-5 text-xs text-content-subtle; }
   :root.dark .summary-strip > div { @apply border-border-dark text-content-dark-subtle; }
   .summary-strip > div:last-child { @apply border-r-0; }
@@ -877,8 +898,8 @@
 
   /* ---------- Detail page ---------- */
   .detail-page { @apply flex flex-col gap-4; }
-  .detail-page-header { @apply rounded-lg border border-border bg-surface p-5; }
-  :root.dark .detail-page-header { @apply border-border-dark bg-surface-dark; }
+  .detail-page-header { @apply rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl; }
+  :root.dark .detail-page-header { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .detail-page-header .btn-quiet, .detail-page-header .quiet-button { @apply mb-2; }
   .detail-page-title { @apply flex items-center gap-3; }
   .detail-page-title h1 { @apply text-xl font-semibold text-content; }
@@ -887,10 +908,10 @@
   :root.dark .detail-page-subtitle { @apply text-content-dark-subtle; }
   .detail-page-subtitle .dot { @apply text-gray-300; }
   :root.dark .detail-page-subtitle .dot { @apply text-slate-600; }
-  .detail-page-body { @apply min-h-[300px] rounded-lg border border-border bg-surface p-6; }
-  :root.dark .detail-page-body { @apply border-border-dark bg-surface-dark; }
-  .detail-tabs { @apply flex gap-0.5 rounded-t-lg border border-border bg-surface px-3; }
-  :root.dark .detail-tabs { @apply border-border-dark bg-surface-dark; }
+  .detail-page-body { @apply min-h-[300px] rounded-lg border border-white/60 bg-white/75 p-6 shadow-glass backdrop-blur-xl; }
+  :root.dark .detail-page-body { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
+  .detail-tabs { @apply flex gap-0.5 rounded-t-lg border border-white/60 bg-white/70 px-3 backdrop-blur-xl; }
+  :root.dark .detail-tabs { @apply border-white/10 bg-surface-dark/70; }
   .detail-tabs button { @apply border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-content-subtle transition; }
   :root.dark .detail-tabs button { @apply text-content-dark-subtle; }
   .detail-tabs button:hover { @apply text-brand; }
@@ -1022,9 +1043,9 @@
   .error-text { @apply !text-red-600; }
 
   /* ---------- Drawer (action panel / onboarding) ---------- */
-  .drawer-scrim { @apply fixed inset-0 border-0 bg-black/40 backdrop-blur-[2px]; z-index: 60; }
-  .drawer { @apply fixed inset-y-0 right-0 overflow-y-auto bg-surface shadow-2xl; z-index: 70; width: min(480px, 100%); }
-  :root.dark .drawer { @apply bg-surface-dark; }
+  .drawer-scrim { @apply fixed inset-0 border-0 bg-black/40 backdrop-blur-[3px]; z-index: 60; }
+  .drawer { @apply fixed inset-y-0 right-0 overflow-y-auto border-l border-white/60 bg-white/85 shadow-glass-strong backdrop-blur-2xl; z-index: 70; width: min(480px, 100%); }
+  :root.dark .drawer { @apply border-white/10 bg-surface-dark/85 shadow-glass-dark-strong; }
   .drawer-header { @apply flex items-start justify-between border-b border-border px-6 py-5; }
   :root.dark .drawer-header { @apply border-border-dark; }
   .drawer-header h2 { @apply my-1.5 text-lg font-semibold text-content; }
@@ -1542,9 +1563,9 @@
   .routing-rule label > span { @apply text-[10px] font-semibold text-content-subtle; }
   :root.dark .routing-rule label > span { @apply text-content-dark-subtle; }
   .modal-layer { @apply fixed inset-0 z-[90] grid place-items-center p-4; }
-  .modal-scrim { @apply absolute inset-0 h-full w-full border-0 bg-black/55 backdrop-blur-[2px]; }
-  .secret-dialog { @apply relative z-[91] w-full max-w-[680px] rounded-xl border border-border bg-surface p-6 shadow-2xl; }
-  :root.dark .secret-dialog { @apply border-border-dark bg-surface-dark; }
+  .modal-scrim { @apply absolute inset-0 h-full w-full border-0 bg-black/55 backdrop-blur-[3px]; }
+  .secret-dialog { @apply relative z-[91] w-full max-w-[680px] rounded-xl border border-white/70 bg-white/85 p-6 shadow-glass-strong backdrop-blur-2xl; }
+  :root.dark .secret-dialog { @apply border-white/15 bg-surface-dark/85 shadow-glass-dark-strong; }
   .secret-dialog-icon { @apply mb-4 grid h-11 w-11 place-items-center rounded-lg bg-green-50 text-green-600; }
   :root.dark .secret-dialog-icon { @apply bg-green-950 text-green-400; }
   .secret-dialog h2 { @apply mt-1.5 text-lg font-semibold text-content; }
@@ -1568,8 +1589,8 @@
   :root.dark .tenant-create-form { @apply border-border-dark bg-surface-dark-muted/30; }
   .tenant-identity-grid { @apply grid-cols-4; }
   .tenant-quota-grid { @apply grid-cols-5; }
-  .tenant-detail-dialog { @apply relative z-[91] max-h-[calc(100vh-32px)] w-full max-w-[960px] overflow-y-auto rounded-xl border border-border bg-surface shadow-2xl; }
-  :root.dark .tenant-detail-dialog { @apply border-border-dark bg-surface-dark; }
+  .tenant-detail-dialog { @apply relative z-[91] max-h-[calc(100vh-32px)] w-full max-w-[960px] overflow-y-auto rounded-xl border border-white/70 bg-white/85 shadow-glass-strong backdrop-blur-2xl; }
+  :root.dark .tenant-detail-dialog { @apply border-white/15 bg-surface-dark/85 shadow-glass-dark-strong; }
   .tenant-detail-header { @apply flex items-start justify-between gap-4 border-b border-border p-6; }
   :root.dark .tenant-detail-header { @apply border-border-dark; }
   .tenant-detail-header h2 { @apply mt-1.5 text-lg font-semibold text-content; }
@@ -1605,8 +1626,8 @@
   .dialog-heading { @apply flex items-start justify-between gap-4; }
   .project-edit-dialog { @apply max-w-[560px]; }
   .project-edit-dialog h2 { @apply mt-1.5 text-lg font-semibold; }
-  .project-user-summary { @apply grid grid-cols-4 overflow-hidden rounded-lg border border-border bg-surface; }
-  :root.dark .project-user-summary { @apply border-border-dark bg-surface-dark; }
+  .project-user-summary { @apply grid grid-cols-4 overflow-hidden rounded-lg border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl; }
+  :root.dark .project-user-summary { @apply border-white/10 bg-surface-dark/75 shadow-glass-dark; }
   .project-user-summary > div { @apply flex min-h-[74px] items-baseline gap-2 border-r border-border px-5 py-4 last:border-r-0; }
   :root.dark .project-user-summary > div { @apply border-border-dark; }
   .project-user-summary strong { @apply text-xl font-semibold text-content; }
@@ -1770,4 +1791,22 @@
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+/* ---------- Glassmorphism fallback (no backdrop-filter support) ---------- */
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .sidebar, .topbar, .card, .panel, .kpi, .connector-card, .connector-channel-row,
+  .cloud-account-card, .cloud-resource-tree, .empty-state, .login-card, .drawer,
+  .secret-dialog, .tenant-detail-dialog, .detail-page-header, .detail-page-body,
+  .detail-tabs, .summary-strip, .project-user-summary, .secondary-button, .icon-button {
+    background-color: #ffffff;
+  }
+  :root.dark .sidebar, :root.dark .topbar, :root.dark .card, :root.dark .panel, :root.dark .kpi,
+  :root.dark .connector-card, :root.dark .connector-channel-row, :root.dark .cloud-account-card,
+  :root.dark .cloud-resource-tree, :root.dark .empty-state, :root.dark .login-card, :root.dark .drawer,
+  :root.dark .secret-dialog, :root.dark .tenant-detail-dialog, :root.dark .detail-page-header,
+  :root.dark .detail-page-body, :root.dark .detail-tabs, :root.dark .summary-strip,
+  :root.dark .project-user-summary, :root.dark .secondary-button, :root.dark .icon-button {
+    background-color: #0B1229;
+  }
 }

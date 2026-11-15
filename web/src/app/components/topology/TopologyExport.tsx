@@ -43,7 +43,7 @@ export function TopologyExport({ text }: { text: string }) {
       {open && (
         <>
           <button className="fixed inset-0 z-10 border-0 bg-transparent" aria-label="关闭导出" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-2 w-[420px] max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-3 shadow-lg dark:border-border-dark dark:bg-surface-dark">
+          <div className="absolute right-0 z-20 mt-2 w-[420px] max-w-[calc(100vw-2rem)] rounded-lg border border-white/70 bg-white/90 p-3 shadow-glass-strong backdrop-blur-2xl dark:border-white/15 dark:bg-surface-dark/90 dark:shadow-glass-dark-strong">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-semibold text-content dark:text-content-dark">AI 可读拓扑文本</p>
               <div className="flex gap-1.5">
