@@ -5,7 +5,7 @@ import (
 	"os"
 	"testing"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -13,9 +13,9 @@ import (
 // repositories used by the HTTP handlers, rather than testing SQL fragments
 // against mocks.
 func TestTenantRepositoriesIsolateDataAndShareActions(t *testing.T) {
-	dsn := os.Getenv("PAM_TEST_DATABASE_URL")
+	dsn := os.Getenv("WARDEN_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Skip("PAM_TEST_DATABASE_URL is not set")
+		t.Skip("WARDEN_TEST_DATABASE_URL is not set")
 	}
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)

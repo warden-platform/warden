@@ -1,4 +1,4 @@
-// API client for pam-control. All Web UI pages should call these functions
+// API client for warden-control. All Web UI pages should call these functions
 // instead of reading mock data, so the UI stays in sync with the backend.
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'

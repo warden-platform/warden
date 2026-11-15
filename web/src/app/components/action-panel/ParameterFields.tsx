@@ -102,7 +102,7 @@ export function ActionParameterFields({
                   required
                   onChange={(event) => setParameters((current) => ({ ...current, [key]: event.target.value }))}
                 >
-                  <option value="">选择 PAM 项目</option>
+                  <option value="">选择 Warden 项目</option>
                   {projects
                     .filter((project) => !project.is_default)
                     .map((project) => (

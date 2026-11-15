@@ -223,13 +223,13 @@ export function DingTalkChannelPanel() {
           <p>互动卡片需要以下 Secret 文件，并复用企业内部应用的 Client ID 和 Client Secret。修改后需重启 control 服务。</p>
           <ul>
             <li>
-              <code>PAM_DINGTALK_CARD_TEMPLATE_ID_FILE</code>
+              <code>WARDEN_DINGTALK_CARD_TEMPLATE_ID_FILE</code>
             </li>
             <li>
-              <code>PAM_DINGTALK_OPEN_CONVERSATION_ID_FILE</code>
+              <code>WARDEN_DINGTALK_OPEN_CONVERSATION_ID_FILE</code>
             </li>
             <li>
-              <code>PAM_DINGTALK_ROBOT_CODE_FILE</code>
+              <code>WARDEN_DINGTALK_ROBOT_CODE_FILE</code>
             </li>
           </ul>
           <p>

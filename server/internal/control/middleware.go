@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 type gzipResponseWriter struct {
@@ -157,14 +157,14 @@ func CORSMiddleware(next http.Handler) http.Handler {
 }
 
 func configuredCORSOrigin() (string, error) {
-	origin := strings.TrimSpace(os.Getenv("PAM_CORS_ORIGIN"))
+	origin := strings.TrimSpace(os.Getenv("WARDEN_CORS_ORIGIN"))
 	if origin == "" {
 		origin = "http://localhost:4173"
 	}
 	parsed, err := url.Parse(origin)
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") ||
 		parsed.User != nil || (parsed.Path != "" && parsed.Path != "/") || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", errors.New("PAM_CORS_ORIGIN must be a single absolute HTTP(S) origin")
+		return "", errors.New("WARDEN_CORS_ORIGIN must be a single absolute HTTP(S) origin")
 	}
 	return strings.TrimRight(origin, "/"), nil
 }

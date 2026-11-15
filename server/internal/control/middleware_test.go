@@ -103,13 +103,13 @@ func TestAPIKeyAuthProtectsConnectorAdministration(t *testing.T) {
 
 func TestConfiguredCORSOriginRejectsNonOriginValues(t *testing.T) {
 	for _, value := range []string{"*", "https://user@example.test", "https://example.test/path", "javascript:alert(1)"} {
-		t.Setenv("PAM_CORS_ORIGIN", value)
+		t.Setenv("WARDEN_CORS_ORIGIN", value)
 		if _, err := configuredCORSOrigin(); err == nil {
 			t.Fatalf("invalid CORS origin accepted: %q", value)
 		}
 	}
-	t.Setenv("PAM_CORS_ORIGIN", "https://pam.example.test/")
-	if got, err := configuredCORSOrigin(); err != nil || got != "https://pam.example.test" {
+	t.Setenv("WARDEN_CORS_ORIGIN", "https://warden.example.test/")
+	if got, err := configuredCORSOrigin(); err != nil || got != "https://warden.example.test" {
 		t.Fatalf("valid CORS origin = %q, %v", got, err)
 	}
 }

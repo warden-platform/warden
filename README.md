@@ -1,4 +1,4 @@
-# HighTower PAM
+# Warden Warden
 
 > 面向 AI Agent 的**动作级授权与代理执行平台**。
 > Agent 拿到的不是 kubeconfig、长期 Token 或数据库口令，而是一次受策略、审批、签名与审计约束的**执行**，以及一个可追溯的 `execution_id`。
@@ -21,7 +21,7 @@
 
 AI Agent 需要操作基础设施：更新 Deployment、查日志、触发构建、查数据库。传统做法是把长期凭据交给 Agent，代价是**权限无边界、泄露即全量暴露、无法审计单次操作、无法按需审批**。
 
-HighTower 的答案是「不交凭据，只交付一次受约束的执行」：
+Warden 的答案是「不交凭据，只交付一次受约束的执行」：
 
 > 谁让哪个 Agent，基于什么任务，在什么时间，对哪个资源，执行什么**受约束动作**，以及为什么被允许、怎样执行、如何追溯。
 
@@ -52,7 +52,7 @@ docker compose -f deploy/docker-compose.yaml up -d
 
 # 3) 构建并启动控制面（默认 :8080）
 make server-build
-PAM_FOREGROUND=1 scripts/start-local-control.sh
+WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 
 # 4) 另一个终端启动管理端（默认 http://localhost:4173）
 make web-install && make web-dev
@@ -111,7 +111,7 @@ make web-install && make web-dev
 ```mermaid
 flowchart LR
     AGENT["外部 Agent / Admin Web"]
-    CTRL["pam-control · 控制面"]
+    CTRL["warden-control · 控制面"]
     PG[("PostgreSQL")]
     OPA["内嵌 Rego / 可选远程 OPA"]
     CONN["Connector · 客户侧"]
@@ -134,7 +134,7 @@ flowchart LR
 ## 认证与权限
 
 - 支持管理员密码会话、**企业 OIDC/SSO**（授权码 + PKCE S256）、Agent / Registration API Key、Connector 独立签名凭据、委托令牌与联邦断言登录。
-- 认证与授权分离：**IdP 只证明"你是谁"，PAM 决定"你能做什么"**。首次 SSO 登录一律按最小权限 `user` 建档；提权只能在「平台管理 → 账号与权限」由超级管理员手工指派，且会立即撤销目标会话强制重登。
+- 认证与授权分离：**IdP 只证明"你是谁"，Warden 决定"你能做什么"**。首次 SSO 登录一律按最小权限 `user` 建档；提权只能在「平台管理 → 账号与权限」由超级管理员手工指派，且会立即撤销目标会话强制重登。
 - 内置 `admin` 密码账号是 IdP 故障时的 break-glass 应急入口，保留但不应日常使用。
 - 后端接口守卫与前端菜单读同一份 `capabilities` 能力清单，不再按角色名硬编码门控。
 

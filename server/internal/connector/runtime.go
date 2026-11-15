@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 type Runtime struct {
@@ -174,7 +174,7 @@ func (r *Runtime) register(ctx context.Context) error {
 }
 
 // syncResources discovers deployments across allowed namespaces and reports
-// them to pam-control so the resource catalog stays in sync with the cluster.
+// them to warden-control so the resource catalog stays in sync with the cluster.
 func (r *Runtime) syncResources(ctx context.Context) error {
 	if r.runner == nil {
 		return nil

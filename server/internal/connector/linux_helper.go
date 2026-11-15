@@ -13,7 +13,7 @@ import (
 	"time"
 )
 
-const DefaultLinuxHelperSocket = "/run/pam-linux/helper.sock"
+const DefaultLinuxHelperSocket = "/run/warden-linux/helper.sock"
 
 type HelperRequest struct {
 	Action    string `json:"action"`

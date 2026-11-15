@@ -13,7 +13,7 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -193,5 +193,5 @@ func connectorRequestCarriesID(path string) bool {
 }
 
 func legacyConnectorKeyEnabled() bool {
-	return strings.EqualFold(strings.TrimSpace(os.Getenv("PAM_ENABLE_LEGACY_CONNECTOR_KEY")), "true")
+	return strings.EqualFold(strings.TrimSpace(os.Getenv("WARDEN_ENABLE_LEGACY_CONNECTOR_KEY")), "true")
 }

@@ -2,7 +2,7 @@
 -- the plan hash, the EXPLAIN summary and the cost verdict so the execute step
 -- can prove the plan did not drift between preview and apply. preview_hash is
 -- the token the Agent echoes back; the Connector recomputes the plan and
--- compares. Artifacts expire and are pruned so PAM does not retain raw SQL
+-- compares. Artifacts expire and are pruned so Warden does not retain raw SQL
 -- indefinitely.
 
 CREATE TABLE IF NOT EXISTS database_previews (

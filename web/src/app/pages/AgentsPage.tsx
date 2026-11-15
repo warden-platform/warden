@@ -226,7 +226,7 @@ export function AgentsPage() {
                       <strong>{principal.name}</strong>
                       <small>
                         {principal.kind === 'workload'
-                          ? 'PAM 资源注册机器人'
+                          ? 'Warden 资源注册机器人'
                           : String(principal.metadata?.multica_agent_id ?? principal.id)}
                       </small>
                     </span>

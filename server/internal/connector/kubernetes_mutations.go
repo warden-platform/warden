@@ -16,7 +16,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/util/retry"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const rolloutRestartAnnotation = "kubectl.kubernetes.io/restartedAt"
@@ -313,7 +313,7 @@ func (r *KubernetesRunner) triggerCronJob(ctx context.Context, client kubernetes
 	jobName := cronJobExecutionJobName(name, task.ExecutionID)
 	labels := copyStringMap(cronJob.Spec.JobTemplate.Labels)
 	annotations := copyStringMap(cronJob.Spec.JobTemplate.Annotations)
-	annotations["pam.example.com/execution-id"] = task.ExecutionID
+	annotations["warden.example.com/execution-id"] = task.ExecutionID
 	job := &batchv1.Job{
 		ObjectMeta: metav1.ObjectMeta{Name: jobName, Namespace: namespace, Labels: labels, Annotations: annotations,
 			OwnerReferences: []metav1.OwnerReference{*metav1.NewControllerRef(cronJob, batchv1.SchemeGroupVersion.WithKind("CronJob"))}},
@@ -325,7 +325,7 @@ func (r *KubernetesRunner) triggerCronJob(ctx context.Context, client kubernetes
 		if getErr != nil {
 			return nil, lease, getErr
 		}
-		if existing.Annotations["pam.example.com/execution-id"] != task.ExecutionID {
+		if existing.Annotations["warden.example.com/execution-id"] != task.ExecutionID {
 			return nil, lease, fmt.Errorf("CRONJOB_TRIGGER_CONFLICT: deterministic Job name is owned by another execution")
 		}
 		return map[string]any{"name": cronJob.Name, "namespace": namespace, "jobName": existing.Name,
@@ -345,7 +345,7 @@ func (r *KubernetesRunner) triggerCronJob(ctx context.Context, client kubernetes
 func cronJobExecutionJobName(cronJobName, executionID string) string {
 	digest := sha256.Sum256([]byte(executionID))
 	suffix := hex.EncodeToString(digest[:4])
-	const separator = "-pam-"
+	const separator = "-warden-"
 	maxBase := 63 - len(separator) - len(suffix)
 	base := strings.Trim(cronJobName, "-.")
 	if len(base) > maxBase {

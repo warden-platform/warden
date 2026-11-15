@@ -12,12 +12,12 @@ import (
 )
 
 const (
-	ConnectorTimestampHeader = "X-PAM-Timestamp"
-	ConnectorNonceHeader     = "X-PAM-Nonce"
-	ConnectorSignatureHeader = "X-PAM-Signature"
+	ConnectorTimestampHeader = "X-Warden-Timestamp"
+	ConnectorNonceHeader     = "X-Warden-Nonce"
+	ConnectorSignatureHeader = "X-Warden-Signature"
 )
 
-const connectorRequestVersion = "pam-connector-request-v1"
+const connectorRequestVersion = "warden-connector-request-v1"
 
 // SignConnectorRequest authenticates the complete request without sending the
 // Connector task key over the wire. Callers must pass the exact body bytes that

@@ -13,10 +13,10 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
-	"gitee.com/pam-platform/pam/server/internal/domain"
-	"gitee.com/pam-platform/pam/server/internal/policy"
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/policy"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -89,38 +89,38 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
-	taskKey, err := config.RequiredSecret("PAM_TASK_SIGNING_KEY", 32)
+	taskKey, err := config.RequiredSecret("WARDEN_TASK_SIGNING_KEY", 32)
 	if err != nil {
 		return nil, err
 	}
-	jwtKey, err := config.RequiredSecret("PAM_JWT_SIGNING_KEY", 32)
+	jwtKey, err := config.RequiredSecret("WARDEN_JWT_SIGNING_KEY", 32)
 	if err != nil {
 		return nil, err
 	}
-	cipherSecret, err := config.RequiredSecret("PAM_CREDENTIAL_ENCRYPTION_KEY", 32)
+	cipherSecret, err := config.RequiredSecret("WARDEN_CREDENTIAL_ENCRYPTION_KEY", 32)
 	if err != nil {
 		return nil, err
 	}
-	adminAPIKey, err := config.Secret("PAM_ADMIN_API_KEY")
+	adminAPIKey, err := config.Secret("WARDEN_ADMIN_API_KEY")
 	if err != nil {
 		return nil, err
 	}
 	if adminAPIKey == "" {
 		// Compatibility migration: existing development installations may keep
-		// using PAM_AGENT_API_KEY_FILE until their service definition is updated.
-		adminAPIKey, err = config.RequiredSecret("PAM_AGENT_API_KEY", 32)
+		// using WARDEN_AGENT_API_KEY_FILE until their service definition is updated.
+		adminAPIKey, err = config.RequiredSecret("WARDEN_AGENT_API_KEY", 32)
 		if err != nil {
-			return nil, fmt.Errorf("PAM_ADMIN_API_KEY is required (legacy PAM_AGENT_API_KEY is also accepted): %w", err)
+			return nil, fmt.Errorf("WARDEN_ADMIN_API_KEY is required (legacy WARDEN_AGENT_API_KEY is also accepted): %w", err)
 		}
 	} else if len(adminAPIKey) < 32 {
-		return nil, fmt.Errorf("PAM_ADMIN_API_KEY must contain at least 32 bytes")
+		return nil, fmt.Errorf("WARDEN_ADMIN_API_KEY must contain at least 32 bytes")
 	}
 	secretValues := []struct {
 		name  string
 		value string
 	}{
-		{"PAM_TASK_SIGNING_KEY", taskKey}, {"PAM_JWT_SIGNING_KEY", jwtKey},
-		{"PAM_CREDENTIAL_ENCRYPTION_KEY", cipherSecret}, {"PAM_ADMIN_API_KEY", adminAPIKey},
+		{"WARDEN_TASK_SIGNING_KEY", taskKey}, {"WARDEN_JWT_SIGNING_KEY", jwtKey},
+		{"WARDEN_CREDENTIAL_ENCRYPTION_KEY", cipherSecret}, {"WARDEN_ADMIN_API_KEY", adminAPIKey},
 	}
 	for i := range secretValues {
 		for j := i + 1; j < len(secretValues); j++ {
@@ -227,11 +227,11 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /downloads/install-host.sh", h.DownloadHostInstaller)
 	mux.HandleFunc("GET /downloads/uninstall-linux.sh", h.DownloadLinuxUninstaller)
 	mux.HandleFunc("GET /downloads/install-network.sh", h.DownloadNetworkInstaller)
-	mux.HandleFunc("GET /downloads/pam-linux-connector-linux/{arch}", h.DownloadLinuxConnector)
-	mux.HandleFunc("GET /downloads/pam-linux-helper-linux/{arch}", h.DownloadLinuxHelper)
-	mux.HandleFunc("GET /downloads/pam-network-connector-linux/{arch}", h.DownloadNetworkConnector)
-	mux.HandleFunc("GET /downloads/pam-host-connector/{platform}/{arch}", h.DownloadHostConnector)
-	mux.HandleFunc("GET /downloads/pam-operator-chart.tgz", h.DownloadOperatorChart)
+	mux.HandleFunc("GET /downloads/warden-linux-connector-linux/{arch}", h.DownloadLinuxConnector)
+	mux.HandleFunc("GET /downloads/warden-linux-helper-linux/{arch}", h.DownloadLinuxHelper)
+	mux.HandleFunc("GET /downloads/warden-network-connector-linux/{arch}", h.DownloadNetworkConnector)
+	mux.HandleFunc("GET /downloads/warden-host-connector/{platform}/{arch}", h.DownloadHostConnector)
+	mux.HandleFunc("GET /downloads/warden-operator-chart.tgz", h.DownloadOperatorChart)
 	mux.HandleFunc("GET /downloads/SHA256SUMS", h.DownloadChecksums)
 	mux.HandleFunc("POST /api/v1/operator/pairings", h.CreateOperatorPairing)
 	mux.HandleFunc("GET /api/v1/operator/pairings/{id}", h.GetOperatorPairing)
@@ -513,7 +513,7 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 		}
 		if identity.DelegationProjectID != "" {
 			if req.ActingProjectID != "" && req.ActingProjectID != identity.DelegationProjectID {
-				jsonError(w, http.StatusForbidden, "DELEGATION_PROJECT_MISMATCH", "委托 Token 不能执行绑定 PAM project 之外的项目")
+				jsonError(w, http.StatusForbidden, "DELEGATION_PROJECT_MISMATCH", "委托 Token 不能执行绑定 Warden project 之外的项目")
 				return
 			}
 			req.ActingProjectID = identity.DelegationProjectID
@@ -983,7 +983,7 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 		}
 
 		// Control-plane credential actions execute inline: no Grant is created
-		// and the effect is applied directly against the PAM-managed ledger.
+		// and the effect is applied directly against the Warden-managed ledger.
 		if controlPlane {
 			if err := h.audit.CreateTx(ctx, tx, executionEvent("execution.queued")); err != nil {
 				jsonError(w, http.StatusInternalServerError, "AUDIT_WRITE_FAILED", "审计写入失败")
@@ -1570,7 +1570,7 @@ func (h *Handler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 }
 
 // enrichExecutions batch-loads principal names and API key names for a list of
-// executions so the UI can display "PAM ReadOnly · key multica-agent" instead
+// executions so the UI can display "Warden ReadOnly · key multica-agent" instead
 // of "375bb5e5 · key adb456e7".
 func (h *Handler) enrichExecutions(ctx context.Context, execs []domain.Execution) {
 	if len(execs) == 0 || h.principals == nil {
@@ -2509,10 +2509,10 @@ func (h *Handler) OnboardCluster(w http.ResponseWriter, r *http.Request) {
 		cfg.TokenAudience = "https://kubernetes.default.svc"
 	}
 	if cfg.ExecutionServiceAccount == "" {
-		cfg.ExecutionServiceAccount = "pam-executor"
+		cfg.ExecutionServiceAccount = "warden-executor"
 	}
 	if cfg.ConnectorNamespace == "" {
-		cfg.ConnectorNamespace = "pam-system"
+		cfg.ConnectorNamespace = "warden-system"
 	}
 	if err := validateOnboardConfig(cfg); err != nil {
 		jsonError(w, http.StatusBadRequest, "INVALID_ONBOARD_CONFIG", err.Error())
@@ -2555,17 +2555,17 @@ func (h *Handler) OnboardCluster(w http.ResponseWriter, r *http.Request) {
 
 	instructions := fmt.Sprintf(
 		"1. Create signing key secret:\n"+
-			"   kubectl create secret generic pam-task-signing -n %s --from-literal=key=<same key as PAM_TASK_SIGNING_KEY on pam-control>\n"+
+			"   kubectl create secret generic warden-task-signing -n %s --from-literal=key=<same key as WARDEN_TASK_SIGNING_KEY on warden-control>\n"+
 			"2. Apply the manifest:\n"+
 			"   kubectl apply -f manifest.yaml\n"+
-			"3. pam-connector self-registers and resources will appear in the resource catalog automatically.",
+			"3. warden-connector self-registers and resources will appear in the resource catalog automatically.",
 		cfg.ConnectorNamespace,
 	)
 	_ = h.writeAudit(r.Context(), "connector.registered", nil, nil, "", "")
 	jsonResp(w, http.StatusOK, map[string]any{
 		"connectorId":  connID,
 		"manifest":     manifest,
-		"secretName":   "pam-task-signing",
+		"secretName":   "warden-task-signing",
 		"instructions": instructions,
 	})
 }
@@ -2752,7 +2752,7 @@ func (h *Handler) SubmitTaskResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(result.DispatchToken) == "" {
-		if !strings.EqualFold(strings.TrimSpace(os.Getenv("PAM_ENABLE_LEGACY_DISPATCH_RESULT")), "true") {
+		if !strings.EqualFold(strings.TrimSpace(os.Getenv("WARDEN_ENABLE_LEGACY_DISPATCH_RESULT")), "true") {
 			jsonError(w, http.StatusConflict, "MISSING_DISPATCH_TOKEN", "缺少任务分发凭证")
 			return
 		}
@@ -3179,7 +3179,7 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 	if requests == nil {
 		requests = []domain.AccessRequest{}
 	}
-	// Enrich with principal names so the UI shows "PAM ReadOnly" instead of UUID prefix.
+	// Enrich with principal names so the UI shows "Warden ReadOnly" instead of UUID prefix.
 	if h.principals != nil {
 		pCache := make(map[string]string)
 		for i := range requests {

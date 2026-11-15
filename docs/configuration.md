@@ -19,14 +19,14 @@
 
 | 文件 | 对应变量 |
 |---|---|
-| `database_url` | `PAM_DATABASE_URL_FILE` |
-| `task_signing_key` | `PAM_TASK_SIGNING_KEY_FILE` |
-| `jwt_signing_key` | `PAM_JWT_SIGNING_KEY_FILE` |
-| `credential_encryption_key` | `PAM_CREDENTIAL_ENCRYPTION_KEY_FILE` |
-| `agent_api_key` | `PAM_ADMIN_API_KEY_FILE` |
-| `admin_password` | `PAM_ADMIN_PASSWORD_FILE` |
+| `database_url` | `WARDEN_DATABASE_URL_FILE` |
+| `task_signing_key` | `WARDEN_TASK_SIGNING_KEY_FILE` |
+| `jwt_signing_key` | `WARDEN_JWT_SIGNING_KEY_FILE` |
+| `credential_encryption_key` | `WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE` |
+| `agent_api_key` | `WARDEN_ADMIN_API_KEY_FILE` |
+| `admin_password` | `WARDEN_ADMIN_PASSWORD_FILE` |
 | `postgres_password` | Compose 的 `postgres_password` Docker secret |
-| `oidc_client_secret` | `PAM_OIDC_CLIENT_SECRET_FILE` |
+| `oidc_client_secret` | `WARDEN_OIDC_CLIENT_SECRET_FILE` |
 
 `deploy/docker-compose.yaml` 还引用 `.secrets/openbao_root_token`（仅在 `--profile optional` 启用 OpenBao 时需要）。钉钉可选 7 个文件见下文「钉钉（可选）」。
 
@@ -36,54 +36,54 @@
 
 | 变量 | 默认值 | 说明 | 必填 |
 |---|---|---|---|
-| `PAM_DATABASE_URL` / `_FILE` | 无 | PostgreSQL DSN | 是 |
-| `PAM_TASK_SIGNING_KEY` / `_FILE` | 无 | Connector TaskEnvelope 签名 Key，≥32 字节 | 是 |
-| `PAM_JWT_SIGNING_KEY` / `_FILE` | 无 | Web 会话 JWT 签名 Key，≥32 字节，不得与任务 Key 相同 | 是 |
-| `PAM_CREDENTIAL_ENCRYPTION_KEY` / `_FILE` | 无 | AES-GCM 加密每 Connector 任务 Key 的主密钥，≥32 字节 | 是 |
-| `PAM_ADMIN_API_KEY` / `_FILE` | 空 | 管理端引导 Bearer Key，≥32 字节；为空时回退旧 `PAM_AGENT_API_KEY` | 是 |
-| `PAM_AGENT_API_KEY` / `_FILE` | 空 | 旧版兼容变量，仅迁移期使用 | 条件 |
-| `PAM_ADMIN_PASSWORD` / `_FILE` | 空 | 内置 `admin` 密码哈希同步源；Web 登录必需，未设置时会警告并禁用 Web 登录 | Web 登录必需 |
+| `WARDEN_DATABASE_URL` / `_FILE` | 无 | PostgreSQL DSN | 是 |
+| `WARDEN_TASK_SIGNING_KEY` / `_FILE` | 无 | Connector TaskEnvelope 签名 Key，≥32 字节 | 是 |
+| `WARDEN_JWT_SIGNING_KEY` / `_FILE` | 无 | Web 会话 JWT 签名 Key，≥32 字节，不得与任务 Key 相同 | 是 |
+| `WARDEN_CREDENTIAL_ENCRYPTION_KEY` / `_FILE` | 无 | AES-GCM 加密每 Connector 任务 Key 的主密钥，≥32 字节 | 是 |
+| `WARDEN_ADMIN_API_KEY` / `_FILE` | 空 | 管理端引导 Bearer Key，≥32 字节；为空时回退旧 `WARDEN_AGENT_API_KEY` | 是 |
+| `WARDEN_AGENT_API_KEY` / `_FILE` | 空 | 旧版兼容变量，仅迁移期使用 | 条件 |
+| `WARDEN_ADMIN_PASSWORD` / `_FILE` | 空 | 内置 `admin` 密码哈希同步源；Web 登录必需，未设置时会警告并禁用 Web 登录 | Web 登录必需 |
 
 ## 运行、网络与会话
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PAM_PORT` | `8080` | 控制面 HTTP 监听端口 |
-| `PAM_CORS_ORIGIN` | `http://localhost:4173` | 单个绝对 HTTP(S) origin，格式强校验 |
-| `PAM_COOKIE_SECURE` | `true`（仅显式 `false` 才关闭） | 会话 / CSRF / OIDC Cookie 的 Secure 标记。**生产必须保持 true** |
-| `PAM_JWT_TTL_HOURS` | `8` | JWT 有效期（小时），必须为正整数 |
-| `PAM_PUBLIC_CONTROL_URL` | 空 | 对外可访问的控制面地址；用于 UI 安装命令、Registration audience 推导、钉钉审批链接 |
-| `PAM_REGISTRATION_AUDIENCE` | 由 `PAM_PUBLIC_CONTROL_URL` 推导，再退化为 `http://localhost:<PAM_PORT>/api/v1` | Registration Key 绑定的 audience；必须是绝对 HTTP(S)、路径为 `/api/v1`、无 user/query/fragment；与 `PAM_PUBLIC_CONTROL_URL` 同时配置时必须一致 |
-| `PAM_TRUST_PROXY_HEADERS` | `false` | 位于受信任反向代理后设 `true`，用于登录/配对限流识别客户端 IP |
-| `PAM_TRUSTED_PROXY_CIDRS` | 空 | 允许提供 `X-Forwarded-For` 的代理 CIDR，逗号分隔；使用代理头时必填 |
-| `PAM_ARTIFACT_ROOT` | `.`（容器内 `/app-artifacts`） | 下载制品 / Helm Chart / 安装脚本根目录 |
-| `PAM_RELEASE_VERSION` | 读 Chart `appVersion` | UI 展示的发布版本 |
-| `PAM_ENABLE_LEGACY_CONNECTOR_KEY` | `false` | 旧共享 Connector Key 兼容开关；迁移完成后必须保持关闭 |
-| `PAM_ENABLE_LEGACY_DISPATCH_RESULT` | `false` | 兼容不回传 dispatch token 的旧 Connector |
-| `PAM_OUTBOX_ENABLED` | `false` | 启用事务 Outbox 写入；仅在部署了消费者时开启 |
-| `PAM_SA_DIR` | 空（用 InCluster 配置） | K8s Connector 本地覆盖 ServiceAccount 目录；与 `KUBERNETES_SERVICE_HOST/PORT` 配合 |
+| `WARDEN_PORT` | `8080` | 控制面 HTTP 监听端口 |
+| `WARDEN_CORS_ORIGIN` | `http://localhost:4173` | 单个绝对 HTTP(S) origin，格式强校验 |
+| `WARDEN_COOKIE_SECURE` | `true`（仅显式 `false` 才关闭） | 会话 / CSRF / OIDC Cookie 的 Secure 标记。**生产必须保持 true** |
+| `WARDEN_JWT_TTL_HOURS` | `8` | JWT 有效期（小时），必须为正整数 |
+| `WARDEN_PUBLIC_CONTROL_URL` | 空 | 对外可访问的控制面地址；用于 UI 安装命令、Registration audience 推导、钉钉审批链接 |
+| `WARDEN_REGISTRATION_AUDIENCE` | 由 `WARDEN_PUBLIC_CONTROL_URL` 推导，再退化为 `http://localhost:<WARDEN_PORT>/api/v1` | Registration Key 绑定的 audience；必须是绝对 HTTP(S)、路径为 `/api/v1`、无 user/query/fragment；与 `WARDEN_PUBLIC_CONTROL_URL` 同时配置时必须一致 |
+| `WARDEN_TRUST_PROXY_HEADERS` | `false` | 位于受信任反向代理后设 `true`，用于登录/配对限流识别客户端 IP |
+| `WARDEN_TRUSTED_PROXY_CIDRS` | 空 | 允许提供 `X-Forwarded-For` 的代理 CIDR，逗号分隔；使用代理头时必填 |
+| `WARDEN_ARTIFACT_ROOT` | `.`（容器内 `/app-artifacts`） | 下载制品 / Helm Chart / 安装脚本根目录 |
+| `WARDEN_RELEASE_VERSION` | 读 Chart `appVersion` | UI 展示的发布版本 |
+| `WARDEN_ENABLE_LEGACY_CONNECTOR_KEY` | `false` | 旧共享 Connector Key 兼容开关；迁移完成后必须保持关闭 |
+| `WARDEN_ENABLE_LEGACY_DISPATCH_RESULT` | `false` | 兼容不回传 dispatch token 的旧 Connector |
+| `WARDEN_OUTBOX_ENABLED` | `false` | 启用事务 Outbox 写入；仅在部署了消费者时开启 |
+| `WARDEN_SA_DIR` | 空（用 InCluster 配置） | K8s Connector 本地覆盖 ServiceAccount 目录；与 `KUBERNETES_SERVICE_HOST/PORT` 配合 |
 
 ## 策略决策
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PAM_DECISION_MODE` | `embedded` | `remote` 启用独立 OPA；Provider 异常一律 DENY |
+| `WARDEN_DECISION_MODE` | `embedded` | `remote` 启用独立 OPA；Provider 异常一律 DENY |
 | `OPA_ENDPOINT` | `http://localhost:8181` | 远程 OPA 地址；强制 HTTPS，仅 loopback 允许 HTTP |
-| `PAM_OPA_BEARER_TOKEN` / `_FILE` | 空 | 远程 OPA Bearer Token |
-| `PAM_ALLOW_INSECURE_OPA` | `false` | 仅可信私网兼容无 TLS OPA |
+| `WARDEN_OPA_BEARER_TOKEN` / `_FILE` | 空 | 远程 OPA Bearer Token |
+| `WARDEN_ALLOW_INSECURE_OPA` | `false` | 仅可信私网兼容无 TLS OPA |
 
 ## OIDC / SSO
 
-`PAM_OIDC_ISSUER` 为空时 **OIDC 完全禁用**，登录页不显示 SSO 入口，启动行为与旧版一致；discovery 在首次请求时才做，启动不依赖 IdP 可用。
+`WARDEN_OIDC_ISSUER` 为空时 **OIDC 完全禁用**，登录页不显示 SSO 入口，启动行为与旧版一致；discovery 在首次请求时才做，启动不依赖 IdP 可用。
 
 | 变量 | 默认值 | 说明 | 启用时必填 |
 |---|---|---|---|
-| `PAM_OIDC_ISSUER` | 空 | IdP 地址，需可访问 `/.well-known/openid-configuration` | 是（总开关） |
-| `PAM_OIDC_CLIENT_ID` | 空 | IdP 注册的 client id | 是 |
-| `PAM_OIDC_CLIENT_SECRET` / `_FILE` | 空 | client secret；两者不可同时设置 | 是 |
-| `PAM_OIDC_REDIRECT_URL` | 无 | 回调地址，必须与 IdP 白名单**逐字符一致**；服务端据此推导规范 origin | 是 |
-| `PAM_OIDC_DEFAULT_TENANT_ID` | 无 | 联邦身份默认租户 slug，外键指向 `tenants(slug)` | 是 |
-| `PAM_OIDC_DEFAULT_ROLE` | `user` | 首次建档角色，仅允许 `user` / `tenant_admin`；**配置 `platform_admin` 会启动失败** | 否 |
+| `WARDEN_OIDC_ISSUER` | 空 | IdP 地址，需可访问 `/.well-known/openid-configuration` | 是（总开关） |
+| `WARDEN_OIDC_CLIENT_ID` | 空 | IdP 注册的 client id | 是 |
+| `WARDEN_OIDC_CLIENT_SECRET` / `_FILE` | 空 | client secret；两者不可同时设置 | 是 |
+| `WARDEN_OIDC_REDIRECT_URL` | 无 | 回调地址，必须与 IdP 白名单**逐字符一致**；服务端据此推导规范 origin | 是 |
+| `WARDEN_OIDC_DEFAULT_TENANT_ID` | 无 | 联邦身份默认租户 slug，外键指向 `tenants(slug)` | 是 |
+| `WARDEN_OIDC_DEFAULT_ROLE` | `user` | 首次建档角色，仅允许 `user` / `tenant_admin`；**配置 `platform_admin` 会启动失败** | 否 |
 
 scope 固定 `openid profile email`。接入步骤与踩坑见 [oidc-setup.md](oidc-setup.md)。
 
@@ -91,9 +91,9 @@ scope 固定 `openid profile email`。接入步骤与踩坑见 [oidc-setup.md](o
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PAM_FEDERATED_ASSERTION_PUBLIC_KEY` / `_FILE` | 空 | PEM 公钥（RSA/ECDSA/Ed25519）；未配置时端点返回 `FEDERATED_AUTH_NOT_CONFIGURED` |
-| `PAM_FEDERATED_ASSERTION_ISSUER` | `https://idp.example.com` | 断言 issuer |
-| `PAM_FEDERATED_ASSERTION_AUDIENCE` | `pam` | 断言 audience |
+| `WARDEN_FEDERATED_ASSERTION_PUBLIC_KEY` / `_FILE` | 空 | PEM 公钥（RSA/ECDSA/Ed25519）；未配置时端点返回 `FEDERATED_AUTH_NOT_CONFIGURED` |
+| `WARDEN_FEDERATED_ASSERTION_ISSUER` | `https://idp.example.com` | 断言 issuer |
+| `WARDEN_FEDERATED_ASSERTION_AUDIENCE` | `pam` | 断言 audience |
 
 详见 [federated-authorization.md](federated-authorization.md)。
 
@@ -101,71 +101,71 @@ scope 固定 `openid profile email`。接入步骤与踩坑见 [oidc-setup.md](o
 
 | 变量（均支持 `_FILE`） | 约束 |
 |---|---|
-| `PAM_DINGTALK_WEBHOOK` + `PAM_DINGTALK_SECRET` | 成对出现；Webhook 必须 HTTPS 官方域名；Secret ≥16 字节；依赖 `PAM_PUBLIC_CONTROL_URL` |
-| `PAM_DINGTALK_APP_KEY` + `PAM_DINGTALK_APP_SECRET` | 成对出现；Secret ≥16 字节 |
-| `PAM_DINGTALK_CARD_TEMPLATE_ID` + `PAM_DINGTALK_OPEN_CONVERSATION_ID` + `PAM_DINGTALK_ROBOT_CODE` | 三者必须同时配置，且依赖 CoolApp 配置 |
+| `WARDEN_DINGTALK_WEBHOOK` + `WARDEN_DINGTALK_SECRET` | 成对出现；Webhook 必须 HTTPS 官方域名；Secret ≥16 字节；依赖 `WARDEN_PUBLIC_CONTROL_URL` |
+| `WARDEN_DINGTALK_APP_KEY` + `WARDEN_DINGTALK_APP_SECRET` | 成对出现；Secret ≥16 字节 |
+| `WARDEN_DINGTALK_CARD_TEMPLATE_ID` + `WARDEN_DINGTALK_OPEN_CONVERSATION_ID` + `WARDEN_DINGTALK_ROBOT_CODE` | 三者必须同时配置，且依赖 CoolApp 配置 |
 
 ## 发布 / UI 覆盖项
 
-未设置时读取随发布附带的 `deploy/helm/pam-operator/Chart.yaml` 与 `values.yaml`；Chart 不可用时 UI 会报错并禁止复制安装命令，不回退到写死的旧版本。
+未设置时读取随发布附带的 `deploy/helm/warden-operator/Chart.yaml` 与 `values.yaml`；Chart 不可用时 UI 会报错并禁止复制安装命令，不回退到写死的旧版本。
 
 | 变量 | 说明 |
 |---|---|
-| `PAM_OPERATOR_CHART_REF` | UI Helm 命令使用的 Chart 路径 / 仓库 URL / OCI Reference，默认 `/downloads/pam-operator-chart.tgz` |
-| `PAM_OPERATOR_IMAGE_REPOSITORY` / `PAM_OPERATOR_IMAGE_TAG` | UI Helm 命令使用的 Operator 镜像 |
-| `PAM_CONNECTOR_IMAGE` | UI Helm 命令使用的完整 Connector 镜像及 Tag |
-| `PAM_JENKINS_URL` / `PAM_JENKINS_USERNAME` / `PAM_JENKINS_API_TOKEN` / `PAM_JENKINS_ALLOWED_JOBS` | 旧环境变量式 Jenkins Runner；现已改为在 Connector 页面注册 Integration，不建议使用 |
+| `WARDEN_OPERATOR_CHART_REF` | UI Helm 命令使用的 Chart 路径 / 仓库 URL / OCI Reference，默认 `/downloads/warden-operator-chart.tgz` |
+| `WARDEN_OPERATOR_IMAGE_REPOSITORY` / `WARDEN_OPERATOR_IMAGE_TAG` | UI Helm 命令使用的 Operator 镜像 |
+| `WARDEN_CONNECTOR_IMAGE` | UI Helm 命令使用的完整 Connector 镜像及 Tag |
+| `WARDEN_JENKINS_URL` / `WARDEN_JENKINS_USERNAME` / `WARDEN_JENKINS_API_TOKEN` / `WARDEN_JENKINS_ALLOWED_JOBS` | 旧环境变量式 Jenkins Runner；现已改为在 Connector 页面注册 Integration，不建议使用 |
 
 ## Connector / Operator 端变量
 
 | 变量 | 默认值 / 约束 | 适用 |
 |---|---|---|
-| `PAM_CONTROL_URL` | K8s `http://pam-control:8080`；Linux `http://127.0.0.1:8080`；Host `https://127.0.0.1:8080`；Network / Operator 必填 | 全部 Connector |
-| `PAM_TASK_SIGNING_KEY` / `_FILE` | ≥32 字节，配对后注入的每 Connector 独立 Key | 全部 Connector |
-| `PAM_CONNECTOR_NAME` | `kubernetes-connector` / `h3c-network-connector` | K8s / Network |
-| `PAM_CONNECTOR_ENVIRONMENT` | `testing`（安装脚本可设为 `production`） | 全部 |
-| `PAM_CONNECTOR_NAMESPACE` | `pam-system` | K8s |
-| `PAM_KUBERNETES_ENABLED` | 必须显式 `true` | K8s Connector |
-| `PAM_ALLOWED_NAMESPACES` | 必填，逗号分隔，禁止 `*` | K8s Connector |
-| `PAM_ALLOWED_IMAGE_PREFIXES` | 必填 | K8s Connector |
-| `PAM_EXECUTION_SERVICE_ACCOUNT` | `pam-executor` | K8s Connector |
-| `PAM_KUBERNETES_TOKEN_AUDIENCE` | `https://kubernetes.default.svc` | K8s Connector |
-| `PAM_LINUX_STATE_FILE` | `/var/lib/pam-linux/state.json` | Linux Connector |
-| `PAM_LINUX_CREDENTIAL_DIR` | `/etc/pam-linux/credentials` | Linux Connector |
-| `PAM_LINUX_HELPER_SOCKET` | `/run/pam-linux/helper.sock` | Linux Helper |
-| `PAM_NETWORK_CREDENTIAL_DIR` | `/var/lib/pam-network/credentials` | Network Connector |
-| `PAM_HOST_STATE_FILE` | 平台默认 | Host Connector |
-| `PAM_OPERATOR_NAMESPACE` / `PAM_OPERATOR_ID` | `pam-system` / `pam-operator-<namespace>` | Operator |
-| `PAM_CONNECTOR_IMAGE` / `PAM_IMAGE_PULL_SECRET` | Operator 必填 / 可选 | Operator |
-| `PAM_FOREGROUND` | 空；设为 `1` 让本地启动脚本前台运行 | 本地脚本 |
+| `WARDEN_CONTROL_URL` | K8s `http://warden-control:8080`；Linux `http://127.0.0.1:8080`；Host `https://127.0.0.1:8080`；Network / Operator 必填 | 全部 Connector |
+| `WARDEN_TASK_SIGNING_KEY` / `_FILE` | ≥32 字节，配对后注入的每 Connector 独立 Key | 全部 Connector |
+| `WARDEN_CONNECTOR_NAME` | `kubernetes-connector` / `h3c-network-connector` | K8s / Network |
+| `WARDEN_CONNECTOR_ENVIRONMENT` | `testing`（安装脚本可设为 `production`） | 全部 |
+| `WARDEN_CONNECTOR_NAMESPACE` | `warden-system` | K8s |
+| `WARDEN_KUBERNETES_ENABLED` | 必须显式 `true` | K8s Connector |
+| `WARDEN_ALLOWED_NAMESPACES` | 必填，逗号分隔，禁止 `*` | K8s Connector |
+| `WARDEN_ALLOWED_IMAGE_PREFIXES` | 必填 | K8s Connector |
+| `WARDEN_EXECUTION_SERVICE_ACCOUNT` | `warden-executor` | K8s Connector |
+| `WARDEN_KUBERNETES_TOKEN_AUDIENCE` | `https://kubernetes.default.svc` | K8s Connector |
+| `WARDEN_LINUX_STATE_FILE` | `/var/lib/warden-linux/state.json` | Linux Connector |
+| `WARDEN_LINUX_CREDENTIAL_DIR` | `/etc/warden-linux/credentials` | Linux Connector |
+| `WARDEN_LINUX_HELPER_SOCKET` | `/run/warden-linux/helper.sock` | Linux Helper |
+| `WARDEN_NETWORK_CREDENTIAL_DIR` | `/var/lib/warden-network/credentials` | Network Connector |
+| `WARDEN_HOST_STATE_FILE` | 平台默认 | Host Connector |
+| `WARDEN_OPERATOR_NAMESPACE` / `WARDEN_OPERATOR_ID` | `warden-system` / `warden-operator-<namespace>` | Operator |
+| `WARDEN_CONNECTOR_IMAGE` / `WARDEN_IMAGE_PULL_SECRET` | Operator 必填 / 可选 | Operator |
+| `WARDEN_FOREGROUND` | 空；设为 `1` 让本地启动脚本前台运行 | 本地脚本 |
 
 ## 前端 dev 与脚本变量
 
 | 变量 | 默认值 | 说明 |
 |---|---|---|
-| `PAM_WEB_PORT` / `PAM_WEB_HOST` | `4173` / `localhost` | Vite dev server |
-| `PAM_CONTROL_TARGET` | `http://localhost:8080` | Vite `/api` 代理目标 |
-| `PAM_API_ENDPOINT` | 无（必填） | `scripts/pam-agent.sh` 与 `pam-registration.sh` 的 PAM 地址，须以 `/api/v1` 结尾 |
-| `PAM_AGENT_API_KEY` | 可选 | Agent 脚本的 Bearer Key |
-| `PAM_REGISTRATION_API_KEY` | 可选 | 注册脚本的 `pam_rgk_` Key |
-| `PAM_ACTION_VERSION` / `PAM_TRACE_ID` / `PAM_IDEMPOTENCY_KEY` | 按动作默认 / 空 / 空 | Agent 脚本调用参数 |
-| `PAM_PORT` | `8080` | 本地启动脚本控制面端口 |
-| `PAM_CORS_ORIGIN` | `http://localhost:4173` | 本地启动脚本设置的 CORS |
+| `WARDEN_WEB_PORT` / `WARDEN_WEB_HOST` | `4173` / `localhost` | Vite dev server |
+| `WARDEN_CONTROL_TARGET` | `http://localhost:8080` | Vite `/api` 代理目标 |
+| `WARDEN_API_ENDPOINT` | 无（必填） | `scripts/warden-agent.sh` 与 `pam-registration.sh` 的 Warden 地址，须以 `/api/v1` 结尾 |
+| `WARDEN_AGENT_API_KEY` | 可选 | Agent 脚本的 Bearer Key |
+| `WARDEN_REGISTRATION_API_KEY` | 可选 | 注册脚本的 `pam_rgk_` Key |
+| `WARDEN_ACTION_VERSION` / `WARDEN_TRACE_ID` / `WARDEN_IDEMPOTENCY_KEY` | 按动作默认 / 空 / 空 | Agent 脚本调用参数 |
+| `WARDEN_PORT` | `8080` | 本地启动脚本控制面端口 |
+| `WARDEN_CORS_ORIGIN` | `http://localhost:4173` | 本地启动脚本设置的 CORS |
 
 ## 测试变量
 
 | 变量 | 说明 |
 |---|---|
-| `PAM_TEST_DATABASE_URL` | opt-in PostgreSQL 集成测试；未设置时相关测试 `t.Skip` |
-| `PAM_TEST_DATABASE_ENDPOINT` / `_USERNAME` / `_PASSWORD` | Connector 数据库集成测试 |
-| `PAM_LOCAL_FIXTURE_CONNECTOR` / `PAM_KUBERNETES_TEST_KUBECONFIG` / `PAM_TEST_TASK_SIGNING_KEY_FILE` | K8s 变更集成测试 opt-in |
+| `WARDEN_TEST_DATABASE_URL` | opt-in PostgreSQL 集成测试；未设置时相关测试 `t.Skip` |
+| `WARDEN_TEST_DATABASE_ENDPOINT` / `_USERNAME` / `_PASSWORD` | Connector 数据库集成测试 |
+| `WARDEN_LOCAL_FIXTURE_CONNECTOR` / `WARDEN_KUBERNETES_TEST_KUBECONFIG` / `WARDEN_TEST_TASK_SIGNING_KEY_FILE` | K8s 变更集成测试 opt-in |
 
 ## 默认端口速查
 
 | 端口 | 用途 |
 |---|---|
-| `8080` | `pam-control`（`PAM_PORT`）；也是前端 nginx 容器内部端口 |
-| `4173` | Vite dev server（`PAM_WEB_PORT`） |
+| `8080` | `warden-control`（`WARDEN_PORT`）；也是前端 nginx 容器内部端口 |
+| `4173` | Vite dev server（`WARDEN_WEB_PORT`） |
 | `5433` | 本地 compose 映射的 PostgreSQL（容器内 5432） |
 | `8181` | 可选独立 OPA |
 | `8200` | 可选 OpenBao |
@@ -175,18 +175,18 @@ scope 固定 `openid profile email`。接入步骤与踩坑见 [oidc-setup.md](o
 
 | 路径 | 位置 | 说明 |
 |---|---|---|
-| `/api/v1/health` | pam-control | 就绪检查（公开） |
-| `/livez` | pam-control | 存活检查（公开） |
-| `/readyz` | pam-control | 就绪检查（公开） |
+| `/api/v1/health` | warden-control | 就绪检查（公开） |
+| `/livez` | warden-control | 存活检查（公开） |
+| `/readyz` | warden-control | 就绪检查（公开） |
 | `/healthz` | 前端 nginx 容器 | 静态站点存活检查，**后端没有这个路由** |
 
 ## 配置红线
 
-1. 生产 `PAM_COOKIE_SECURE` 必须为 `true`，且全站 HTTPS。
+1. 生产 `WARDEN_COOKIE_SECURE` 必须为 `true`，且全站 HTTPS。
 2. 四个必需 Secret 必须独立随机生成、分别存放，禁止复用。
-3. `PAM_OIDC_DEFAULT_ROLE` 生产保持 `user`；超级管理员只能在页面手工指派。
-4. `PAM_ENABLE_LEGACY_*` 兼容开关默认关闭，迁移完成后不得重新打开。
-5. 反向代理后才启用 `PAM_TRUST_PROXY_HEADERS`，并同时限定 `PAM_TRUSTED_PROXY_CIDRS`。
+3. `WARDEN_OIDC_DEFAULT_ROLE` 生产保持 `user`；超级管理员只能在页面手工指派。
+4. `WARDEN_ENABLE_LEGACY_*` 兼容开关默认关闭，迁移完成后不得重新打开。
+5. 反向代理后才启用 `WARDEN_TRUST_PROXY_HEADERS`，并同时限定 `WARDEN_TRUSTED_PROXY_CIDRS`。
 6. 不要在文档、日志、Issue 或命令历史里放真实 Secret；示例一律用 `<placeholder>`。
 
 ## 下一步

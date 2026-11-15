@@ -96,13 +96,13 @@ func TestDingTalkCoolAppSessionHasSeparateAudience(t *testing.T) {
 }
 
 func TestDingTalkCoolAppRejectsCrossSiteMutation(t *testing.T) {
-	t.Setenv("PAM_CORS_ORIGIN", "https://pam.example.test")
-	request := httptest.NewRequest(http.MethodPost, "https://pam.example.test/api/v1/dingtalk/auth", nil)
+	t.Setenv("WARDEN_CORS_ORIGIN", "https://warden.example.test")
+	request := httptest.NewRequest(http.MethodPost, "https://warden.example.test/api/v1/dingtalk/auth", nil)
 	request.Header.Set("Origin", "https://evil.example.test")
 	if dingTalkRequestOriginValid(request) {
 		t.Fatal("cross-site origin was accepted")
 	}
-	request.Header.Set("Origin", "https://pam.example.test")
+	request.Header.Set("Origin", "https://warden.example.test")
 	if !dingTalkRequestOriginValid(request) {
 		t.Fatal("configured same origin was rejected")
 	}

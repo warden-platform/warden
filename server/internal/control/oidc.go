@@ -12,9 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
-	"gitee.com/pam-platform/pam/server/internal/domain"
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
@@ -34,7 +34,7 @@ type oidcConfig struct {
 // operator explicitly chooses it, tenant-scoped) account. Platform
 // administrators are assigned by an existing administrator in the console.
 
-// oidcState lazily resolves the provider on first use so pam-control startup
+// oidcState lazily resolves the provider on first use so warden-control startup
 // does not depend on the identity provider being reachable.
 type oidcState struct {
 	config   *oidcConfig
@@ -45,26 +45,26 @@ type oidcState struct {
 }
 
 func loadOIDCConfig() (*oidcConfig, error) {
-	issuer := strings.TrimSpace(os.Getenv("PAM_OIDC_ISSUER"))
+	issuer := strings.TrimSpace(os.Getenv("WARDEN_OIDC_ISSUER"))
 	if issuer == "" {
 		return nil, nil
 	}
-	clientID := strings.TrimSpace(os.Getenv("PAM_OIDC_CLIENT_ID"))
-	clientSecret, err := config.Secret("PAM_OIDC_CLIENT_SECRET")
+	clientID := strings.TrimSpace(os.Getenv("WARDEN_OIDC_CLIENT_ID"))
+	clientSecret, err := config.Secret("WARDEN_OIDC_CLIENT_SECRET")
 	if err != nil {
 		return nil, err
 	}
-	redirectURL := strings.TrimSpace(os.Getenv("PAM_OIDC_REDIRECT_URL"))
-	defaultTenantID := strings.TrimSpace(os.Getenv("PAM_OIDC_DEFAULT_TENANT_ID"))
+	redirectURL := strings.TrimSpace(os.Getenv("WARDEN_OIDC_REDIRECT_URL"))
+	defaultTenantID := strings.TrimSpace(os.Getenv("WARDEN_OIDC_DEFAULT_TENANT_ID"))
 	if clientID == "" || clientSecret == "" || redirectURL == "" || defaultTenantID == "" {
-		return nil, errors.New("PAM_OIDC_ISSUER is set, so PAM_OIDC_CLIENT_ID, PAM_OIDC_CLIENT_SECRET, PAM_OIDC_REDIRECT_URL, and PAM_OIDC_DEFAULT_TENANT_ID must all be set")
+		return nil, errors.New("WARDEN_OIDC_ISSUER is set, so WARDEN_OIDC_CLIENT_ID, WARDEN_OIDC_CLIENT_SECRET, WARDEN_OIDC_REDIRECT_URL, and WARDEN_OIDC_DEFAULT_TENANT_ID must all be set")
 	}
-	defaultRole := strings.TrimSpace(os.Getenv("PAM_OIDC_DEFAULT_ROLE"))
+	defaultRole := strings.TrimSpace(os.Getenv("WARDEN_OIDC_DEFAULT_ROLE"))
 	if defaultRole == "" {
 		defaultRole = "user"
 	}
 	if !validOIDCDefaultRole(defaultRole) {
-		return nil, errors.New("PAM_OIDC_DEFAULT_ROLE must be user or tenant_admin; platform_admin must be assigned manually by an administrator")
+		return nil, errors.New("WARDEN_OIDC_DEFAULT_ROLE must be user or tenant_admin; platform_admin must be assigned manually by an administrator")
 	}
 	cfg := &oidcConfig{
 		Issuer:          issuer,
@@ -168,7 +168,7 @@ func (h *Handler) OIDCLoginStart(w http.ResponseWriter, r *http.Request) {
 	challengeSum := sha256.Sum256([]byte(codeVerifier))
 	codeChallenge := base64.RawURLEncoding.EncodeToString(challengeSum[:])
 
-	secure := os.Getenv("PAM_COOKIE_SECURE") != "false"
+	secure := os.Getenv("WARDEN_COOKIE_SECURE") != "false"
 	for name, value := range map[string]string{
 		"oidc_state":    state,
 		"oidc_nonce":    nonce,
@@ -186,7 +186,7 @@ func (h *Handler) OIDCLoginStart(w http.ResponseWriter, r *http.Request) {
 
 // OIDCLoginCallback completes the authorization-code flow: it validates the
 // state, nonce and PKCE verifier, exchanges the code, verifies the id_token,
-// provisions a passwordless PAM user via the existing federated identity
+// provisions a passwordless Warden user via the existing federated identity
 // mechanism, then establishes a normal pam_session cookie and redirects to
 // the console.
 func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
@@ -221,7 +221,7 @@ func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 		_, sessionErr := r.Cookie("pam_session")
 		log.Printf("OIDC state mismatch: cookie_present=%t query_present=%t host=%s referer=%.120s secure_cookie=%t session_cookie=%t expected_origin=%s",
 			state != "", r.URL.Query().Get("state") != "", r.Host, r.Referer(),
-			os.Getenv("PAM_COOKIE_SECURE") != "false", sessionErr == nil,
+			os.Getenv("WARDEN_COOKIE_SECURE") != "false", sessionErr == nil,
 			oidcLoginOrigin(h.oidc.config.RedirectURL))
 		hint := ""
 		if origin := oidcLoginOrigin(h.oidc.config.RedirectURL); origin != "" {
@@ -297,7 +297,7 @@ func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 	issuer := idToken.Issuer
 	subject := idToken.Subject
 	// A missing subject would map every federated user onto the same
-	// (issuer, subject) row, silently sharing one PAM principal. Fail closed
+	// (issuer, subject) row, silently sharing one Warden principal. Fail closed
 	// instead of provisioning a shared identity.
 	if issuer == "" || subject == "" {
 		log.Printf("OIDC id_token missing subject: issuer_present=%t subject_present=%t",
@@ -327,10 +327,10 @@ func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		log.Printf("OIDC identity provisioning failed: issuer=%s tenant=%s err=%v", issuer, tenantID, err)
 		if errors.Is(err, postgres.ErrFederatedIdentityTenant) {
-			jsonError(w, http.StatusForbidden, "OIDC_IDENTITY_TENANT_MISMATCH", "OIDC 用户已绑定其他 PAM Tenant")
+			jsonError(w, http.StatusForbidden, "OIDC_IDENTITY_TENANT_MISMATCH", "OIDC 用户已绑定其他 Warden Tenant")
 			return
 		}
-		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "Provision PAM 用户失败")
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "Provision Warden 用户失败")
 		return
 	}
 	// Carry the tenant into session establishment so the login audit event is
@@ -347,7 +347,7 @@ func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/", http.StatusFound)
 }
 
-// OIDCLogout performs RP-initiated logout: it revokes the PAM session and
+// OIDCLogout performs RP-initiated logout: it revokes the Warden session and
 // forwards the browser to the IdP end_session endpoint when the provider
 // advertises one. Without this step the IdP session stays alive and clicking
 // SSO immediately signs the user back in.
@@ -363,7 +363,7 @@ func (h *Handler) OIDCLogout(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: "", Path: "/", HttpOnly: true,
-		Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
+		Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	clearOIDCCookies(w)
 
 	origin := oidcLoginOrigin(h.oidc.config.RedirectURL)
@@ -393,7 +393,7 @@ func (h *Handler) OIDCLogout(w http.ResponseWriter, r *http.Request) {
 
 func clearOIDCCookies(w http.ResponseWriter) {
 	// Deletion must mirror the attributes used when the cookies were set.
-	secure := os.Getenv("PAM_COOKIE_SECURE") != "false"
+	secure := os.Getenv("WARDEN_COOKIE_SECURE") != "false"
 	for _, name := range []string{"oidc_state", "oidc_nonce", "oidc_verifier"} {
 		http.SetCookie(w, &http.Cookie{Name: name, Value: "", Path: "/", HttpOnly: true,
 			Secure: secure, SameSite: http.SameSiteLaxMode, MaxAge: -1})

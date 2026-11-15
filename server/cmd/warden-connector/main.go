@@ -12,24 +12,24 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"gitee.com/pam-platform/pam/server/internal/connector"
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/connector"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var version = "0.3.2"
 
 func main() {
-	if os.Getenv("PAM_KUBERNETES_ENABLED") != "true" {
-		log.Fatal("PAM_KUBERNETES_ENABLED=true is required; refusing to access Kubernetes implicitly")
+	if os.Getenv("WARDEN_KUBERNETES_ENABLED") != "true" {
+		log.Fatal("WARDEN_KUBERNETES_ENABLED=true is required; refusing to access Kubernetes implicitly")
 	}
-	namespaces := splitRequired("PAM_ALLOWED_NAMESPACES")
-	registries := splitRequired("PAM_ALLOWED_IMAGE_PREFIXES")
-	key := []byte(os.Getenv("PAM_TASK_SIGNING_KEY"))
+	namespaces := splitRequired("WARDEN_ALLOWED_NAMESPACES")
+	registries := splitRequired("WARDEN_ALLOWED_IMAGE_PREFIXES")
+	key := []byte(os.Getenv("WARDEN_TASK_SIGNING_KEY"))
 	if len(key) < 32 {
-		log.Fatal("PAM_TASK_SIGNING_KEY must contain at least 32 bytes")
+		log.Fatal("WARDEN_TASK_SIGNING_KEY must contain at least 32 bytes")
 	}
-	serviceAccount := envOr("PAM_EXECUTION_SERVICE_ACCOUNT", "pam-executor")
-	audience := envOr("PAM_KUBERNETES_TOKEN_AUDIENCE", "https://kubernetes.default.svc")
+	serviceAccount := envOr("WARDEN_EXECUTION_SERVICE_ACCOUNT", "warden-executor")
+	audience := envOr("WARDEN_KUBERNETES_TOKEN_AUDIENCE", "https://kubernetes.default.svc")
 	credentials, err := connector.NewInClusterTokenRequestProvider(serviceAccount, audience)
 	if err != nil {
 		log.Fatal(err)
@@ -44,16 +44,16 @@ func main() {
 	capabilities = append(capabilities, "provider.request@v1")
 	capabilities = append(capabilities, "provider.write@v1")
 	runtime := connector.NewTypedRuntime(
-		envOr("PAM_CONTROL_URL", "http://pam-control:8080"),
-		envOr("PAM_CONNECTOR_NAME", "kubernetes-connector"), envOr("PAM_CONNECTOR_ENVIRONMENT", "testing"),
+		envOr("WARDEN_CONTROL_URL", "http://warden-control:8080"),
+		envOr("WARDEN_CONNECTOR_NAME", "kubernetes-connector"), envOr("WARDEN_CONNECTOR_ENVIRONMENT", "testing"),
 		version, "kubernetes", key, capabilities, runner,
 	)
 	// Integrations (e.g. Jenkins) are pulled from the control plane and
 	// materialized as runners on the shared MultiRunner. Credentials are read
 	// from K8s Secrets in the connector namespace via the bootstrap SA (which
-	// the operator binds to the pam-secret-reader Role), or resolved from the
-	// PAM-managed credential ledger when the reference uses the "pam:" prefix.
-	secretNamespace := envOr("PAM_CONNECTOR_NAMESPACE", "pam-system")
+	// the operator binds to the warden-secret-reader Role), or resolved from the
+	// Warden-managed credential ledger when the reference uses the "pam:" prefix.
+	secretNamespace := envOr("WARDEN_CONNECTOR_NAMESPACE", "warden-system")
 	resolver := func(ctx context.Context, ref, integrationID string) (string, error) {
 		if strings.HasPrefix(ref, "pam:") {
 			return runtime.FetchCredentialValue(ctx, strings.TrimPrefix(ref, "pam:"), integrationID)

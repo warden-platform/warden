@@ -50,7 +50,7 @@ export function DingTalkApprovalsPage() {
   const started = useRef(false)
   const [approvals, setApprovals] = useState<DingTalkCoolAppApproval[]>([])
   const [phase, setPhase] = useState<'loading' | 'ready' | 'error'>('loading')
-  const [message, setMessage] = useState('正在连接 PAM 审批服务…')
+  const [message, setMessage] = useState('正在连接 Warden 审批服务…')
   const [acting, setActing] = useState('')
 
   const loadApprovals = () =>
@@ -123,7 +123,7 @@ export function DingTalkApprovalsPage() {
     <main className="coolapp-shell">
       <header className="coolapp-header">
         <div>
-          <span>PAM · 钉钉酷应用</span>
+          <span>Warden · 钉钉酷应用</span>
           <h1>访问审批</h1>
         </div>
         <button

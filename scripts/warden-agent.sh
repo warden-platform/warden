@@ -1,8 +1,8 @@
 #!/bin/bash
-# PAM Agent 客户端 - 封装 PAM API 调用，供 Multica Agent 使用
+# Warden Agent 客户端 - 封装 Warden API 调用，供 Multica Agent 使用
 #
 # 用法:
-#   pam-agent.sh <action> [args...]
+#   warden-agent.sh <action> [args...]
 #
 # 子命令:
 #   create-execution <action> <resource_id> <params_json> [reason]
@@ -19,23 +19,23 @@
 #   wait-readonly-result <execution_id> [timeout_seconds]
 #
 # 环境变量:
-#   PAM_API_ENDPOINT     PAM API 地址，例如 http://localhost:8080/api/v1 (必需)
-#   PAM_AGENT_API_KEY    API Key，与 pam-control 的 PAM_AGENT_API_KEY 一致
-#   PAM_ACTION_VERSION   显式覆盖 Action 版本；默认按动作选择当前版本
-#   PAM_TRACE_ID         可选会话 trace id（非空时并入 create-execution 请求）
+#   WARDEN_API_ENDPOINT     Warden API 地址，例如 http://localhost:8080/api/v1 (必需)
+#   WARDEN_AGENT_API_KEY    API Key，与 warden-control 的 WARDEN_AGENT_API_KEY 一致
+#   WARDEN_ACTION_VERSION   显式覆盖 Action 版本；默认按动作选择当前版本
+#   WARDEN_TRACE_ID         可选会话 trace id（非空时并入 create-execution 请求）
 #
 # 依赖: curl, jq
 
 set -euo pipefail
 
-if [[ -z "${PAM_API_ENDPOINT:-}" ]]; then
-    echo "错误: 请设置 PAM_API_ENDPOINT 环境变量" >&2
+if [[ -z "${WARDEN_API_ENDPOINT:-}" ]]; then
+    echo "错误: 请设置 WARDEN_API_ENDPOINT 环境变量" >&2
     exit 1
 fi
 
 AUTH_HEADER=()
-if [[ -n "${PAM_AGENT_API_KEY:-}" ]]; then
-    AUTH_HEADER=(-H "Authorization: Bearer ${PAM_AGENT_API_KEY}")
+if [[ -n "${WARDEN_AGENT_API_KEY:-}" ]]; then
+    AUTH_HEADER=(-H "Authorization: Bearer ${WARDEN_AGENT_API_KEY}")
 fi
 
 curl_json() {
@@ -45,11 +45,11 @@ curl_json() {
     if [[ ${#AUTH_HEADER[@]} -gt 0 ]]; then
         curl --fail-with-body -sS -X "${method}" "${AUTH_HEADER[@]}" \
             -H "Content-Type: application/json" \
-            "$@" "${PAM_API_ENDPOINT}${path}"
+            "$@" "${WARDEN_API_ENDPOINT}${path}"
     else
         curl --fail-with-body -sS -X "${method}" \
             -H "Content-Type: application/json" \
-            "$@" "${PAM_API_ENDPOINT}${path}"
+            "$@" "${WARDEN_API_ENDPOINT}${path}"
     fi
 }
 
@@ -100,23 +100,23 @@ create_execution() {
     local mode="$1"
     shift
     if [[ $# -lt 4 ]]; then
-        echo "用法: pam-agent.sh create-execution <action> <resource_id> <params_json> [reason]" >&2
+        echo "用法: warden-agent.sh create-execution <action> <resource_id> <params_json> [reason]" >&2
         exit 1
     fi
     local action="$2"
     if [[ "$mode" == "readonly" ]] && ! is_readonly_action "$action"; then
-        echo "拒绝: PAM ReadOnly 不允许动作 ${action}" >&2
+        echo "拒绝: Warden ReadOnly 不允许动作 ${action}" >&2
         exit 3
     fi
     if [[ "$mode" == "aiops" ]] && ! is_aiops_action "$action"; then
-        echo "拒绝: PAM AIOps 不允许动作 ${action}" >&2
+        echo "拒绝: Warden AIOps 不允许动作 ${action}" >&2
         exit 3
     fi
     local default_action_version=1
     if [[ "$action" == "deployment.update_image" ]]; then
         default_action_version=2
     fi
-    local action_version="${PAM_ACTION_VERSION:-$default_action_version}"
+    local action_version="${WARDEN_ACTION_VERSION:-$default_action_version}"
     local payload
     payload=$(jq -n \
         --arg act "$action" \
@@ -124,13 +124,13 @@ create_execution() {
         --argjson params "$4" \
         --arg reason "${5:-}" \
         --argjson av "$action_version" \
-        --arg traceId "${PAM_TRACE_ID:-}" \
+        --arg traceId "${WARDEN_TRACE_ID:-}" \
         '{action: $act, resourceId: $rid, parameters: $params, reason: $reason, actionVersion: $av} + (if $traceId != "" then {traceId: $traceId} else {} end)')
     # A fresh invocation must observe fresh infrastructure state. Callers that
-    # retry the same HTTP request may explicitly reuse PAM_IDEMPOTENCY_KEY.
-    local nonce="${PAM_IDEMPOTENCY_KEY:-$(date +%s)-$$-${RANDOM:-0}}"
+    # retry the same HTTP request may explicitly reuse WARDEN_IDEMPOTENCY_KEY.
+    local nonce="${WARDEN_IDEMPOTENCY_KEY:-$(date +%s)-$$-${RANDOM:-0}}"
     local idempotency_key
-    idempotency_key="pam-agent-$(printf '%s' "${nonce}:${action}:${3}:${4}:${5:-}" | shasum -a 256 | awk '{print $1}')"
+    idempotency_key="warden-agent-$(printf '%s' "${nonce}:${action}:${3}:${4}:${5:-}" | shasum -a 256 | awk '{print $1}')"
     curl_json POST /executions -H "Idempotency-Key: ${idempotency_key}" -d "$payload"
     echo
 }
@@ -150,7 +150,7 @@ wait_execution() {
         resp=$(curl_json GET "/executions/${exec_id}")
         status=$(printf '%s' "$resp" | jq -r '.status // empty')
         if [[ "$status" != "$last_status" ]]; then
-            echo "PAM execution ${exec_id}: ${status:-UNKNOWN_STATUS}" >&2
+            echo "Warden execution ${exec_id}: ${status:-UNKNOWN_STATUS}" >&2
             last_status="$status"
         fi
         case "$status" in
@@ -161,7 +161,7 @@ wait_execution() {
             WAITING_APPROVAL)
                 if [[ -n "$readonly_only" ]]; then
                     echo "$resp"
-                    echo "拒绝: 只读动作意外进入审批，请检查 PAM 策略，不自动继续" >&2
+                    echo "拒绝: 只读动作意外进入审批，请检查 Warden 策略，不自动继续" >&2
                     exit 3
                 fi
                 ;;
@@ -182,7 +182,7 @@ case "${1:-}" in
         ;;
     get-execution)
         if [[ $# -lt 2 ]]; then
-            echo "用法: pam-agent.sh get-execution <execution_id>" >&2
+            echo "用法: warden-agent.sh get-execution <execution_id>" >&2
             exit 1
         fi
         curl_json GET "/executions/$2"
@@ -215,7 +215,7 @@ case "${1:-}" in
 		;;
 	find-resources)
 		if [[ $# -lt 2 ]]; then
-			echo "用法: pam-agent.sh find-resources <query> [project] [environment] [type]" >&2
+			echo "用法: warden-agent.sh find-resources <query> [project] [environment] [type]" >&2
 			exit 1
 		fi
 		query="$2"
@@ -243,7 +243,7 @@ case "${1:-}" in
 		;;
     diagnose-context)
         if [[ $# -lt 2 ]]; then
-            echo "用法: pam-agent.sh diagnose-context <json>" >&2
+            echo "用法: warden-agent.sh diagnose-context <json>" >&2
             exit 1
         fi
         curl_json POST /diagnostics -d "$2"
@@ -251,7 +251,7 @@ case "${1:-}" in
         ;;
     diagnose-result)
         if [[ $# -lt 2 ]]; then
-            echo "用法: pam-agent.sh diagnose-result <traceId>" >&2
+            echo "用法: warden-agent.sh diagnose-result <traceId>" >&2
             exit 1
         fi
         curl_json GET "/diagnostics/$2"
@@ -259,21 +259,21 @@ case "${1:-}" in
         ;;
     wait-result)
         if [[ $# -lt 2 ]]; then
-            echo "用法: pam-agent.sh wait-result <execution_id> [timeout_seconds]" >&2
+            echo "用法: warden-agent.sh wait-result <execution_id> [timeout_seconds]" >&2
             exit 1
         fi
         wait_execution "" "$2" "${3:-300}"
         ;;
     wait-readonly-result)
         if [[ $# -lt 2 ]]; then
-            echo "用法: pam-agent.sh wait-readonly-result <execution_id> [timeout_seconds]" >&2
+            echo "用法: warden-agent.sh wait-readonly-result <execution_id> [timeout_seconds]" >&2
             exit 1
         fi
         wait_execution "readonly" "$2" "${3:-60}"
         ;;
     *)
         cat <<'USAGE' >&2
-用法: pam-agent.sh <action> [args...]
+用法: warden-agent.sh <action> [args...]
 
 子命令:
   create-execution <action> <resource_id> <params_json> [reason]
@@ -290,10 +290,10 @@ case "${1:-}" in
   wait-readonly-result <execution_id> [timeout_seconds]
 
 环境变量:
-  PAM_API_ENDPOINT     PAM API 地址 (必需)
-  PAM_AGENT_API_KEY    API Key (与 pam-control 配置一致)
-  PAM_ACTION_VERSION   显式覆盖 Action 版本；默认按动作选择当前版本
-  PAM_TRACE_ID         可选会话 trace id（非空时并入 create-execution 请求）
+  WARDEN_API_ENDPOINT     Warden API 地址 (必需)
+  WARDEN_AGENT_API_KEY    API Key (与 warden-control 配置一致)
+  WARDEN_ACTION_VERSION   显式覆盖 Action 版本；默认按动作选择当前版本
+  WARDEN_TRACE_ID         可选会话 trace id（非空时并入 create-execution 请求）
 
 依赖: curl, jq
 USAGE

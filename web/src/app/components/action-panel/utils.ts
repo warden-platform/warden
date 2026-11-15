@@ -160,7 +160,7 @@ function grafanaPrefillParameters(actionName: string, result: Record<string, unk
     const dashboard = stripGrafanaSensitiveFields(asRecord(result.dashboard))
     const meta = asRecord(result.meta)
     const folderUid = String(meta.folderUid ?? resource.metadata?.folderUid ?? '')
-    return { dashboard, ...(folderUid ? { folderUid } : {}), message: '通过 PAM 更新 Grafana Dashboard', overwrite: true }
+    return { dashboard, ...(folderUid ? { folderUid } : {}), message: '通过 Warden 更新 Grafana Dashboard', overwrite: true }
   }
   const datasource = stripGrafanaSensitiveFields(asRecord(result.datasource))
   return {

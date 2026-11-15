@@ -19,13 +19,13 @@
 
 ## 部署边界
 
-HighTower 代理的是特权基础设施操作。生产部署必须满足：
+Warden 代理的是特权基础设施操作。生产部署必须满足：
 
-- 全站 TLS，`PAM_COOKIE_SECURE=true`；
+- 全站 TLS，`WARDEN_COOKIE_SECURE=true`；
 - 每个 Secret 独立随机生成、通过 `*_FILE` 挂载，权限 600，不进镜像层、日志或文档；
 - 云与 Kubernetes 身份遵循最小权限，网络出口受限；
-- 反向代理后才启用 `PAM_TRUST_PROXY_HEADERS`，并收紧 `PAM_TRUSTED_PROXY_CIDRS`；
-- `PAM_OIDC_DEFAULT_ROLE=user`，超级管理员只通过页面手工指派；
+- 反向代理后才启用 `WARDEN_TRUST_PROXY_HEADERS`，并收紧 `WARDEN_TRUSTED_PROXY_CIDRS`；
+- `WARDEN_OIDC_DEFAULT_ROLE=user`，超级管理员只通过页面手工指派；
 - 保留内置 `admin` 密码登录作为 IdP 故障时的 break-glass 通道，但日常不使用；
 - 升级前做数据库备份，保留可回滚的镜像 ID 与前端产物。
 
@@ -45,7 +45,7 @@ HighTower 代理的是特权基础设施操作。生产部署必须满足：
 
 ## 已知风险登记
 
-- 静态 `PAM_ADMIN_API_KEY` 是全局共享、当前无法在线轮换的超管凭据，应严格限制存放范围。
+- 静态 `WARDEN_ADMIN_API_KEY` 是全局共享、当前无法在线轮换的超管凭据，应严格限制存放范围。
 - 内置 `admin` 按固定 ID 判定特权，是刻意保留的应急入口。
 - 租户过滤依赖各仓储 SQL，尚无统一 RLS；开启第二个租户前应做覆盖审计。
 - 更多已知限制见 [docs/roadmap.md](docs/roadmap.md)。

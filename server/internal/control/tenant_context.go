@@ -5,7 +5,7 @@ import (
 	"errors"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var ErrTenantContextMissing = errors.New("tenant context is missing")

@@ -52,7 +52,7 @@ export function IntegrationForm({
             : 'Job'
   const linux = connector.connector_type === 'linux'
   const network = connector.connector_type === 'network'
-  const connectorNamespace = (connector.config.connectorNamespace as string | undefined) ?? 'pam-system'
+  const connectorNamespace = (connector.config.connectorNamespace as string | undefined) ?? 'warden-system'
   const [name, setName] = useState(existing?.name ?? '')
   const [nameTouched, setNameTouched] = useState(!!existing?.name)
   const [endpoint, setEndpoint] = useState(existing?.endpoint ?? '')
@@ -85,19 +85,19 @@ export function IntegrationForm({
   const ref = credentialRef.trim() || '<credential-ref>'
   const credentialCommand = isHuawei
     ? linux
-      ? `printf '%s' '<AccessKey>:<SecretKey>' | sudo install -o root -g pam-linux -m 0640 \\\n  /dev/stdin /etc/pam-linux/credentials/${ref}`
+      ? `printf '%s' '<AccessKey>:<SecretKey>' | sudo install -o root -g warden-linux -m 0640 \\\n  /dev/stdin /etc/warden-linux/credentials/${ref}`
       : network
-        ? `printf '%s' '<AccessKey>:<SecretKey>' | sudo install -o root -g pam-network -m 0640 \\\n  /dev/stdin /var/lib/pam-network/credentials/${ref}`
+        ? `printf '%s' '<AccessKey>:<SecretKey>' | sudo install -o root -g warden-network -m 0640 \\\n  /dev/stdin /var/lib/warden-network/credentials/${ref}`
         : `kubectl create secret generic ${ref} -n ${connectorNamespace} \\\n  --from-literal=token='<AccessKey>:<SecretKey>'`
     : linux
-      ? `printf '%s' '<你的 ${tokenLabel}>' | sudo install -o root -g pam-linux -m 0640 \\\n  /dev/stdin /etc/pam-linux/credentials/${ref}`
+      ? `printf '%s' '<你的 ${tokenLabel}>' | sudo install -o root -g warden-linux -m 0640 \\\n  /dev/stdin /etc/warden-linux/credentials/${ref}`
       : network
-        ? `printf '%s' '<你的 ${tokenLabel}>' | sudo install -o root -g pam-network -m 0640 \\\n  /dev/stdin /var/lib/pam-network/credentials/${ref}`
+        ? `printf '%s' '<你的 ${tokenLabel}>' | sudo install -o root -g warden-network -m 0640 \\\n  /dev/stdin /var/lib/warden-network/credentials/${ref}`
         : `kubectl create secret generic ${ref} -n ${connectorNamespace} \\\n  --from-literal=token='<你的 ${tokenLabel}>'`
   const credentialLocation = linux
-    ? `/etc/pam-linux/credentials/${ref}`
+    ? `/etc/warden-linux/credentials/${ref}`
     : network
-      ? `/var/lib/pam-network/credentials/${ref}`
+      ? `/var/lib/warden-network/credentials/${ref}`
       : `Secret ${ref} / key: token (Namespace: ${connectorNamespace})`
   const interfaceChangesSupported = ['switch', 'core', 'aggregation', 'poe'].includes(deviceRole)
   const protectedInterfaceList = [
@@ -232,7 +232,7 @@ export function IntegrationForm({
         <input value={endpoint} onChange={(e) => onEndpointChange(e.target.value)} placeholder={endpointPlaceholder} />
         {isAliyunSLS && (
           <small>
-            用于首次探测；选择“全部可访问 Region”后，PAM 会并发发现该 RAM 账号在其他区域有权访问的 Project。公网 Endpoint 将自动生成。
+            用于首次探测；选择“全部可访问 Region”后，Warden 会并发发现该 RAM 账号在其他区域有权访问的 Project。公网 Endpoint 将自动生成。
           </small>
         )}
       </label>
@@ -250,7 +250,7 @@ export function IntegrationForm({
           <input
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            placeholder={isDatabase ? 'pam_reader' : isHuawei || isAliyunSLS ? 'pam-readonly' : 'pam-connector'}
+            placeholder={isDatabase ? 'warden_reader' : isHuawei || isAliyunSLS ? 'warden-readonly' : 'warden-connector'}
           />
           {(isHuaweiCloud || isAliyunSLS) && <small>仅用于标识这对 AK/SK 属于哪个云账号用户，不参与认证，也不会展示 AK/SK。</small>}
         </label>
@@ -344,7 +344,7 @@ export function IntegrationForm({
       <div className="credential-guide">
         <div className="credential-guide-head">
           <KeyRound size={16} />
-          <span>{tokenLabel} 不经过 PAM。请先在目标侧放置凭据，再保存 Integration：</span>
+          <span>{tokenLabel} 不经过 Warden。请先在目标侧放置凭据，再保存 Integration：</span>
         </div>
         {isHuaweiCloud && (
           <div className="credential-guide-deeplink">
@@ -377,7 +377,7 @@ export function IntegrationForm({
         )}
         {isAliyunSLS && (
           <small className="credential-guide-hint">
-            建议使用只读 RAM 用户；PAM 只展示该身份通过 ListProject/ListLogStores 实际有权访问的 Project 和 Logstore。
+            建议使用只读 RAM 用户；Warden 只展示该身份通过 ListProject/ListLogStores 实际有权访问的 Project 和 Logstore。
           </small>
         )}
         {isH3C && (

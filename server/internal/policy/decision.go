@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/open-policy-agent/opa/rego"
 )
 
@@ -60,7 +60,7 @@ type Output struct {
 }
 
 func NewProvider() (Provider, error) {
-	if os.Getenv("PAM_DECISION_MODE") == "remote" {
+	if os.Getenv("WARDEN_DECISION_MODE") == "remote" {
 		return NewRemoteProvider()
 	}
 	return NewEmbeddedProvider(embeddedPolicy)

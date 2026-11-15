@@ -14,7 +14,7 @@ import (
 )
 
 func artifactRoot() string {
-	if value := os.Getenv("PAM_ARTIFACT_ROOT"); value != "" {
+	if value := os.Getenv("WARDEN_ARTIFACT_ROOT"); value != "" {
 		return value
 	}
 	return "."
@@ -37,11 +37,11 @@ func (h *Handler) DownloadNetworkInstaller(w http.ResponseWriter, r *http.Reques
 }
 
 func (h *Handler) DownloadLinuxConnector(w http.ResponseWriter, r *http.Request) {
-	downloadLinuxBinary(w, r, "pam-linux-connector")
+	downloadLinuxBinary(w, r, "warden-linux-connector")
 }
 
 func (h *Handler) DownloadLinuxHelper(w http.ResponseWriter, r *http.Request) {
-	downloadLinuxBinary(w, r, "pam-linux-helper")
+	downloadLinuxBinary(w, r, "warden-linux-helper")
 }
 
 func (h *Handler) DownloadHostConnector(w http.ResponseWriter, r *http.Request) {
@@ -50,7 +50,7 @@ func (h *Handler) DownloadHostConnector(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, http.StatusNotFound, "ARTIFACT_NOT_FOUND", "不支持的主机平台或架构")
 		return
 	}
-	name := "pam-host-connector-" + platform + "-" + arch
+	name := "warden-host-connector-" + platform + "-" + arch
 	if platform == "windows" {
 		name += ".exe"
 	}
@@ -59,7 +59,7 @@ func (h *Handler) DownloadHostConnector(w http.ResponseWriter, r *http.Request) 
 }
 
 func (h *Handler) DownloadNetworkConnector(w http.ResponseWriter, r *http.Request) {
-	downloadLinuxBinary(w, r, "pam-network-connector")
+	downloadLinuxBinary(w, r, "warden-network-connector")
 }
 
 func (h *Handler) DownloadOperatorChart(w http.ResponseWriter, _ *http.Request) {
@@ -74,7 +74,7 @@ func (h *Handler) DownloadOperatorChart(w http.ResponseWriter, _ *http.Request) 
 		return
 	}
 	w.Header().Set("Content-Type", "application/gzip")
-	w.Header().Set("Content-Disposition", "attachment; filename=pam-operator-chart.tgz")
+	w.Header().Set("Content-Disposition", "attachment; filename=warden-operator-chart.tgz")
 	w.WriteHeader(http.StatusOK)
 	_, _ = w.Write(payload)
 }
@@ -85,17 +85,17 @@ func (h *Handler) DownloadChecksums(w http.ResponseWriter, _ *http.Request) {
 		"install-linux.sh":                  filepath.Join(root, "deploy", "linux", "install.sh"),
 		"install-network.sh":                filepath.Join(root, "deploy", "network", "install.sh"),
 		"uninstall-linux.sh":                filepath.Join(root, "deploy", "linux", "uninstall.sh"),
-		"pam-linux-connector-linux-amd64":   filepath.Join(root, "server", "bin", "linux-amd64", "pam-linux-connector"),
-		"pam-linux-helper-linux-amd64":      filepath.Join(root, "server", "bin", "linux-amd64", "pam-linux-helper"),
-		"pam-linux-connector-linux-arm64":   filepath.Join(root, "server", "bin", "linux-arm64", "pam-linux-connector"),
-		"pam-linux-helper-linux-arm64":      filepath.Join(root, "server", "bin", "linux-arm64", "pam-linux-helper"),
-		"pam-network-connector-linux-amd64": filepath.Join(root, "server", "bin", "linux-amd64", "pam-network-connector"),
-		"pam-network-connector-linux-arm64": filepath.Join(root, "server", "bin", "linux-arm64", "pam-network-connector"),
+		"warden-linux-connector-linux-amd64":   filepath.Join(root, "server", "bin", "linux-amd64", "warden-linux-connector"),
+		"warden-linux-helper-linux-amd64":      filepath.Join(root, "server", "bin", "linux-amd64", "warden-linux-helper"),
+		"warden-linux-connector-linux-arm64":   filepath.Join(root, "server", "bin", "linux-arm64", "warden-linux-connector"),
+		"warden-linux-helper-linux-arm64":      filepath.Join(root, "server", "bin", "linux-arm64", "warden-linux-helper"),
+		"warden-network-connector-linux-amd64": filepath.Join(root, "server", "bin", "linux-amd64", "warden-network-connector"),
+		"warden-network-connector-linux-arm64": filepath.Join(root, "server", "bin", "linux-arm64", "warden-network-connector"),
 	}
 	hostFiles := map[string]string{
-		"pam-host-connector-windows-amd64.exe": filepath.Join(root, "server", "bin", "windows-amd64", "pam-host-connector-windows-amd64.exe"),
-		"pam-host-connector-macos-amd64":       filepath.Join(root, "server", "bin", "macos-amd64", "pam-host-connector-macos-amd64"),
-		"pam-host-connector-macos-arm64":       filepath.Join(root, "server", "bin", "macos-arm64", "pam-host-connector-macos-arm64"),
+		"warden-host-connector-windows-amd64.exe": filepath.Join(root, "server", "bin", "windows-amd64", "warden-host-connector-windows-amd64.exe"),
+		"warden-host-connector-macos-amd64":       filepath.Join(root, "server", "bin", "macos-amd64", "warden-host-connector-macos-amd64"),
+		"warden-host-connector-macos-arm64":       filepath.Join(root, "server", "bin", "macos-arm64", "warden-host-connector-macos-arm64"),
 	}
 	for name, path := range hostFiles {
 		if _, err := os.Stat(path); err == nil {

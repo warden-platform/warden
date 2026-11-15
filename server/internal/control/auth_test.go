@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -113,7 +113,7 @@ func TestParseJWTRejectsTampered(t *testing.T) {
 
 func TestParseJWTRejectsTokenSignedWithTaskKey(t *testing.T) {
 	h := newTestHandler()
-	claims := pamClaims{Name: "admin", Scope: []string{"pam:admin"}, RegisteredClaims: jwt.RegisteredClaims{
+	claims := wardenClaims{Name: "admin", Scope: []string{"pam:admin"}, RegisteredClaims: jwt.RegisteredClaims{
 		Subject: adminPrincipalID, Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience},
 		IssuedAt: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}}
@@ -128,7 +128,7 @@ func TestParseJWTRejectsTokenSignedWithTaskKey(t *testing.T) {
 
 func TestParseJWTRejectsMissingScope(t *testing.T) {
 	h := newTestHandler()
-	claims := pamClaims{Name: "admin", RegisteredClaims: jwt.RegisteredClaims{
+	claims := wardenClaims{Name: "admin", RegisteredClaims: jwt.RegisteredClaims{
 		Subject: adminPrincipalID, Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience},
 		IssuedAt: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}}
@@ -143,7 +143,7 @@ func TestParseJWTRejectsMissingScope(t *testing.T) {
 
 func TestParseJWTRejectsExpired(t *testing.T) {
 	h := newTestHandler()
-	claims := pamClaims{
+	claims := wardenClaims{
 		Name:  "admin",
 		Scope: []string{"pam:admin"},
 		RegisteredClaims: jwt.RegisteredClaims{
@@ -218,7 +218,7 @@ func TestEnsureAdminPasswordSeedsWhenEmpty(t *testing.T) {
 	store := newFakePrincipalStore()
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: ""}
 	h := &Handler{principals: store}
-	t.Setenv("PAM_ADMIN_PASSWORD", "supersecret1")
+	t.Setenv("WARDEN_ADMIN_PASSWORD", "supersecret1")
 	if err := h.EnsureAdminPassword(context.Background()); err != nil {
 		t.Fatalf("EnsureAdminPassword: %v", err)
 	}
@@ -236,7 +236,7 @@ func TestEnsureAdminPasswordRotatesWhenConfiguredSecretChanges(t *testing.T) {
 	store := newFakePrincipalStore()
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: existing}
 	h := &Handler{principals: store}
-	t.Setenv("PAM_ADMIN_PASSWORD", "new-password")
+	t.Setenv("WARDEN_ADMIN_PASSWORD", "new-password")
 	if err := h.EnsureAdminPassword(context.Background()); err != nil {
 		t.Fatalf("EnsureAdminPassword: %v", err)
 	}
@@ -254,7 +254,7 @@ func TestEnsureAdminPasswordDoesNotRewriteMatchingHash(t *testing.T) {
 	store := newFakePrincipalStore()
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: existing}
 	h := &Handler{principals: store}
-	t.Setenv("PAM_ADMIN_PASSWORD", "same-password")
+	t.Setenv("WARDEN_ADMIN_PASSWORD", "same-password")
 	if err := h.EnsureAdminPassword(context.Background()); err != nil {
 		t.Fatalf("EnsureAdminPassword: %v", err)
 	}
@@ -267,7 +267,7 @@ func TestEnsureAdminPasswordSkipsWhenEnvUnset(t *testing.T) {
 	store := newFakePrincipalStore()
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: ""}
 	h := &Handler{principals: store}
-	t.Setenv("PAM_ADMIN_PASSWORD", "")
+	t.Setenv("WARDEN_ADMIN_PASSWORD", "")
 	if err := h.EnsureAdminPassword(context.Background()); err != nil {
 		t.Fatalf("EnsureAdminPassword: %v", err)
 	}
@@ -451,8 +451,8 @@ func TestIdentityAuthMiddlewareRejectsMissingBearer(t *testing.T) {
 }
 
 func TestRequestClientAddressTrustsOnlyConfiguredProxy(t *testing.T) {
-	t.Setenv("PAM_TRUST_PROXY_HEADERS", "true")
-	t.Setenv("PAM_TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
+	t.Setenv("WARDEN_TRUST_PROXY_HEADERS", "true")
+	t.Setenv("WARDEN_TRUSTED_PROXY_CIDRS", "10.0.0.0/8")
 	trusted := httptest.NewRequest(http.MethodGet, "/", nil)
 	trusted.RemoteAddr = "10.2.3.4:1234"
 	trusted.Header.Set("X-Forwarded-For", "203.0.113.8, 10.2.3.4")

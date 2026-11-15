@@ -3,7 +3,7 @@ package control
 import (
 	"testing"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestValidateActionParameters(t *testing.T) {
@@ -48,7 +48,7 @@ func TestValidateResourceParametersOnlyChecksDeclaredIdentityFields(t *testing.T
 }
 
 func TestValidateJenkinsResourceParametersLocksJobIdentity(t *testing.T) {
-	resource := &domain.Resource{ResourceType: "jenkins_job", Name: "example-prod/pam-release"}
+	resource := &domain.Resource{ResourceType: "jenkins_job", Name: "example-prod/warden-release"}
 	if err := validateJenkinsResourceParameters("jenkins.job.configure", map[string]any{"name": resource.Name, "description": "safe"}, resource); err != nil {
 		t.Fatalf("matching Jenkins target rejected: %v", err)
 	}
@@ -61,14 +61,14 @@ func TestValidateJenkinsResourceParametersLocksJobIdentity(t *testing.T) {
 			t.Fatalf("cross-resource Jenkins target accepted: %#v", parameters)
 		}
 	}
-	if err := validateJenkinsResourceParameters("jenkins.job.delete", map[string]any{"confirmJobName": "pam-release"}, resource); err == nil {
+	if err := validateJenkinsResourceParameters("jenkins.job.delete", map[string]any{"confirmJobName": "warden-release"}, resource); err == nil {
 		t.Fatal("partial Jenkins delete confirmation was accepted")
 	}
 	if err := validateJenkinsResourceParameters("jenkins.job.delete", map[string]any{"confirmJobName": resource.Name}, resource); err != nil {
 		t.Fatalf("exact Jenkins delete confirmation rejected: %v", err)
 	}
 	controller := &domain.Resource{ResourceType: "jenkins_controller", Name: "jenkins.example.com"}
-	if err := validateJenkinsResourceParameters("jenkins.job.create", map[string]any{"name": "pam-e2e-7213-job"}, controller); err != nil {
+	if err := validateJenkinsResourceParameters("jenkins.job.create", map[string]any{"name": "warden-e2e-7213-job"}, controller); err != nil {
 		t.Fatalf("controller-bound create rejected: %v", err)
 	}
 }

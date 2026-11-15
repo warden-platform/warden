@@ -7,17 +7,17 @@ import (
 	"regexp"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var externalContextIDPattern = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9._:/@+\-]{0,254}$`)
 var externalContextSourcePattern = regexp.MustCompile(`^[a-z][a-z0-9._-]{0,63}$`)
 
 // normalizeExternalExecutionContext validates the fixed external attribution
-// envelope and converts it to the JSON representation stored by PAM. Unknown
+// envelope and converts it to the JSON representation stored by Warden. Unknown
 // fields cannot enter this representation because only the allow-listed domain
 // fields are copied. The envelope is deliberately not used as an authorization
-// input; it records how an authenticated caller reached PAM.
+// input; it records how an authenticated caller reached Warden.
 func normalizeExternalExecutionContext(input *domain.ExternalExecutionContext) (map[string]any, error) {
 	if input == nil {
 		return nil, nil
@@ -85,7 +85,7 @@ func attachExternalContextAudit(event *domain.AuditEvent, context map[string]any
 	event.Metadata["external_context"] = context
 }
 
-// attachDelegationAudit records the immutable PAM-side attribution for work
+// attachDelegationAudit records the immutable Warden-side attribution for work
 // performed through an external agent delegation. These identifiers are
 // metadata rather than credential_id/target_id so existing audit foreign keys
 // retain their meaning and the event remains queryable after token revocation.

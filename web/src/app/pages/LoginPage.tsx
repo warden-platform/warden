@@ -53,7 +53,7 @@ export function LoginPage() {
         <div className="login-brand">
           <ShieldCheck size={32} />
           <div>
-            <h1>HighTower</h1>
+            <h1>Warden</h1>
             <p>使用管理员账户登录</p>
           </div>
         </div>

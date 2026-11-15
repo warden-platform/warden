@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 // CreateNetworkConnector provisions the Connector identity before the

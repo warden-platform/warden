@@ -69,13 +69,13 @@ export function connectorTypeLabel(type: string): string {
 export function connectorChannelPrefix(type: string): string {
   switch (type.toLowerCase()) {
     case 'network':
-      return 'pam-network-connector'
+      return 'warden-network-connector'
     case 'linux':
-      return 'pam-linux-connector'
+      return 'warden-linux-connector'
     case 'kubernetes':
-      return 'pam-connector'
+      return 'warden-connector'
     default:
-      return 'pam-connector'
+      return 'warden-connector'
   }
 }
 

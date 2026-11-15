@@ -1,4 +1,4 @@
--- Purpose-bound credentials for automation that registers PAM resources.
+-- Purpose-bound credentials for automation that registers Warden resources.
 -- Registration credentials are distinct from execution Agent keys, carry an
 -- explicit API audience, and never receive the global pam:admin wildcard.
 ALTER TABLE principal_api_keys

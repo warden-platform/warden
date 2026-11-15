@@ -1,6 +1,6 @@
 # 术语表
 
-> **面向**：所有人。用于快速查一个词在 HighTower PAM 里**确切**指什么。
+> **面向**：所有人。用于快速查一个词在 Warden Warden 里**确切**指什么。
 > 本页是参考，只给定义与出处；背景与设计理由见 [concepts.md](concepts.md)、[architecture.md](architecture.md)。
 
 ## 身份与权限
@@ -20,12 +20,12 @@
 | **Capability / capabilities** | `/auth/me` 下发的能力清单，由 scopes 规范化而来；`pam:admin` 展开为全量。前端菜单与路由只按它判断 |
 | **RequirePlatformTenant** | 平台级接口的租户守卫：身份不属于 `platform` 时返回 403 `PLATFORM_TENANT_REQUIRED` |
 | **Agent API Key** | 每个 Agent Principal 独立的 `pam_agk_` 凭据，数据库只存 SHA-256，明文仅创建/轮换时返回一次 |
-| **Registration Key** | `pam_rgk_` 前缀的资源注册机器人专用 Key，绑定 PAM API audience，Scope 受限 |
-| **Admin API Key** | `PAM_ADMIN_API_KEY`（兼容旧 `PAM_AGENT_API_KEY`），静态引导用超管凭据，仅用于平台初始化与应急 |
+| **Registration Key** | `pam_rgk_` 前缀的资源注册机器人专用 Key，绑定 Warden API audience，Scope 受限 |
+| **Admin API Key** | `WARDEN_ADMIN_API_KEY`（兼容旧 `WARDEN_AGENT_API_KEY`），静态引导用超管凭据，仅用于平台初始化与应急 |
 | **Delegation Token** | `pam_dtk_` 短期委托令牌，绑定外部上下文、acting project 与归因主体 |
-| **OIDC / SSO** | 企业 IdP 单点登录。PAM 作为 RP，授权码 + PKCE S256 |
-| **FederatedIdentity** | `(issuer, subject)` → PAM Principal 的映射记录，含展示名、邮箱、头像 |
-| **Assertion 登录** | 外部后端用非对称私钥签短期 JWT，PAM 用公钥验签后换取短期 Bearer Token |
+| **OIDC / SSO** | 企业 IdP 单点登录。Warden 作为 RP，授权码 + PKCE S256 |
+| **FederatedIdentity** | `(issuer, subject)` → Warden Principal 的映射记录，含展示名、邮箱、头像 |
+| **Assertion 登录** | 外部后端用非对称私钥签短期 JWT，Warden 用公钥验签后换取短期 Bearer Token |
 | **JIT 建档** | 首次 SSO 登录时自动创建本地账号（默认 `user`），权限后续由管理员指派 |
 
 ## 资源与动作
@@ -39,8 +39,8 @@
 | **Connector** | 部署在目标环境、主动出站轮询控制面的执行代理 |
 | **Integration** | 挂在 Connector 上的一等公民连接配置（Jenkins / Grafana / DB / 云厂商 / SLS） |
 | **Runner** | Connector 内部执行某类目标动作的适配器 |
-| **Operator** | `pam-operator`，负责 K8s 集群配对与 Connector 生命周期调谐 |
-| **Helper** | `pam-linux-helper`，root 权限的固定动作代理，通过 Unix Socket 提供 Docker/systemd 动作 |
+| **Operator** | `warden-operator`，负责 K8s 集群配对与 Connector 生命周期调谐 |
+| **Helper** | `warden-linux-helper`，root 权限的固定动作代理，通过 Unix Socket 提供 Docker/systemd 动作 |
 | **Pairing / 配对** | Connector 与控制面建立信任的流程；配对码与 bootstrap token 只存 SHA-256，10 分钟有效 |
 | **Task Key** | 每个 Connector 独立的 32 字节任务签名密钥，控制面 AES-GCM 加密存储 |
 | **Credential / 凭据** | 目标系统凭据。明文不入库、不返回 Agent、不写普通日志 |
@@ -53,7 +53,7 @@
 |---|---|
 | **PolicyDecision** | 一次请求不可变的策略结论：`ALLOW` / `DENY` / `REQUIRE_APPROVAL` |
 | **Embedded Rego** | 默认内嵌的 OPA 策略，显式动作白名单、默认 DENY |
-| **Remote OPA** | `PAM_DECISION_MODE=remote` 时使用的独立策略服务，强制 HTTPS（回环可 HTTP） |
+| **Remote OPA** | `WARDEN_DECISION_MODE=remote` 时使用的独立策略服务，强制 HTTPS（回环可 HTTP） |
 | **Policy Matrix / 策略矩阵** | 管理端可视化规则层，可收紧策略但不能覆盖 Rego 的 DENY |
 | **ApprovalRule** | 按风险等级 + 环境 + 优先级决定是否需审批的规则 |
 | **AccessRequest** | 人工审批单，状态 `PENDING / APPROVED / REJECTED / EXPIRED / CANCELLED` |
@@ -71,17 +71,17 @@
 
 | 术语 | 含义 |
 |---|---|
-| **pam-control** | 控制面主进程，REST API，默认 `:8080` |
+| **warden-control** | 控制面主进程，REST API，默认 `:8080` |
 | **`*_FILE` Secret** | 文件型 Secret 约定：同名明文变量与 `_FILE` 不可同时设置，文件内容 trim 后非空 |
 | **Migration / 迁移** | `server/migrations/*.sql` 按编号顺序执行的 SQL；启动不自动执行 |
 | **Release migration manifest** | `deploy/release/migrations.txt`，发布流水线重放的幂等迁移清单（编号 ≥ 035 必须登记） |
-| **`PAM_COOKIE_SECURE`** | 会话 Cookie 的 Secure 标记，默认 `true`；仅本地 HTTP 开发可设 `false` |
-| **`PAM_PUBLIC_CONTROL_URL`** | 对外可访问控制面地址，用于安装命令、audience 推导与审批链接 |
+| **`WARDEN_COOKIE_SECURE`** | 会话 Cookie 的 Secure 标记，默认 `true`；仅本地 HTTP 开发可设 `false` |
+| **`WARDEN_PUBLIC_CONTROL_URL`** | 对外可访问控制面地址，用于安装命令、audience 推导与审批链接 |
 | **`/livez` `/readyz`** | 控制面存活 / 就绪探针；`/api/v1/health` 为兼容端点。前端 nginx 另有 `/healthz` |
 | **Admin Web** | React/Vite 管理端，开发默认 `:4173`，容器 nginx 暴露 `:8080` |
-| **RP** | OIDC 里的 Relying Party，此处指 PAM 控制面 |
+| **RP** | OIDC 里的 Relying Party，此处指 Warden 控制面 |
 | **IdP** | Identity Provider；本地联调常用 `unauth`，上游可接飞书等企业身份源 |
-| **PKCE S256** | 授权码流防截获机制，PAM 强制要求，缺失 verifier 时拒绝降级 |
+| **PKCE S256** | 授权码流防截获机制，Warden 强制要求，缺失 verifier 时拒绝降级 |
 
 ## 索引
 

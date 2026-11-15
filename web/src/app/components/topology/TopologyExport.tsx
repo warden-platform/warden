@@ -28,7 +28,7 @@ export function TopologyExport({ text }: { text: string }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `pam-topology-${new Date().toISOString().slice(0, 10)}.txt`
+    a.download = `warden-topology-${new Date().toISOString().slice(0, 10)}.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)

@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestConnectorRegistrationPreservesPairedTenant(t *testing.T) {
@@ -114,11 +114,11 @@ func TestConnectorRegistrationDisambiguatesSameNameAcrossTenantsBySignature(t *t
 }
 
 func TestLegacyConnectorKeyDisabledByDefault(t *testing.T) {
-	t.Setenv("PAM_ENABLE_LEGACY_CONNECTOR_KEY", "")
+	t.Setenv("WARDEN_ENABLE_LEGACY_CONNECTOR_KEY", "")
 	if legacyConnectorKeyEnabled() {
 		t.Fatal("legacy connector key must be disabled by default")
 	}
-	t.Setenv("PAM_ENABLE_LEGACY_CONNECTOR_KEY", "true")
+	t.Setenv("WARDEN_ENABLE_LEGACY_CONNECTOR_KEY", "true")
 	if !legacyConnectorKeyEnabled() {
 		t.Fatal("explicit legacy compatibility flag was ignored")
 	}

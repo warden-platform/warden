@@ -47,7 +47,7 @@ export function parameterLabel(key: string, actionName = ''): string {
         deleteVolumes: '同时删除数据盘',
         offline: '临时离线',
         message: '变更说明',
-        projectId: 'PAM 项目',
+        projectId: 'Warden 项目',
         region: 'Region',
         name: '资源名称',
         title: 'Folder 名称',

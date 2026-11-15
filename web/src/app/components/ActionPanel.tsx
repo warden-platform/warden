@@ -81,7 +81,7 @@ export function ActionPanel({
   const [actingProjectId, setActingProjectId] = useState(initialActingProjectId ?? '')
   const [taskId] = useState(() => `ui-${Date.now().toString(36)}`)
   const [parameters, setParameters] = useState<Record<string, unknown>>({})
-  const [reason, setReason] = useState('通过 PAM 管理界面发起')
+  const [reason, setReason] = useState('通过 Warden 管理界面发起')
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -344,7 +344,7 @@ export function ActionPanel({
         next.manifest = {
           apiVersion: selectedKind.apiVersion,
           kind: selectedKind.kind,
-          metadata: { name: 'pam-e2e-7213-resource', namespace: resource.name },
+          metadata: { name: 'warden-e2e-7213-resource', namespace: resource.name },
         }
       }
     }
@@ -714,7 +714,7 @@ export function ActionPanel({
                   <div className="onboarding-hint">
                     <ShieldCheck size={17} />
                     <span>
-                      该动作由 <strong>PAM 控制面</strong>执行，不经过 Connector，不依赖心跳。
+                      该动作由 <strong>Warden 控制面</strong>执行，不经过 Connector，不依赖心跳。
                     </span>
                   </div>
                   <label>
@@ -953,7 +953,7 @@ export function ActionPanel({
               <KeyRound size={17} />
               <span>
                 {controlPlaneAction
-                  ? '凭据密文仅由 PAM 控制面处理，不会返回 Agent。'
+                  ? '凭据密文仅由 Warden 控制面处理，不会返回 Agent。'
                   : '执行凭据仅在 Connector 内存中使用，不会返回 Agent。'}
               </span>
             </div>

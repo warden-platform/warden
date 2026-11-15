@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -1583,7 +1583,7 @@ func (r *ExecutionRepo) FinalizeWithLease(ctx context.Context, id, dispatchToken
 	if provider != "" {
 		if _, err := tx.Exec(ctx, `INSERT INTO credential_leases
 			(execution_id, provider, role_name, fingerprint, status, issued_at, expires_at)
-			VALUES ($1,$2,$3,$4,'ACTIVE',now(),$5)`, id, provider, "pam-executor", fingerprint, leaseExpiresAt); err != nil {
+			VALUES ($1,$2,$3,$4,'ACTIVE',now(),$5)`, id, provider, "warden-executor", fingerprint, leaseExpiresAt); err != nil {
 			return false, err
 		}
 	}
@@ -1611,7 +1611,7 @@ func (r *ExecutionRepo) UpdateResult(ctx context.Context, id string, result map[
 
 // PurgeTransientLogResults removes raw cloud-log and database-row payloads
 // after the Agent had enough time to collect them. Execution parameters,
-// status, identity, query target and audit records remain, so PAM retains
+// status, identity, query target and audit records remain, so Warden retains
 // accountability without becoming a secondary log or business-data archive.
 func (r *ExecutionRepo) PurgeTransientLogResults(ctx context.Context, olderThan time.Duration) (int64, error) {
 	command, err := r.pool.Exec(ctx, `UPDATE executions e

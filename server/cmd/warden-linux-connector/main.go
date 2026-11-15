@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/connector"
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/connector"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var version = "0.2.9"
@@ -36,8 +36,8 @@ type state struct {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	controlURL := strings.TrimRight(envOr("PAM_CONTROL_URL", "http://127.0.0.1:8080"), "/")
-	statePath := envOr("PAM_LINUX_STATE_FILE", "/var/lib/pam-linux/state.json")
+	controlURL := strings.TrimRight(envOr("WARDEN_CONTROL_URL", "http://127.0.0.1:8080"), "/")
+	statePath := envOr("WARDEN_LINUX_STATE_FILE", "/var/lib/warden-linux/state.json")
 	current, err := loadState(statePath)
 	if os.IsNotExist(err) {
 		current, err = pair(ctx, controlURL, statePath)
@@ -112,7 +112,7 @@ func monitorPairing(ctx context.Context, cancel context.CancelFunc, controlURL, 
 				current.BootstrapToken, nil, nil); err != nil {
 				continue
 			}
-			log.Printf("PAM Linux connector credentials removed; run sudo pam-linux-uninstall")
+			log.Printf("Warden Linux connector credentials removed; run sudo warden-linux-uninstall")
 			cancel()
 			return
 		}
@@ -154,8 +154,8 @@ func pair(ctx context.Context, controlURL, statePath string) (*state, error) {
 	if err := request(ctx, http.MethodPost, controlURL+"/api/v1/linux/pairings", "", payload, &created); err != nil {
 		return nil, err
 	}
-	log.Printf("PAM Linux pairing code: %s", created.Code)
-	log.Printf("Open PAM and choose Linux host onboarding; this code expires in 10 minutes")
+	log.Printf("Warden Linux pairing code: %s", created.Code)
+	log.Printf("Open Warden and choose Linux host onboarding; this code expires in 10 minutes")
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -198,7 +198,7 @@ func pair(ctx context.Context, controlURL, statePath string) (*state, error) {
 // from a file under the Linux credential directory, named by each integration's
 // credential_ref.
 func readCredentialFile() connector.CredentialResolver {
-	credentialDir := envOr("PAM_LINUX_CREDENTIAL_DIR", "/etc/pam-linux/credentials")
+	credentialDir := envOr("WARDEN_LINUX_CREDENTIAL_DIR", "/etc/warden-linux/credentials")
 	return func(ctx context.Context, credentialRef, _ string) (string, error) {
 		if credentialRef == "" || filepath.Base(credentialRef) != credentialRef || strings.ContainsAny(credentialRef, `/\`) {
 			return "", fmt.Errorf("invalid integration credential reference")

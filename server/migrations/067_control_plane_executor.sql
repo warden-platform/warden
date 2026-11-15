@@ -1,5 +1,5 @@
 -- Make control-plane managed resources and executions first-class. A
--- Connector represents a real target-side runtime only; PAM-owned credential
+-- Connector represents a real target-side runtime only; Warden-owned credential
 -- actions continue through policy/approval/audit but execute inline.
 
 ALTER TABLE resources

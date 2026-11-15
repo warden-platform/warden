@@ -1,6 +1,6 @@
 -- DingTalk approval notification preferences. Webhook and signing secret are
--- intentionally not stored here; they are injected into pam-control via
--- PAM_DINGTALK_WEBHOOK_FILE and PAM_DINGTALK_SECRET_FILE.
+-- intentionally not stored here; they are injected into warden-control via
+-- WARDEN_DINGTALK_WEBHOOK_FILE and WARDEN_DINGTALK_SECRET_FILE.
 
 CREATE TABLE IF NOT EXISTS notification_channels (
     id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func (h *Handler) GetDingTalkChannel(w http.ResponseWriter, r *http.Request) {
@@ -82,7 +82,7 @@ func (h *Handler) TestDingTalkChannel(w http.ResponseWriter, r *http.Request) {
 	notification := approvalNotification{
 		Event: "notification.test", Status: "TEST", RequestID: fmt.Sprintf("channel-test-%d", time.Now().UnixNano()),
 		PrincipalName: identityFromContext(r.Context()).Principal.Name,
-		Reason:        "HighTower PAM 钉钉审批通知渠道连通性测试",
+		Reason:        "Warden Warden 钉钉审批通知渠道连通性测试",
 	}
 	var err error
 	if h.dingTalkCard != nil {

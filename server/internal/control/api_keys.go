@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var defaultAgentScopes = []string{
@@ -353,10 +353,10 @@ func (h *Handler) createCredential(ctx context.Context, principalID string, req 
 			return nil, "", errors.New("registration credentials require a workload principal")
 		}
 		if purpose, _ := p.Metadata["purpose"].(string); purpose != "pam_resource_registration" {
-			return nil, "", errors.New("workload principal is not designated for PAM resource registration")
+			return nil, "", errors.New("workload principal is not designated for Warden resource registration")
 		}
 		if req.Audience == "" || req.Audience != h.registrationAudience {
-			return nil, "", errors.New("registration credential audience does not match this PAM environment")
+			return nil, "", errors.New("registration credential audience does not match this Warden environment")
 		}
 		if !sameScopes(req.Scopes, registrationCredentialScopes) {
 			return nil, "", errors.New("invalid registration scopes")
@@ -443,7 +443,7 @@ func (h *Handler) CreateRegistrationAPIKey(w http.ResponseWriter, r *http.Reques
 	if strings.TrimSpace(input.Audience) != "" {
 		normalized, err := normalizeRegistrationAudience(input.Audience)
 		if err != nil || normalized != audience {
-			jsonError(w, http.StatusBadRequest, "REGISTRATION_AUDIENCE_MISMATCH", "audience 必须与当前 PAM API Endpoint 完全一致")
+			jsonError(w, http.StatusBadRequest, "REGISTRATION_AUDIENCE_MISMATCH", "audience 必须与当前 Warden API Endpoint 完全一致")
 			return
 		}
 	}

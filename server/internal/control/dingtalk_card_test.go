@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	dingcard "github.com/open-dingtalk/dingtalk-stream-sdk-go/card"
 )
 
@@ -34,7 +34,7 @@ func TestDingTalkCardCreateAndDeliverPayload(t *testing.T) {
 	if err := client.send(context.Background(), approvalNotification{RequestID: "request-id", Status: "PENDING", PrincipalName: "alice"}); err != nil {
 		t.Fatal(err)
 	}
-	if delivered["callbackType"] != "STREAM" || delivered["cardTemplateId"] != "template-id" || delivered["openSpaceId"] != "dtv1.card//im_group.cid-group" || delivered["outTrackId"] != "pam-approval:request-id" {
+	if delivered["callbackType"] != "STREAM" || delivered["cardTemplateId"] != "template-id" || delivered["openSpaceId"] != "dtv1.card//im_group.cid-group" || delivered["outTrackId"] != "warden-approval:request-id" {
 		t.Fatalf("unexpected card payload: %#v", delivered)
 	}
 	robot, _ := delivered["imGroupOpenDeliverModel"].(map[string]any)
@@ -75,7 +75,7 @@ func TestDingTalkCardRejectsEmptyDeliveryResult(t *testing.T) {
 }
 
 func TestDingTalkCardDecisionUsesTrackAndActionID(t *testing.T) {
-	request := &dingcard.CardRequest{OutTrackId: "pam-approval:req-1", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"approve"}}}}
+	request := &dingcard.CardRequest{OutTrackId: "warden-approval:req-1", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"approve"}}}}
 	id, approve, err := dingTalkCardDecision(request)
 	if err != nil || id != "req-1" || !approve {
 		t.Fatalf("id=%q approve=%v err=%v", id, approve, err)
@@ -88,7 +88,7 @@ func TestDingTalkCardDecisionUsesTrackAndActionID(t *testing.T) {
 }
 
 func TestDingTalkCardDecisionAcceptsAgreeAction(t *testing.T) {
-	request := &dingcard.CardRequest{OutTrackId: "pam-approval:req-1", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"agree"}}}}
+	request := &dingcard.CardRequest{OutTrackId: "warden-approval:req-1", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"agree"}}}}
 	_, approve, err := dingTalkCardDecision(request)
 	if err != nil || !approve {
 		t.Fatalf("approve=%v err=%v", approve, err)
@@ -96,14 +96,14 @@ func TestDingTalkCardDecisionAcceptsAgreeAction(t *testing.T) {
 }
 
 func TestDingTalkCardDecisionRejectsUnknownAction(t *testing.T) {
-	request := &dingcard.CardRequest{OutTrackId: "pam-approval:req-1", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"open-link"}}}}
+	request := &dingcard.CardRequest{OutTrackId: "warden-approval:req-1", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"open-link"}}}}
 	if _, _, err := dingTalkCardDecision(request); err == nil {
 		t.Fatal("unknown action was accepted")
 	}
 }
 
 func TestDingTalkCardChannelTestCannotResolveToRealRequest(t *testing.T) {
-	request := &dingcard.CardRequest{OutTrackId: "pam-approval:channel-test-123", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"approve"}}}}
+	request := &dingcard.CardRequest{OutTrackId: "warden-approval:channel-test-123", CardActionData: dingcard.PrivateCardActionData{CardPrivateData: dingcard.CardPrivateData{ActionIdList: []string{"approve"}}}}
 	id, approve, err := dingTalkCardDecision(request)
 	if err != nil || id != "channel-test-123" || !approve {
 		t.Fatalf("id=%q approve=%v err=%v", id, approve, err)

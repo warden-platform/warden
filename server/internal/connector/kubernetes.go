@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var dashboardConfigMapNamePattern = regexp.MustCompile(`^grafana-dashboard-[a-z0-9](?:[a-z0-9.-]{0,61}[a-z0-9])?$`)
@@ -53,8 +53,8 @@ type CredentialProvider interface {
 	Issue(context.Context, string, time.Duration) (kubernetes.Interface, Lease, error)
 	// BootstrapClient returns the connector's bootstrap Kubernetes client, used
 	// for read-only resource discovery (ListDeployments). The bootstrap client
-	// carries the pam-connector-bootstrap identity, which the generated manifest
-	// binds to the pam-resource-discoverer Role.
+	// carries the warden-connector-bootstrap identity, which the generated manifest
+	// binds to the warden-resource-discoverer Role.
 	BootstrapClient() kubernetes.Interface
 }
 
@@ -126,18 +126,18 @@ func tokenAudience(token string) string {
 }
 
 // loadInClusterRestConfig mirrors rest.InClusterConfig() but allows the
-// service-account file directory to be overridden via PAM_SA_DIR for local
+// service-account file directory to be overridden via WARDEN_SA_DIR for local
 // development (where /var/run/secrets/... is not writable without root).
-// When PAM_SA_DIR is unset, it falls back to rest.InClusterConfig().
+// When WARDEN_SA_DIR is unset, it falls back to rest.InClusterConfig().
 func loadInClusterRestConfig() (*rest.Config, error) {
-	saDir := os.Getenv("PAM_SA_DIR")
+	saDir := os.Getenv("WARDEN_SA_DIR")
 	if saDir == "" {
 		return rest.InClusterConfig()
 	}
 	host := os.Getenv("KUBERNETES_SERVICE_HOST")
 	port := os.Getenv("KUBERNETES_SERVICE_PORT")
 	if host == "" || port == "" {
-		return nil, errors.New("KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be set when PAM_SA_DIR is used")
+		return nil, errors.New("KUBERNETES_SERVICE_HOST and KUBERNETES_SERVICE_PORT must be set when WARDEN_SA_DIR is used")
 	}
 	token, err := os.ReadFile(filepath.Join(saDir, "token"))
 	if err != nil {
@@ -214,7 +214,7 @@ func tokenRequestSpec(audience string, seconds int64) authenticationv1.TokenRequ
 func (p *TokenRequestProvider) BootstrapClient() kubernetes.Interface { return p.bootstrap }
 
 // DiscoveredResource is the discovery view of a target resource reported back
-// to pam-control via POST /api/v1/resources/sync.
+// to warden-control via POST /api/v1/resources/sync.
 type DiscoveredResource struct {
 	ExternalID    string         `json:"externalId"`
 	Name          string         `json:"name"`
@@ -896,7 +896,7 @@ func (r *KubernetesRunner) imageAllowed(image string) bool {
 }
 
 // ListDeployments walks every allowed namespace and returns the deployments
-// visible to the bootstrap identity (bound to pam-resource-discoverer). The
+// visible to the bootstrap identity (bound to warden-resource-discoverer). The
 // returned slice is what gets POSTed to /api/v1/resources/sync.
 func (r *KubernetesRunner) ListDeployments(ctx context.Context) []DiscoveredResource {
 	client := r.credentials.BootstrapClient()
@@ -1122,7 +1122,7 @@ func (r *KubernetesRunner) ListResources(ctx context.Context) []DiscoveredResour
 
 // SnapshotResource performs a targeted reread for change-safety verification
 // instead of rediscovering every resource in every allowed namespace. It
-// reuses the bootstrap identity (pam-resource-discoverer) so no short-lived
+// reuses the bootstrap identity (warden-resource-discoverer) so no short-lived
 // execution token needs to be minted. The metadata returned matches exactly
 // what ListDeployments would produce for the same resource.
 func (r *KubernetesRunner) SnapshotResource(ctx context.Context, resource domain.TaskResource) (DiscoveredResource, bool) {

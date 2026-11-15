@@ -1,4 +1,4 @@
--- Credential governance: PAM-managed encrypted credential ledger with
+-- Credential governance: Warden-managed encrypted credential ledger with
 -- reference, binding, rotation, revocation and expiry management.
 --
 -- Credentials are governed through the execution pipeline (POST /api/v1/executions)
@@ -7,7 +7,7 @@
 -- only in memory and in AES-GCM ciphertext in this table; executions.parameters
 -- and audit_events carry only value_sha256 + value_preview.
 
--- 1) credentials table (PAM 托管加密存储)
+-- 1) credentials table (Warden 托管加密存储)
 -- 发布流水线每次发布都会重跑 migrations.txt 中的全部迁移，故必须幂等。
 CREATE TABLE IF NOT EXISTS credentials (
     id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),

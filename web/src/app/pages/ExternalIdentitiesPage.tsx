@@ -140,7 +140,7 @@ export function ExternalIdentitiesPage() {
           ...items.filter((item) => item.id !== binding.id && item.externalEnterpriseId !== binding.externalEnterpriseId),
         ])
         setTenantForm(EMPTY_TENANT_FORM)
-        notify('联邦企业已绑定当前 PAM Tenant')
+        notify('联邦企业已绑定当前 Warden Tenant')
       })
       .catch((e: ApiError) => notify(`企业绑定失败：${e.message}`))
       .finally(() => setBusy(''))
@@ -166,14 +166,14 @@ export function ExternalIdentitiesPage() {
           ),
         ])
         setProjectForm(EMPTY_PROJECT_FORM)
-        notify('联邦 Project 已绑定 PAM Project')
+        notify('联邦 Project 已绑定 Warden Project')
       })
       .catch((e: ApiError) => notify(`Project 绑定失败：${e.message}`))
       .finally(() => setBusy(''))
   }
 
   const revokeProject = (binding: ApiFederatedProjectBinding) => {
-    if (!window.confirm(`确认解除 ${binding.externalProjectName || binding.externalProjectId} 的 PAM Project 绑定？`)) return
+    if (!window.confirm(`确认解除 ${binding.externalProjectName || binding.externalProjectId} 的 Warden Project 绑定？`)) return
     setBusy(`federated-project-${binding.id}`)
     revokeFederatedProject(binding.id)
       .then(() => {
@@ -214,7 +214,7 @@ export function ExternalIdentitiesPage() {
       <div className="external-identity-actions">
         <div className="identity-security-note">
           <ShieldCheck size={17} />
-          <span>长期 PAM Key 只保留在 Broker；Agent 通过受信 Binding 换取短期委托 Token。</span>
+          <span>长期 Warden Key 只保留在 Broker；Agent 通过受信 Binding 换取短期委托 Token。</span>
         </div>
         <div className="header-actions">
           <button className="icon-button" onClick={load} aria-label="刷新 Binding" title="刷新">
@@ -255,7 +255,7 @@ export function ExternalIdentitiesPage() {
             />
           </label>
           <div className="external-identity-form-hint">
-            只建立 联邦企业与当前 PAM Tenant 的关系；用户和 Project 权限仍由 PAM 管理员显式分配。
+            只建立 联邦企业与当前 Warden Tenant 的关系；用户和 Project 权限仍由 Warden 管理员显式分配。
           </div>
           <div className="form-actions">
             <button className="primary-button" disabled={busy === 'federated-tenant'}>
@@ -296,7 +296,7 @@ export function ExternalIdentitiesPage() {
         <div className="panel-header">
           <div>
             <h2>联邦 Project 手工绑定</h2>
-            <p>选择已有 PAM Project；不会自动创建项目，也不会把 联邦 Workspace member 自动加入 PAM。</p>
+            <p>选择已有 Warden Project；不会自动创建项目，也不会把 联邦 Workspace member 自动加入 Warden。</p>
           </div>
         </div>
         <form className="form-grid external-identity-form" onSubmit={submitProject}>
@@ -329,13 +329,13 @@ export function ExternalIdentitiesPage() {
             />
           </label>
           <label>
-            <span>PAM Project</span>
+            <span>Warden Project</span>
             <select
               required
               value={projectForm.projectId}
               onChange={(event) => setProjectForm({ ...projectForm, projectId: event.target.value })}
             >
-              <option value="">选择已有 PAM Project</option>
+              <option value="">选择已有 Warden Project</option>
               {projects.map((project) => (
                 <option key={project.id} value={project.id}>
                   {project.name}
@@ -344,7 +344,7 @@ export function ExternalIdentitiesPage() {
               ))}
             </select>
           </label>
-          <div className="external-identity-form-hint">绑定后，联邦 Assertion 中的 Project ID 只能解析到这里选择的 PAM Project。</div>
+          <div className="external-identity-form-hint">绑定后，联邦 Assertion 中的 Project ID 只能解析到这里选择的 Warden Project。</div>
           <div className="form-actions">
             <button className="primary-button" disabled={busy === 'federated-project'}>
               {busy === 'federated-project' ? <Loader2 size={16} className="spin" /> : <Link2 size={16} />}保存 Project 绑定
@@ -358,7 +358,7 @@ export function ExternalIdentitiesPage() {
                 <tr>
                   <th>联邦 Project</th>
                   <th>Workspace</th>
-                  <th>PAM Project</th>
+                  <th>Warden Project</th>
                   <th>更新时间</th>
                   <th>操作</th>
                 </tr>
@@ -448,7 +448,7 @@ export function ExternalIdentitiesPage() {
               />
             </label>
             <label>
-              <span>PAM Principal</span>
+              <span>Warden Principal</span>
               <select required value={form.principalId} onChange={(e) => setForm({ ...form, principalId: e.target.value })}>
                 <option value="">选择 Principal</option>
                 {selectedPrincipals.map((principal) => (
@@ -460,7 +460,7 @@ export function ExternalIdentitiesPage() {
             </label>
             {form.identityType === 'AGENT' && (
               <label>
-                <span>PAM Project</span>
+                <span>Warden Project</span>
                 <select required value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>
                   <option value="">选择项目</option>
                   {projects.map((project) => (
@@ -476,7 +476,7 @@ export function ExternalIdentitiesPage() {
               {selectedPrincipal
                 ? `已选择：${apiPrincipalDisplayName(selectedPrincipal)}`
                 : form.identityType === 'AGENT'
-                  ? 'Agent Binding 必须固定一个 PAM Project。'
+                  ? 'Agent Binding 必须固定一个 Warden Project。'
                   : 'User Binding 可限制到外部 Project，也可覆盖整个 Workspace。'}
             </div>
             <div className="form-actions">
@@ -494,7 +494,7 @@ export function ExternalIdentitiesPage() {
         <EmptyState
           icon={Link2}
           title="尚未配置外部身份 Binding"
-          text="先把 外部平台 Agent 和用户映射到 PAM Principal，Broker 才能申请委托 Token。"
+          text="先把 外部平台 Agent 和用户映射到 Warden Principal，Broker 才能申请委托 Token。"
         />
       ) : (
         <section className="panel">
@@ -511,8 +511,8 @@ export function ExternalIdentitiesPage() {
                   <th>类型</th>
                   <th>外部身份</th>
                   <th>Workspace / Project</th>
-                  <th>PAM Principal</th>
-                  <th>PAM Project</th>
+                  <th>Warden Principal</th>
+                  <th>Warden Project</th>
                   <th>创建时间</th>
                   <th>操作</th>
                 </tr>

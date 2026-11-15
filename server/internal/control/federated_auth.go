@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
-	"gitee.com/pam-platform/pam/server/internal/domain"
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -39,7 +39,7 @@ type federatedAssertionVerifier struct {
 }
 
 func loadFederatedAssertionVerifier() (*federatedAssertionVerifier, error) {
-	keyText, err := config.Secret("PAM_FEDERATED_ASSERTION_PUBLIC_KEY")
+	keyText, err := config.Secret("WARDEN_FEDERATED_ASSERTION_PUBLIC_KEY")
 	if err != nil {
 		return nil, err
 	}
@@ -48,7 +48,7 @@ func loadFederatedAssertionVerifier() (*federatedAssertionVerifier, error) {
 	}
 	block, _ := pem.Decode([]byte(keyText))
 	if block == nil {
-		return nil, errors.New("PAM_FEDERATED_ASSERTION_PUBLIC_KEY is not PEM encoded")
+		return nil, errors.New("WARDEN_FEDERATED_ASSERTION_PUBLIC_KEY is not PEM encoded")
 	}
 	key, err := x509.ParsePKIXPublicKey(block.Bytes)
 	if err != nil {
@@ -64,8 +64,8 @@ func loadFederatedAssertionVerifier() (*federatedAssertionVerifier, error) {
 	default:
 		return nil, errors.New("federated assertion key must be RSA, ECDSA, or Ed25519")
 	}
-	issuer := strings.TrimSpace(getenvDefault("PAM_FEDERATED_ASSERTION_ISSUER", "https://idp.example.com"))
-	audience := strings.TrimSpace(getenvDefault("PAM_FEDERATED_ASSERTION_AUDIENCE", "pam"))
+	issuer := strings.TrimSpace(getenvDefault("WARDEN_FEDERATED_ASSERTION_ISSUER", "https://idp.example.com"))
+	audience := strings.TrimSpace(getenvDefault("WARDEN_FEDERATED_ASSERTION_AUDIENCE", "pam"))
 	if issuer == "" || audience == "" {
 		return nil, errors.New("federated assertion issuer and audience must not be empty")
 	}
@@ -185,14 +185,14 @@ func (h *Handler) BindFederatedTenant(w http.ResponseWriter, r *http.Request) {
 	binding := &domain.ExternalTenantBinding{Source: input.Source, ExternalEnterpriseID: input.ExternalEnterpriseID, ExternalWorkspaceID: input.ExternalWorkspaceID, CreatedBy: createdBy}
 	if err := h.federated.BindTenant(r.Context(), binding); err != nil {
 		if h.federated.IsUniqueViolation(err) {
-			jsonError(w, http.StatusConflict, "FEDERATED_TENANT_CONFLICT", "企业或 Workspace 已绑定其他 PAM Tenant")
+			jsonError(w, http.StatusConflict, "FEDERATED_TENANT_CONFLICT", "企业或 Workspace 已绑定其他 Warden Tenant")
 			return
 		}
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存联邦企业绑定失败")
 		return
 	}
 	if actor != nil && actor.Principal != nil {
-		h.writeNotificationAudit(r.Context(), "federated.tenant_bound", binding.ID, "联邦企业已绑定 PAM Tenant", map[string]any{"source": binding.Source, "external_enterprise_id": binding.ExternalEnterpriseID, "external_workspace_id": binding.ExternalWorkspaceID}, actor.Principal.ID, string(actor.Principal.Kind))
+		h.writeNotificationAudit(r.Context(), "federated.tenant_bound", binding.ID, "联邦企业已绑定 Warden Tenant", map[string]any{"source": binding.Source, "external_enterprise_id": binding.ExternalEnterpriseID, "external_workspace_id": binding.ExternalWorkspaceID}, actor.Principal.ID, string(actor.Principal.Kind))
 	}
 	jsonResp(w, http.StatusOK, binding)
 }
@@ -225,7 +225,7 @@ func (h *Handler) BindFederatedProject(w http.ResponseWriter, r *http.Request) {
 	input.ExternalProjectName = strings.TrimSpace(input.ExternalProjectName)
 	input.ProjectID = strings.TrimSpace(input.ProjectID)
 	if input.Source != federatedAssertionSource || input.ExternalWorkspaceID == "" || input.ExternalProjectID == "" || input.ProjectID == "" {
-		jsonError(w, http.StatusBadRequest, "INVALID_FEDERATED_PROJECT", "source、Workspace、外部 Project 和 PAM Project 均为必填")
+		jsonError(w, http.StatusBadRequest, "INVALID_FEDERATED_PROJECT", "source、Workspace、外部 Project 和 Warden Project 均为必填")
 		return
 	}
 	actor := identityFromContext(r.Context())
@@ -236,14 +236,14 @@ func (h *Handler) BindFederatedProject(w http.ResponseWriter, r *http.Request) {
 	binding := &domain.ExternalProjectBinding{Source: input.Source, ExternalWorkspaceID: input.ExternalWorkspaceID, ExternalProjectID: input.ExternalProjectID, ExternalProjectName: input.ExternalProjectName, ProjectID: input.ProjectID, CreatedBy: createdBy}
 	if err := h.federated.BindProject(r.Context(), binding); err != nil {
 		if h.federated.IsUniqueViolation(err) {
-			jsonError(w, http.StatusConflict, "FEDERATED_PROJECT_CONFLICT", "外部 Project 已绑定其他 PAM Project")
+			jsonError(w, http.StatusConflict, "FEDERATED_PROJECT_CONFLICT", "外部 Project 已绑定其他 Warden Project")
 			return
 		}
-		jsonError(w, http.StatusBadRequest, "INVALID_FEDERATED_PROJECT", "PAM Project 不存在或不属于当前 Tenant")
+		jsonError(w, http.StatusBadRequest, "INVALID_FEDERATED_PROJECT", "Warden Project 不存在或不属于当前 Tenant")
 		return
 	}
 	if actor != nil && actor.Principal != nil {
-		h.writeNotificationAudit(r.Context(), "federated.project_bound", binding.ID, "联邦 Project 已绑定 PAM Project", map[string]any{"source": binding.Source, "external_workspace_id": binding.ExternalWorkspaceID, "external_project_id": binding.ExternalProjectID, "project_id": binding.ProjectID}, actor.Principal.ID, string(actor.Principal.Kind))
+		h.writeNotificationAudit(r.Context(), "federated.project_bound", binding.ID, "联邦 Project 已绑定 Warden Project", map[string]any{"source": binding.Source, "external_workspace_id": binding.ExternalWorkspaceID, "external_project_id": binding.ExternalProjectID, "project_id": binding.ProjectID}, actor.Principal.ID, string(actor.Principal.Kind))
 	}
 	jsonResp(w, http.StatusOK, binding)
 }
@@ -312,7 +312,7 @@ func (h *Handler) FederatedLogin(w http.ResponseWriter, r *http.Request) {
 	binding, err := h.federated.ResolveTenant(r.Context(), federatedAssertionSource, claims.EnterpriseID, claims.WorkspaceID)
 	if err != nil {
 		if errors.Is(err, postgres.ErrFederatedTenantNotFound) {
-			jsonError(w, http.StatusForbidden, "FEDERATED_TENANT_NOT_BOUND", "联邦企业尚未绑定 PAM Tenant")
+			jsonError(w, http.StatusForbidden, "FEDERATED_TENANT_NOT_BOUND", "联邦企业尚未绑定 Warden Tenant")
 			return
 		}
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询联邦企业绑定失败")
@@ -333,10 +333,10 @@ func (h *Handler) FederatedLogin(w http.ResponseWriter, r *http.Request) {
 	principal, err := h.federated.ProvisionIdentity(ctx, claims.Issuer, claims.Subject, claims.Email, claims.DisplayName, binding.TenantID, "", metadata)
 	if err != nil {
 		if errors.Is(err, postgres.ErrFederatedIdentityTenant) {
-			jsonError(w, http.StatusForbidden, "FEDERATED_IDENTITY_TENANT_MISMATCH", "联邦用户已绑定其他 PAM Tenant")
+			jsonError(w, http.StatusForbidden, "FEDERATED_IDENTITY_TENANT_MISMATCH", "联邦用户已绑定其他 Warden Tenant")
 			return
 		}
-		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "Provision PAM 用户失败")
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "Provision Warden 用户失败")
 		return
 	}
 	var projectBinding *domain.ExternalProjectBinding
@@ -344,7 +344,7 @@ func (h *Handler) FederatedLogin(w http.ResponseWriter, r *http.Request) {
 		projectBinding, err = h.federated.ResolveProject(ctx, federatedAssertionSource, claims.WorkspaceID, claims.ProjectID)
 		if err != nil {
 			if errors.Is(err, postgres.ErrExternalProjectBindingNotFound) {
-				jsonResp(w, http.StatusConflict, map[string]any{"code": "PROJECT_BINDING_REQUIRED", "message": "联邦 Project 尚未绑定 PAM Project", "externalProjectId": claims.ProjectID, "workspaceId": claims.WorkspaceID, "principal": principal})
+				jsonResp(w, http.StatusConflict, map[string]any{"code": "PROJECT_BINDING_REQUIRED", "message": "联邦 Project 尚未绑定 Warden Project", "externalProjectId": claims.ProjectID, "workspaceId": claims.WorkspaceID, "principal": principal})
 				return
 			}
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询联邦 Project 绑定失败")
@@ -353,7 +353,7 @@ func (h *Handler) FederatedLogin(w http.ResponseWriter, r *http.Request) {
 	}
 	token, expiresAt, err := h.issueJWTWithTTL(principal, 15*time.Minute)
 	if err != nil {
-		jsonError(w, http.StatusInternalServerError, "TOKEN_ISSUE_FAILED", "签发 PAM 访问令牌失败")
+		jsonError(w, http.StatusInternalServerError, "TOKEN_ISSUE_FAILED", "签发 Warden 访问令牌失败")
 		return
 	}
 	projects := []domain.Project{}
@@ -363,7 +363,7 @@ func (h *Handler) FederatedLogin(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if h.audit != nil {
-		h.writeNotificationAudit(ctx, "federated.login", principal.ID, "联邦用户登录 PAM", map[string]any{"issuer": claims.Issuer, "subject": claims.Subject, "workspace_id": claims.WorkspaceID, "project_id": claims.ProjectID}, principal.ID, string(principal.Kind))
+		h.writeNotificationAudit(ctx, "federated.login", principal.ID, "联邦用户登录 Warden", map[string]any{"issuer": claims.Issuer, "subject": claims.Subject, "workspace_id": claims.WorkspaceID, "project_id": claims.ProjectID}, principal.ID, string(principal.Kind))
 	}
 	jsonResp(w, http.StatusOK, map[string]any{
 		"accessToken":    token,

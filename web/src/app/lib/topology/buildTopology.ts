@@ -1,4 +1,4 @@
-// Build a topology graph (nodes + edges) from PAM API data.
+// Build a topology graph (nodes + edges) from Warden API data.
 // Layers: Connectors -> Integrations -> Resource Groups -> Actions
 // Resources are folded by (parent, resource_type) so a Jenkins integration
 // with 359 jobs renders as a single "359 Jenkins Jobs" node, not 359 nodes.

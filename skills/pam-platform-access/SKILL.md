@@ -1,15 +1,15 @@
 ---
 name: pam-platform-access
-description: Discover PAM-managed infrastructure, inspect live action contracts, run governed read or change executions, and report approval and safety results. Use for Kubernetes, Linux, Docker, databases, Jenkins, Grafana, Huawei Cloud, Alibaba Cloud, resource inventory, operational diagnosis, or any request that must access infrastructure through PAM instead of direct credentials.
+description: Discover Warden-managed infrastructure, inspect live action contracts, run governed read or change executions, and report approval and safety results. Use for Kubernetes, Linux, Docker, databases, Jenkins, Grafana, Huawei Cloud, Alibaba Cloud, resource inventory, operational diagnosis, or any request that must access infrastructure through Warden instead of direct credentials.
 ---
 
-# PAM Platform Access
+# Warden Platform Access
 
-Use only `${PAM_HOME:-.}/scripts/pam-agent.sh`. Read `PAM_API_ENDPOINT` and `PAM_AGENT_API_KEY` from the injected environment; never print, inspect, forward, or persist them.
+Use only `${WARDEN_HOME:-.}/scripts/warden-agent.sh`. Read `WARDEN_API_ENDPOINT` and `WARDEN_AGENT_API_KEY` from the injected environment; never print, inspect, forward, or persist them.
 
 ## Platform model
 
-PAM exposes infrastructure through one governed chain:
+Warden exposes infrastructure through one governed chain:
 
 ```text
 Project / Environment
@@ -20,26 +20,26 @@ Project / Environment
 - An Action contract supplies the current version, risk, execution mode, timeout, and JSON parameter Schema.
 - An Execution binds one principal, resource, action version, parameter hash, reason, and idempotency key.
 - Policy decides whether the Execution runs directly or waits for approval. The Connector executes with scoped credentials and returns structured evidence.
-- PAM is not a general remote shell or raw API proxy. If an operation is absent from the selected Resource's action catalog, it is unsupported for that target.
+- Warden is not a general remote shell or raw API proxy. If an operation is absent from the selected Resource's action catalog, it is unsupported for that target.
 
 ## Boundary
 
-- Treat PAM as the only infrastructure access path. Never substitute `kubectl`, SSH, cloud CLIs, database clients, service APIs, raw SQL, arbitrary shell, kubeconfig, or long-lived credentials.
+- Treat Warden as the only infrastructure access path. Never substitute `kubectl`, SSH, cloud CLIs, database clients, service APIs, raw SQL, arbitrary shell, kubeconfig, or long-lived credentials.
 - Use repository tools only for source code. Do not confuse source access with permission to access live infrastructure.
-- Select only `ACTIVE` resources returned by PAM. Never invent resource IDs, Regions, names, projects, environments, action versions, or parameters.
+- Select only `ACTIVE` resources returned by Warden. Never invent resource IDs, Regions, names, projects, environments, action versions, or parameters.
 - Call `list-actions RESOURCE_ID` immediately before execution. Send only fields declared by its current `parameter_schema`; do not add `name` or `namespace` unless the Schema declares them.
 - Use project, environment, resource type, and Integration to disambiguate duplicate names.
 - Treat only `SUCCEEDED` as completed. For `WAITING_APPROVAL`, report the Execution ID and wait after approval. For `UNKNOWN`, reread the Execution and target state; never automatically replay a mutation.
-- Never approve on the user's behalf, relax policy, expose secrets, or bypass a PAM denial.
+- Never approve on the user's behalf, relax policy, expose secrets, or bypass a Warden denial.
 
 ## Discover the target
 
 Start with the smallest useful query:
 
 ```bash
-${PAM_HOME:-.}/scripts/pam-agent.sh resource-summary [PROJECT] [ENVIRONMENT] [RESOURCE_TYPE]
-${PAM_HOME:-.}/scripts/pam-agent.sh find-resources QUERY [PROJECT] [ENVIRONMENT] [RESOURCE_TYPE]
-${PAM_HOME:-.}/scripts/pam-agent.sh list-resources [RESOURCE_TYPE]
+${WARDEN_HOME:-.}/scripts/warden-agent.sh resource-summary [PROJECT] [ENVIRONMENT] [RESOURCE_TYPE]
+${WARDEN_HOME:-.}/scripts/warden-agent.sh find-resources QUERY [PROJECT] [ENVIRONMENT] [RESOURCE_TYPE]
+${WARDEN_HOME:-.}/scripts/warden-agent.sh list-resources [RESOURCE_TYPE]
 ```
 
 Use `resource-summary` for inventories, `find-resources` for a known target, and `list-resources` only when a full type list is necessary. Confirm the exact resource identity before continuing.
@@ -49,26 +49,26 @@ Use `resource-summary` for inventories, `find-resources` for a known target, and
 Read the selected resource's action catalog:
 
 ```bash
-${PAM_HOME:-.}/scripts/pam-agent.sh list-actions RESOURCE_ID
+${WARDEN_HOME:-.}/scripts/warden-agent.sh list-actions RESOURCE_ID
 ```
 
 For a declared read action:
 
 ```bash
-${PAM_HOME:-.}/scripts/pam-agent.sh create-readonly-execution ACTION RESOURCE_ID 'SCHEMA_VALID_JSON' 'REASON'
-${PAM_HOME:-.}/scripts/pam-agent.sh wait-readonly-result EXECUTION_ID 60
+${WARDEN_HOME:-.}/scripts/warden-agent.sh create-readonly-execution ACTION RESOURCE_ID 'SCHEMA_VALID_JSON' 'REASON'
+${WARDEN_HOME:-.}/scripts/warden-agent.sh wait-readonly-result EXECUTION_ID 60
 ```
 
 For a supported governed change:
 
 ```bash
-${PAM_HOME:-.}/scripts/pam-agent.sh create-aiops-execution ACTION RESOURCE_ID 'SCHEMA_VALID_JSON' 'REASON'
-${PAM_HOME:-.}/scripts/pam-agent.sh wait-result EXECUTION_ID 300
+${WARDEN_HOME:-.}/scripts/warden-agent.sh create-aiops-execution ACTION RESOURCE_ID 'SCHEMA_VALID_JSON' 'REASON'
+${WARDEN_HOME:-.}/scripts/warden-agent.sh wait-result EXECUTION_ID 300
 ```
 
 Inspect the create response before waiting. If it is `WAITING_APPROVAL`, report it and call `wait-result` only after approval is confirmed; never keep a turn blocked waiting for an approval that has not happened.
 
-Reuse `PAM_IDEMPOTENCY_KEY` only when retrying the same HTTP request. Never create a new idempotency key to replay an `UNKNOWN` change.
+Reuse `WARDEN_IDEMPOTENCY_KEY` only when retrying the same HTTP request. Never create a new idempotency key to replay an `UNKNOWN` change.
 
 ## Interpret results
 

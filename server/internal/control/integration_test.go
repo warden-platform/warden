@@ -30,7 +30,7 @@ func TestValidateIntegrationH3C(t *testing.T) {
 func TestValidateIntegrationJenkins(t *testing.T) {
 	valid := integrationInput{
 		Protocol: "jenkins", Name: "prod-jenkins", Endpoint: "https://jenkins.example.test",
-		Username: "pam-connector", CredentialRef: "jenkins-api-token",
+		Username: "warden-connector", CredentialRef: "jenkins-api-token",
 		Scope: map[string]any{"allowedJobs": []any{"team/deploy", "platform/*"}},
 	}
 	if err := validateIntegration(valid); err != nil {
@@ -62,7 +62,7 @@ func TestValidateIntegrationJenkins(t *testing.T) {
 func TestValidateIntegrationEnvironment(t *testing.T) {
 	base := integrationInput{
 		Protocol: "jenkins", Name: "shared-jenkins", Endpoint: "https://jenkins.example.test",
-		Username: "pam-connector", CredentialRef: "jenkins-api-token", Scope: map[string]any{"allowAll": true},
+		Username: "warden-connector", CredentialRef: "jenkins-api-token", Scope: map[string]any{"allowAll": true},
 	}
 	for _, environment := range []string{"", "development", "testing", "production"} {
 		input := base
@@ -82,7 +82,7 @@ func TestValidateIntegrationDisabledJenkinsKeepsRequiredFields(t *testing.T) {
 	// integrations are always concrete: a create must carry a full endpoint.
 	input := integrationInput{
 		Protocol: "jenkins", Name: "prod-jenkins", Endpoint: "https://jenkins.example.test",
-		Username: "pam-connector", CredentialRef: "jenkins-api-token",
+		Username: "warden-connector", CredentialRef: "jenkins-api-token",
 		Scope: map[string]any{"allowedJobs": []any{"team/deploy"}},
 	}
 	if err := validateIntegration(input); err != nil {
@@ -93,7 +93,7 @@ func TestValidateIntegrationDisabledJenkinsKeepsRequiredFields(t *testing.T) {
 func TestValidateIntegrationJenkinsRequiresExplicitScope(t *testing.T) {
 	input := integrationInput{
 		Protocol: "jenkins", Name: "prod-jenkins", Endpoint: "https://jenkins.example.test",
-		Username: "pam-connector", CredentialRef: "jenkins-api-token",
+		Username: "warden-connector", CredentialRef: "jenkins-api-token",
 		Scope: map[string]any{},
 	}
 	if err := validateIntegration(input); err == nil {
@@ -227,8 +227,8 @@ func TestValidateIntegrationGrafanaRequiresExplicitScope(t *testing.T) {
 
 func TestValidateIntegrationDatabases(t *testing.T) {
 	for _, input := range []integrationInput{
-		{Protocol: "postgresql", Name: "orders-db", Endpoint: "postgresql://db.example.test:5432/orders?sslmode=require", Username: "pam_reader", CredentialRef: "orders-db-password", Scope: map[string]any{"allowedSchemas": []any{"public"}}},
-		{Protocol: "mysql", Name: "inventory-db", Endpoint: "mysql://db.example.test:3306/inventory?tls=true", Username: "pam_reader", CredentialRef: "inventory-db-password", Scope: map[string]any{"allowAll": true}},
+		{Protocol: "postgresql", Name: "orders-db", Endpoint: "postgresql://db.example.test:5432/orders?sslmode=require", Username: "warden_reader", CredentialRef: "orders-db-password", Scope: map[string]any{"allowedSchemas": []any{"public"}}},
+		{Protocol: "mysql", Name: "inventory-db", Endpoint: "mysql://db.example.test:3306/inventory?tls=true", Username: "warden_reader", CredentialRef: "inventory-db-password", Scope: map[string]any{"allowAll": true}},
 	} {
 		if err := validateIntegration(input); err != nil {
 			t.Fatalf("valid %s integration rejected: %v", input.Protocol, err)
@@ -250,7 +250,7 @@ func TestValidateIntegrationDatabases(t *testing.T) {
 func TestValidateIntegrationHuaweiCloud(t *testing.T) {
 	valid := integrationInput{
 		Protocol: "huaweicloud", Name: "prod-huawei", Endpoint: "cn-north-4",
-		Username: "pam-readonly", CredentialRef: "huawei-ak-sk",
+		Username: "warden-readonly", CredentialRef: "huawei-ak-sk",
 		Scope: map[string]any{"allowedServices": []any{"ecs", "OBS", "swr"}},
 	}
 	if err := validateIntegration(valid); err != nil {

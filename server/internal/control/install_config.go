@@ -30,8 +30,8 @@ func (h *Handler) GetInstallConfig(w http.ResponseWriter, _ *http.Request) {
 
 func currentInstallConfig() (installConfigResponse, error) {
 	defaults := releaseDefaults{
-		releaseVersion: os.Getenv("PAM_RELEASE_VERSION"), operatorRepository: os.Getenv("PAM_OPERATOR_IMAGE_REPOSITORY"),
-		operatorTag: os.Getenv("PAM_OPERATOR_IMAGE_TAG"), connectorImage: os.Getenv("PAM_CONNECTOR_IMAGE"),
+		releaseVersion: os.Getenv("WARDEN_RELEASE_VERSION"), operatorRepository: os.Getenv("WARDEN_OPERATOR_IMAGE_REPOSITORY"),
+		operatorTag: os.Getenv("WARDEN_OPERATOR_IMAGE_TAG"), connectorImage: os.Getenv("WARDEN_CONNECTOR_IMAGE"),
 	}
 	if defaults.releaseVersion == "" || defaults.operatorRepository == "" || defaults.operatorTag == "" || defaults.connectorImage == "" {
 		chartDefaults, err := chartReleaseDefaults()
@@ -41,12 +41,12 @@ func currentInstallConfig() (installConfigResponse, error) {
 		defaults = chartDefaults
 	}
 	return installConfigResponse{
-		ReleaseVersion:          configValue("PAM_RELEASE_VERSION", defaults.releaseVersion),
-		PublicControlURL:        strings.TrimRight(os.Getenv("PAM_PUBLIC_CONTROL_URL"), "/"),
-		OperatorChartReference:  configValue("PAM_OPERATOR_CHART_REF", "/downloads/pam-operator-chart.tgz"),
-		OperatorImageRepository: configValue("PAM_OPERATOR_IMAGE_REPOSITORY", defaults.operatorRepository),
-		OperatorImageTag:        configValue("PAM_OPERATOR_IMAGE_TAG", defaults.operatorTag),
-		ConnectorImage:          configValue("PAM_CONNECTOR_IMAGE", defaults.connectorImage),
+		ReleaseVersion:          configValue("WARDEN_RELEASE_VERSION", defaults.releaseVersion),
+		PublicControlURL:        strings.TrimRight(os.Getenv("WARDEN_PUBLIC_CONTROL_URL"), "/"),
+		OperatorChartReference:  configValue("WARDEN_OPERATOR_CHART_REF", "/downloads/warden-operator-chart.tgz"),
+		OperatorImageRepository: configValue("WARDEN_OPERATOR_IMAGE_REPOSITORY", defaults.operatorRepository),
+		OperatorImageTag:        configValue("WARDEN_OPERATOR_IMAGE_TAG", defaults.operatorTag),
+		ConnectorImage:          configValue("WARDEN_CONNECTOR_IMAGE", defaults.connectorImage),
 	}, nil
 }
 
@@ -99,7 +99,7 @@ func operatorChartRoot() (string, error) {
 		return "", err
 	}
 	for range 8 {
-		candidate := filepath.Join(root, "deploy", "helm", "pam-operator")
+		candidate := filepath.Join(root, "deploy", "helm", "warden-operator")
 		if info, err := os.Stat(filepath.Join(candidate, "Chart.yaml")); err == nil && !info.IsDir() {
 			return candidate, nil
 		}

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestFetchCredentialValueSignsAndParses(t *testing.T) {

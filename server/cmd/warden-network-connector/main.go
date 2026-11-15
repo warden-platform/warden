@@ -10,23 +10,23 @@ import (
 	"strings"
 	"syscall"
 
-	"gitee.com/pam-platform/pam/server/internal/connector"
+	"gitee.com/warden-platform/warden/server/internal/connector"
 )
 
 var version = "0.2.0"
 
 func main() {
-	controlURL := requiredEnv("PAM_CONTROL_URL")
-	signingKey := []byte(secretEnv("PAM_TASK_SIGNING_KEY"))
+	controlURL := requiredEnv("WARDEN_CONTROL_URL")
+	signingKey := []byte(secretEnv("WARDEN_TASK_SIGNING_KEY"))
 	if len(signingKey) < 32 {
-		log.Fatal("PAM_TASK_SIGNING_KEY must contain at least 32 bytes")
+		log.Fatal("WARDEN_TASK_SIGNING_KEY must contain at least 32 bytes")
 	}
-	name := envOr("PAM_CONNECTOR_NAME", "h3c-network-connector")
-	environment := envOr("PAM_CONNECTOR_ENVIRONMENT", "testing")
-	credentialDir := envOr("PAM_NETWORK_CREDENTIAL_DIR", "/var/lib/pam-network/credentials")
+	name := envOr("WARDEN_CONNECTOR_NAME", "h3c-network-connector")
+	environment := envOr("WARDEN_CONNECTOR_ENVIRONMENT", "testing")
+	credentialDir := envOr("WARDEN_NETWORK_CREDENTIAL_DIR", "/var/lib/warden-network/credentials")
 
 	// The Network Connector has no target-device credentials in its process
-	// environment. It resolves a PAM-managed credential over the authenticated
+	// environment. It resolves a Warden-managed credential over the authenticated
 	// connector channel, or reads a local file with a safe reference name.
 	runner := connector.NewMultiRunner(nil)
 	runtime := connector.NewTypedRuntime(controlURL, name, environment, version, "network", signingKey,

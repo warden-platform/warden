@@ -1,4 +1,4 @@
--- Explicit DingTalk-to-PAM identity bindings for Cool App passwordless login.
+-- Explicit DingTalk-to-Warden identity bindings for Cool App passwordless login.
 -- Application credentials remain file-backed and are never persisted here.
 CREATE TABLE IF NOT EXISTS dingtalk_principal_bindings (
     user_id text PRIMARY KEY,

@@ -1,6 +1,6 @@
 -- Clarify the product boundary between the bounded single-table shortcut and
 -- the governed multi-table AST builder. templateId now means the published
--- template UUID; pam-control still accepts the historical template name for
+-- template UUID; warden-control still accepts the historical template name for
 -- compatibility with older Agent clients.
 
 UPDATE action_definitions SET

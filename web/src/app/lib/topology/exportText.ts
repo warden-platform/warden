@@ -19,7 +19,7 @@ export function exportTopologyText(
   executions: ApiExecution[],
 ): string {
   const lines: string[] = []
-  lines.push('# PAM Organization Topology')
+  lines.push('# Warden Organization Topology')
   lines.push('')
   lines.push(`Generated: ${new Date().toISOString()}`)
   lines.push(

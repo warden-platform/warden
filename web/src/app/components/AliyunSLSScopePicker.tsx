@@ -95,7 +95,7 @@ export function AliyunSLSScopePicker({
           清空
         </button>
       </div>
-      <small className="job-scope-empty">RAM 权限是硬边界；这里可以在账号权限之上进一步缩小 PAM 会发现和允许查询的 Project。</small>
+      <small className="job-scope-empty">RAM 权限是硬边界；这里可以在账号权限之上进一步缩小 Warden 会发现和允许查询的 Project。</small>
 
       <fieldset className="scope-picker">
         <legend>Region 范围</legend>

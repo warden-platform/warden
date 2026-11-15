@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 // ProviderResolver is deliberately smaller than net.Resolver so tests and
@@ -169,9 +169,9 @@ func (e *ProviderExecutor) Execute(ctx context.Context, request domain.ProviderR
 	// Correlation entries are forwarded as fixed-prefix upstream headers so the
 	// session trace survives the control plane -> Connector -> provider hop. The
 	// key charset is already constrained by ValidateProviderRequest, so mapping
-	// '_' to '-' and prefixing "X-Pam-" cannot introduce header injection.
+	// '_' to '-' and prefixing "X-Warden-" cannot introduce header injection.
 	for key, value := range request.Correlation {
-		header := http.CanonicalHeaderKey("X-Pam-" + strings.ReplaceAll(key, "_", "-"))
+		header := http.CanonicalHeaderKey("X-Warden-" + strings.ReplaceAll(key, "_", "-"))
 		upstream.Header.Set(header, value)
 	}
 	upstream.Header.Set("Accept", "application/json")

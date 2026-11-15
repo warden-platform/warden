@@ -7,8 +7,8 @@ func TestNormalizeRegistrationAudience(t *testing.T) {
 		input string
 		want  string
 	}{
-		{input: "https://PAM.EXAMPLE.test/", want: "https://pam.example.test/api/v1"},
-		{input: "https://pam.example.test/api/v1/", want: "https://pam.example.test/api/v1"},
+		{input: "https://Warden.EXAMPLE.test/", want: "https://warden.example.test/api/v1"},
+		{input: "https://warden.example.test/api/v1/", want: "https://warden.example.test/api/v1"},
 		{input: "http://127.0.0.1:8080", want: "http://127.0.0.1:8080/api/v1"},
 	} {
 		got, err := normalizeRegistrationAudience(tc.input)
@@ -24,12 +24,12 @@ func TestNormalizeRegistrationAudience(t *testing.T) {
 }
 
 func TestConfiguredRegistrationAudienceRequiresEnvironmentConsistency(t *testing.T) {
-	t.Setenv("PAM_PUBLIC_CONTROL_URL", "https://pam.example.test")
-	t.Setenv("PAM_REGISTRATION_AUDIENCE", "")
-	if got, err := configuredRegistrationAudience(); err != nil || got != "https://pam.example.test/api/v1" {
+	t.Setenv("WARDEN_PUBLIC_CONTROL_URL", "https://warden.example.test")
+	t.Setenv("WARDEN_REGISTRATION_AUDIENCE", "")
+	if got, err := configuredRegistrationAudience(); err != nil || got != "https://warden.example.test/api/v1" {
 		t.Fatalf("public URL audience = %q, %v", got, err)
 	}
-	t.Setenv("PAM_REGISTRATION_AUDIENCE", "https://other.example.test/api/v1")
+	t.Setenv("WARDEN_REGISTRATION_AUDIENCE", "https://other.example.test/api/v1")
 	if _, err := configuredRegistrationAudience(); err == nil {
 		t.Fatal("mismatched explicit registration audience was accepted")
 	}

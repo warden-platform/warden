@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/control"
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/control"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 )
 
 func main() {
@@ -38,7 +38,7 @@ func main() {
 	defer stop()
 	handler.StartBackground(appCtx)
 
-	port := os.Getenv("PAM_PORT")
+	port := os.Getenv("WARDEN_PORT")
 	if port == "" {
 		port = "8080"
 	}
@@ -53,7 +53,7 @@ func main() {
 	}
 
 	go func() {
-		log.Printf("pam-control 启动于 :%s", port)
+		log.Printf("warden-control 启动于 :%s", port)
 		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			log.Fatalf("服务错误: %v", err)
 		}

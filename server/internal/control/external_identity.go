@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const (
@@ -53,10 +53,10 @@ func validateExternalBindingInput(input externalBindingRequest) error {
 		return errors.New("principalId 为必填")
 	}
 	if input.IdentityType == domain.ExternalIdentityUser && input.ProjectID != "" {
-		return errors.New("USER Binding 不能绑定 PAM projectId")
+		return errors.New("USER Binding 不能绑定 Warden projectId")
 	}
 	if input.IdentityType == domain.ExternalIdentityAgent && input.ProjectID == "" {
-		return errors.New("AGENT Binding 必须绑定 PAM projectId")
+		return errors.New("AGENT Binding 必须绑定 Warden projectId")
 	}
 	if input.IdentityType == domain.ExternalIdentityAgent && input.ExternalProjectID == "" {
 		return errors.New("AGENT Binding 必须绑定 externalProjectId")
@@ -102,12 +102,12 @@ func (h *Handler) CreateExternalBinding(w http.ResponseWriter, r *http.Request) 
 			return
 		}
 		if h.projects == nil || input.ProjectID == "" {
-			jsonError(w, http.StatusBadRequest, "INVALID_BINDING_PROJECT", "AGENT Binding 必须绑定 PAM project")
+			jsonError(w, http.StatusBadRequest, "INVALID_BINDING_PROJECT", "AGENT Binding 必须绑定 Warden project")
 			return
 		}
 		project, projectErr := h.projects.GetByID(r.Context(), input.ProjectID)
 		if projectErr != nil || project == nil || project.TenantID != actor.TenantID {
-			jsonError(w, http.StatusNotFound, "PROJECT_NOT_FOUND", "PAM project 不存在")
+			jsonError(w, http.StatusNotFound, "PROJECT_NOT_FOUND", "Warden project 不存在")
 			return
 		}
 	} else if target.Kind != domain.PrincipalKindUser {
@@ -286,7 +286,7 @@ func (h *Handler) ExchangeDelegationToken(w http.ResponseWriter, r *http.Request
 	}
 	binding, err := h.externalIdentities.GetAgent(r.Context(), contextValue.Source, contextValue.WorkspaceID, contextValue.ProjectID, contextValue.AgentID)
 	if err != nil || binding == nil || binding.PrincipalID != identity.Principal.ID {
-		jsonError(w, http.StatusForbidden, "EXTERNAL_AGENT_NOT_BOUND", "当前 PAM Principal 未绑定该外部 Agent")
+		jsonError(w, http.StatusForbidden, "EXTERNAL_AGENT_NOT_BOUND", "当前 Warden Principal 未绑定该外部 Agent")
 		return
 	}
 	if accessErr := h.principalProjectAccess(r.Context(), binding.ProjectID, identity.Principal.ID, true); accessErr != nil {
@@ -294,7 +294,7 @@ func (h *Handler) ExchangeDelegationToken(w http.ResponseWriter, r *http.Request
 		if errors.As(accessErr, &membershipErr) {
 			jsonError(w, http.StatusForbidden, membershipErr.Code, membershipErr.Message)
 		} else {
-			jsonError(w, http.StatusInternalServerError, "PROJECT_ACCESS_CHECK_FAILED", "检查 Agent 的 PAM project 权限失败")
+			jsonError(w, http.StatusInternalServerError, "PROJECT_ACCESS_CHECK_FAILED", "检查 Agent 的 Warden project 权限失败")
 		}
 		return
 	}
@@ -315,12 +315,12 @@ func (h *Handler) ExchangeDelegationToken(w http.ResponseWriter, r *http.Request
 		}
 		userBinding, userErr := h.externalIdentities.GetUser(r.Context(), contextValue.Source, contextValue.WorkspaceID, contextValue.ProjectID, externalID)
 		if userErr != nil || userBinding == nil {
-			jsonError(w, http.StatusForbidden, "EXTERNAL_USER_NOT_BOUND", fmt.Sprintf("%s 未绑定 PAM user Principal", label))
+			jsonError(w, http.StatusForbidden, "EXTERNAL_USER_NOT_BOUND", fmt.Sprintf("%s 未绑定 Warden user Principal", label))
 			return
 		}
 		user, userErr := h.principals.GetByID(r.Context(), userBinding.PrincipalID)
 		if userErr != nil || user == nil || user.Kind != domain.PrincipalKindUser || user.Status != domain.PrincipalStatusActive {
-			jsonError(w, http.StatusForbidden, "EXTERNAL_USER_NOT_ACTIVE", fmt.Sprintf("%s 对应的 PAM user Principal 不可用", label))
+			jsonError(w, http.StatusForbidden, "EXTERNAL_USER_NOT_ACTIVE", fmt.Sprintf("%s 对应的 Warden user Principal 不可用", label))
 			return
 		}
 		if accessErr := h.principalProjectAccess(r.Context(), binding.ProjectID, user.ID, mapping.execute); accessErr != nil {
@@ -328,7 +328,7 @@ func (h *Handler) ExchangeDelegationToken(w http.ResponseWriter, r *http.Request
 			if errors.As(accessErr, &membershipErr) {
 				jsonError(w, http.StatusForbidden, "ON_BEHALF_OF_"+membershipErr.Code, membershipErr.Message)
 			} else {
-				jsonError(w, http.StatusInternalServerError, "ON_BEHALF_OF_PROJECT_CHECK_FAILED", "检查代表用户的 PAM project 权限失败")
+				jsonError(w, http.StatusInternalServerError, "ON_BEHALF_OF_PROJECT_CHECK_FAILED", "检查代表用户的 Warden project 权限失败")
 			}
 			return
 		}

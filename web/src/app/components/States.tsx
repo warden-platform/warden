@@ -8,7 +8,7 @@ export function LoadingState({ label = '加载中' }: { label?: string }) {
         <Loader2 size={26} className="spin" />
       </div>
       <h2>{label}</h2>
-      <p>正在从 pam-control 拉取数据</p>
+      <p>正在从 warden-control 拉取数据</p>
     </div>
   )
 }

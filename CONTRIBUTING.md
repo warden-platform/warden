@@ -1,6 +1,6 @@
 # 贡献指南
 
-> **面向**：要给 HighTower PAM 提交代码或文档的人。
+> **面向**：要给 Warden Warden 提交代码或文档的人。
 > 第一次上手先跑一遍 [docs/quickstart.md](docs/quickstart.md)，改架构相关的代码前读 [docs/architecture.md](docs/architecture.md)。
 
 ## 基本要求
@@ -31,13 +31,13 @@ npm ci
 npm run build        # tsc -b && vite build
 
 cd ..
-helm lint deploy/helm/pam-operator --set controlPlaneURL=https://pam.example.com
+helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.example.com
 ```
 
 补充约定：
 
 - `go test ./...` 目前存在**既有的** `internal/connector` Jenkins pipeline 顺序断言基线失败；确认没有新增其它失败再提交，不要用它掩盖新问题。
-- 依赖 PostgreSQL 的集成测试是 opt-in 的：设置 `PAM_TEST_DATABASE_URL` 才会执行，否则 `t.Skip`。这类测试的 cleanup 用 `t.Cleanup`（LIFO），不要用 `defer pool.Close()`。
+- 依赖 PostgreSQL 的集成测试是 opt-in 的：设置 `WARDEN_TEST_DATABASE_URL` 才会执行，否则 `t.Skip`。这类测试的 cleanup 用 `t.Cleanup`（LIFO），不要用 `defer pool.Close()`。
 - 前端没有独立的 `typecheck` script；需要纯类型检查时用 `npx tsc --noEmit`，完整构建用 `npm run build`。
 - 改了数据库迁移必须验证：`deploy/release/migrations.txt` 包含全部编号 ≥ 035 的迁移，且清单内迁移可重复重放（`internal/control/migration_files_test.go` 会强制校验）。
 

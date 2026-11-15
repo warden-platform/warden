@@ -13,7 +13,7 @@ import (
 	"strings"
 	"sync"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 type LinuxRunner struct {

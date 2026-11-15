@@ -12,7 +12,7 @@ import { createPrincipal, createPrincipalAPIKey, createRegistrationAPIKey } from
 
 const scopeOptions = [
   { value: 'pam:resources:read', label: '读取资源与动作', detail: '查看可执行资源和 Action Schema' },
-  { value: 'pam:executions:create', label: '创建执行', detail: '向 PAM 提交受策略控制的 Execution' },
+  { value: 'pam:executions:create', label: '创建执行', detail: '向 Warden 提交受策略控制的 Execution' },
   { value: 'pam:executions:read:self', label: '读取自己的执行', detail: '只能查看该 Principal 创建的 Execution' },
   { value: 'pam:executions:cancel:self', label: '取消自己的执行', detail: '只能取消该 Principal 尚未完成的 Execution' },
 ] as const
@@ -65,7 +65,7 @@ export function CreateAgentDrawer({ onClose, onCreated }: { onClose: () => void;
               Agent Principal
             </span>
             <h2 id="create-agent-title">新增 Agent 身份</h2>
-            <p>一个 Multica Agent 对应一个 PAM Principal。</p>
+            <p>一个 Multica Agent 对应一个 Warden Principal。</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="关闭">
             <X size={20} />
@@ -77,7 +77,7 @@ export function CreateAgentDrawer({ onClose, onCreated }: { onClose: () => void;
             <div>
               <strong>平台上下文按声明信息记录</strong>
               <span>
-                Multica 当前不签发身份 Token，因此 Agent ID、Workspace和 Owner只作为 <code>DECLARED</code> 元数据；真正认证以 PAM API
+                Multica 当前不签发身份 Token，因此 Agent ID、Workspace和 Owner只作为 <code>DECLARED</code> 元数据；真正认证以 Warden API
                 Key为准。
               </span>
             </div>
@@ -129,7 +129,7 @@ export function CreateAgentDrawer({ onClose, onCreated }: { onClose: () => void;
 export function CreateRegistrationBotDrawer({ onClose, onCreated }: { onClose: () => void; onCreated: (principal: ApiPrincipal) => void }) {
   useDialogEscape(onClose)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState('PAM注册机器人')
+  const [name, setName] = useState('Warden注册机器人')
   const [agentId, setAgentId] = useState('')
   const [workspaceId, setWorkspaceId] = useState('')
   const [saving, setSaving] = useState(false)
@@ -160,7 +160,7 @@ export function CreateRegistrationBotDrawer({ onClose, onCreated }: { onClose: (
               <ShieldCheck size={15} />
               Registration Workload
             </span>
-            <h2 id="create-registration-bot-title">新增 PAM 注册机器人</h2>
+            <h2 id="create-registration-bot-title">新增 Warden 注册机器人</h2>
             <p>创建独立 Workload Principal，不能执行任务或代签审批。</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="关闭">
@@ -357,7 +357,7 @@ export function CreateRegistrationKeyDrawer({
               Registration Credential
             </span>
             <h2 id="create-registration-key-title">为 {principal.name} 创建专用 Key</h2>
-            <p>服务端自动绑定当前 PAM API Endpoint；默认 30 天，最长 90 天。</p>
+            <p>服务端自动绑定当前 Warden API Endpoint；默认 30 天，最长 90 天。</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="关闭">
             <X size={20} />
@@ -446,7 +446,7 @@ export function OneTimeKeyDialog({
   const download = () => {
     const blob = new Blob([result.apiKey + '\n'], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
-    const prefix = result.credential.purpose === 'REGISTRATION' ? 'pam-registration' : 'pam-agent'
+    const prefix = result.credential.purpose === 'REGISTRATION' ? 'pam-registration' : 'warden-agent'
     const link = document.createElement('a')
     link.href = url
     link.download = `${prefix}-${principalName.replace(/[^a-zA-Z0-9._-]+/g, '-')}.key`
@@ -463,7 +463,7 @@ export function OneTimeKeyDialog({
         <div>
           <span className="eyebrow">One-time secret</span>
           <h2 id="one-time-key-title">立即保存 {principalName} 的 API Key</h2>
-          <p>离开此窗口后，PAM不会再次返回这段明文。</p>
+          <p>离开此窗口后，Warden不会再次返回这段明文。</p>
         </div>
         <div className="secret-value">
           <code>{result.apiKey}</code>
@@ -475,7 +475,7 @@ export function OneTimeKeyDialog({
           <AlertTriangle size={18} />
           <span>
             请把 Key注入对应 Multica Agent的 Secret环境变量{' '}
-            <code>{result.credential.purpose === 'REGISTRATION' ? 'PAM_REGISTRATION_API_KEY' : 'PAM_API_KEY'}</code>，不要粘贴到
+            <code>{result.credential.purpose === 'REGISTRATION' ? 'WARDEN_REGISTRATION_API_KEY' : 'WARDEN_API_KEY'}</code>，不要粘贴到
             Issue、日志、代码仓库或聊天消息中。
             {result.apiEndpoint && (
               <>

@@ -1,2 +1,2 @@
-// Package domain defines HighTower's persisted and signed domain models.
+// Package domain defines Warden's persisted and signed domain models.
 package domain

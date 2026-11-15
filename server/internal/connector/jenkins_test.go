@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestJenkinsRunnerDiscoversScopedResourcesWithoutSecrets(t *testing.T) {
@@ -219,14 +219,14 @@ func TestJenkinsRunnerConfiguresOnlyStructuredJobFields(t *testing.T) {
 	task := domain.TaskEnvelope{
 		Resource:   domain.TaskResource{Type: "jenkins_job", ExternalID: "job/team/deploy", Name: "team/deploy"},
 		Action:     domain.TaskAction{Name: "jenkins.job.configure"},
-		Parameters: map[string]any{"description": "managed by PAM", "quietPeriod": float64(30)},
+		Parameters: map[string]any{"description": "managed by Warden", "quietPeriod": float64(30)},
 		Grant:      domain.TaskGrant{ExpiresAt: time.Now().Add(time.Minute)},
 	}
 	result, _, err := runner.Execute(context.Background(), task)
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result["descriptionUpdated"] != true || !strings.Contains(posted, "managed by PAM") || !strings.Contains(posted, "<quietPeriod>30</quietPeriod>") {
+	if result["descriptionUpdated"] != true || !strings.Contains(posted, "managed by Warden") || !strings.Contains(posted, "<quietPeriod>30</quietPeriod>") {
 		t.Fatalf("structured fields were not updated: %s", posted)
 	}
 	if !strings.Contains(posted, `echo &#34;keep me&#34;`) || strings.Contains(posted, "secret-token") {
@@ -715,7 +715,7 @@ func TestJenkinsRunnerUpdateJobInline(t *testing.T) {
 		Action:   domain.TaskAction{Name: "jenkins.job.update"},
 		Parameters: map[string]any{
 			"mode": "inline", "pipelineScript": "pipeline { agent any; stages { stage('Deploy') { steps { echo 'ok' } } } }",
-			"description": "updated by PAM", "quietPeriod": float64(15),
+			"description": "updated by Warden", "quietPeriod": float64(15),
 		},
 		Grant: domain.TaskGrant{ExpiresAt: time.Now().Add(time.Minute)},
 	}
@@ -726,7 +726,7 @@ func TestJenkinsRunnerUpdateJobInline(t *testing.T) {
 	if result["updated"] != true || result["job"] != "team/deploy" || result["mode"] != "inline" {
 		t.Fatalf("unexpected result: %#v", result)
 	}
-	for _, expected := range []string{"CpsFlowDefinition", "updated by PAM", "<quietPeriod>15</quietPeriod>", "stage(&#39;Deploy&#39;)"} {
+	for _, expected := range []string{"CpsFlowDefinition", "updated by Warden", "<quietPeriod>15</quietPeriod>", "stage(&#39;Deploy&#39;)"} {
 		if !strings.Contains(posted, expected) {
 			t.Fatalf("updated inline XML missing %q: %s", expected, posted)
 		}

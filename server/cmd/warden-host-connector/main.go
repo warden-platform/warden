@@ -20,8 +20,8 @@ import (
 	"syscall"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/connector"
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/connector"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var version = "0.1.0"
@@ -38,11 +38,11 @@ type state struct {
 func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
-	controlURL := strings.TrimRight(envOr("PAM_CONTROL_URL", "https://127.0.0.1:8080"), "/")
+	controlURL := strings.TrimRight(envOr("WARDEN_CONTROL_URL", "https://127.0.0.1:8080"), "/")
 	if err := validateControlURL(controlURL); err != nil {
 		log.Fatal(err)
 	}
-	statePath := envOr("PAM_HOST_STATE_FILE", defaultStatePath())
+	statePath := envOr("WARDEN_HOST_STATE_FILE", defaultStatePath())
 	current, err := loadState(statePath)
 	if os.IsNotExist(err) {
 		current, err = pair(ctx, controlURL, statePath)
@@ -84,7 +84,7 @@ func pair(ctx context.Context, controlURL, statePath string) (*state, error) {
 	if err := request(ctx, http.MethodPost, controlURL+"/api/v1/host/pairings", "", map[string]any{"platform": platform, "machineId": machine, "hostname": hostname, "commands": connector.DiscoverHostCommands(), "metadata": map[string]any{"arch": runtime.GOARCH}}, &created); err != nil {
 		return nil, err
 	}
-	log.Printf("PAM %s host pairing code: %s", platform, created.Code)
+	log.Printf("Warden %s host pairing code: %s", platform, created.Code)
 	ticker := time.NewTicker(2 * time.Second)
 	defer ticker.Stop()
 	for {
@@ -120,7 +120,7 @@ func pair(ctx context.Context, controlURL, statePath string) (*state, error) {
 func validateControlURL(raw string) error {
 	parsed, err := url.Parse(raw)
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
-		return fmt.Errorf("invalid PAM_CONTROL_URL")
+		return fmt.Errorf("invalid WARDEN_CONTROL_URL")
 	}
 	if parsed.Scheme == "https" {
 		return nil
@@ -129,7 +129,7 @@ func validateControlURL(raw string) error {
 	if parsed.Scheme == "http" && (host == "127.0.0.1" || host == "localhost" || host == "::1") {
 		return nil
 	}
-	return fmt.Errorf("PAM_CONTROL_URL must use HTTPS (HTTP is allowed only for localhost development)")
+	return fmt.Errorf("WARDEN_CONTROL_URL must use HTTPS (HTTP is allowed only for localhost development)")
 }
 func machineID(hostname string) string {
 	sum := sha256.Sum256([]byte(runtime.GOOS + ":" + runtime.GOARCH + ":" + hostname))
@@ -137,9 +137,9 @@ func machineID(hostname string) string {
 }
 func defaultStatePath() string {
 	if runtime.GOOS == "windows" {
-		return filepath.Join(os.Getenv("ProgramData"), "pam-host", "state.json")
+		return filepath.Join(os.Getenv("ProgramData"), "warden-host", "state.json")
 	}
-	return "/var/lib/pam-host/state.json"
+	return "/var/lib/warden-host/state.json"
 }
 func envOr(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {

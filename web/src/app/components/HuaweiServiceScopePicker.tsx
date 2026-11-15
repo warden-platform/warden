@@ -14,7 +14,7 @@ const HUAWEI_SERVICES: { key: string; label: string }[] = [
 
 // Service-level scope picker for the huaweicloud protocol. Unlike jobs or
 // schemas the candidate list is fixed. The cloud-side
-// IAM policy remains the hard ceiling; this narrows what PAM even probes.
+// IAM policy remains the hard ceiling; this narrows what Warden even probes.
 export function HuaweiServiceScopePicker({
   integration,
   acting,

@@ -75,7 +75,7 @@ export function TargetsPage() {
     <div className="view-stack">
       <div className="target-toolbar panel">
         <div>
-          <strong>管理被 PAM 接入的基础设施</strong>
+          <strong>管理被 Warden 接入的基础设施</strong>
           <span>主机、集群和网络设备是被管理对象；执行代理负责发现资源并执行受控动作。</span>
         </div>
         <div className="target-actions">

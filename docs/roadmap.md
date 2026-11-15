@@ -22,7 +22,7 @@
 | 资源治理 | `sync_generation` + `last_seen_at`、ORPHANED 历史视图与保留期、归档 Connector 资源隐藏、执行目录按活跃心跳过滤、项目与环境继承链 |
 | 部署与发布 | 本地 Docker Compose、K8s 基线清单、多阶段 Dockerfile / distroless 发布镜像、Helm Chart、Linux / Host / Network 安装脚本、发布迁移清单 |
 | Admin Web | 管理员密码登录与 HttpOnly 会话、全量页面接真实 API（无 Mock）、拓扑图谱、分类资源目录、结构化 Action 面板、配对向导 |
-| Agent 接入 | 每 Agent 独立 Hash 存储 API Key、Scope 最小权限、Execution 所有权隔离、撤销 / 轮换、`scripts/pam-agent.sh` 只读巡检脚本、Agent 身份管理页 |
+| Agent 接入 | 每 Agent 独立 Hash 存储 API Key、Scope 最小权限、Execution 所有权隔离、撤销 / 轮换、`scripts/warden-agent.sh` 只读巡检脚本、Agent 身份管理页 |
 | 多租户 | 租户 slug 隔离、`tenant_id` 上下文注入、租户管理接口与配额、平台级接口的 `RequirePlatformTenant` 守卫 |
 | **OIDC / SSO** | 授权码 + PKCE S256、state/nonce 校验、联邦身份自动建档（稳定内部标识 + IdP 展示名 / 邮箱 / 头像）、RP-initiated logout；未配置 issuer 时行为与旧版完全一致 |
 | **统一权限模型** | 角色 / Scope / `capabilities` 集中在 `authorization.go`；后端守卫与前端菜单读同一份能力清单；OIDC 默认角色禁止配成 `platform_admin` |
@@ -30,7 +30,7 @@
 
 ## 未完成（按优先级）
 
-1. **MFA 与 IdP claim 细粒度角色映射**：当前默认角色由 `PAM_OIDC_DEFAULT_ROLE` 静态配置（生产保持 `user`），尚未按 IdP claim 动态授权，MFA 未接入。
+1. **MFA 与 IdP claim 细粒度角色映射**：当前默认角色由 `WARDEN_OIDC_DEFAULT_ROLE` 静态配置（生产保持 `user`），尚未按 IdP claim 动态授权，MFA 未接入。
 2. **Connector mTLS / SPIFFE 强认证**：当前只信任 Connector ID + bootstrap token。
 3. **完整 Rego 策略版本管理**：可视化矩阵、冲突检测与模拟已完成；Rego Bundle 的草稿、发布、回滚未实现。
 4. **Execution Attempt、`RUNNING`、超时回收与取消协议**：状态常量已在领域模型中，但完整协议未落地。
@@ -42,7 +42,7 @@
 
 - 优先级约定：**手工指派 > IdP claim 同步 > 默认 `user`**。目前只实现了首尾两级。
 - 按飞书 / IdP 组织架构自动分配角色与租户：等上游能稳定提供部门 / 组信息再接。
-- **SCIM 2.0**（入职自动开通、离职即时停用）、细粒度 RLS、静态 `PAM_ADMIN_API_KEY` 在线轮换。
+- **SCIM 2.0**（入职自动开通、离职即时停用）、细粒度 RLS、静态 `WARDEN_ADMIN_API_KEY` 在线轮换。
 - 项目层 `PROJECT_ADMIN / OPERATOR / VIEWER` 合并进同一份能力清单，消除三套并行判定。
 
 ## 已知设计债
@@ -55,7 +55,7 @@
 | `admin_sessions` 无 `tenant_id` 列 | 会话维度不是租户感知的 | 已知，未改 |
 | 租户过滤靠各仓储 SQL，没有统一 RLS | 新增接口容易漏 `WHERE tenant_id` | 开第二个租户前应做覆盖审计 |
 | `audit_events.action` 是 PostgreSQL 枚举 | 每个新审计动作名都必须配套迁移，否则审计静默丢失 | 已有单测约束迁移清单，但枚举仍需手工补 |
-| 静态 `PAM_ADMIN_API_KEY` 是全局共享、不可在线轮换的超管凭据 | 泄露影响面大 | 限制存放范围，登记风险；内置 `admin` 按约定保持不变 |
+| 静态 `WARDEN_ADMIN_API_KEY` 是全局共享、不可在线轮换的超管凭据 | 泄露影响面大 | 限制存放范围，登记风险；内置 `admin` 按约定保持不变 |
 
 ## 与外部组件的关系
 

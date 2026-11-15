@@ -60,13 +60,13 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	namespace := envOr("PAM_OPERATOR_NAMESPACE", "pam-system")
+	namespace := envOr("WARDEN_OPERATOR_NAMESPACE", "warden-system")
 	op := &operator{
 		client: client, http: &http.Client{Timeout: 15 * time.Second},
-		controlURL: strings.TrimRight(requiredEnv("PAM_CONTROL_URL"), "/"), namespace: namespace,
-		operatorID:      envOr("PAM_OPERATOR_ID", "pam-operator-"+namespace),
-		connectorImage:  requiredEnv("PAM_CONNECTOR_IMAGE"),
-		imagePullSecret: envOr("PAM_IMAGE_PULL_SECRET", ""),
+		controlURL: strings.TrimRight(requiredEnv("WARDEN_CONTROL_URL"), "/"), namespace: namespace,
+		operatorID:      envOr("WARDEN_OPERATOR_ID", "warden-operator-"+namespace),
+		connectorImage:  requiredEnv("WARDEN_CONNECTOR_IMAGE"),
+		imagePullSecret: envOr("WARDEN_IMAGE_PULL_SECRET", ""),
 	}
 	if err := op.run(ctx); err != nil {
 		log.Fatal(err)
@@ -99,9 +99,9 @@ func (o *operator) run(ctx context.Context) error {
 		return err
 	}
 	if created || (bootstrap.Code != "" && time.Now().Before(bootstrap.ExpiresAt)) {
-		log.Printf("PAM pairing code: %s (expires %s)", bootstrap.Code, bootstrap.ExpiresAt.Format(time.RFC3339))
+		log.Printf("Warden pairing code: %s (expires %s)", bootstrap.Code, bootstrap.ExpiresAt.Format(time.RFC3339))
 	} else {
-		log.Printf("resuming PAM pairing %s", bootstrap.PairingID)
+		log.Printf("resuming Warden pairing %s", bootstrap.PairingID)
 	}
 	for {
 		select {
@@ -117,14 +117,14 @@ func (o *operator) run(ctx context.Context) error {
 			case "PENDING":
 				continue
 			case "EXPIRED", "DELETED":
-				if err := o.client.CoreV1().Secrets(o.namespace).Delete(ctx, "pam-operator-state", metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+				if err := o.client.CoreV1().Secrets(o.namespace).Delete(ctx, "warden-operator-state", metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 					return fmt.Errorf("reset completed pairing state: %w", err)
 				}
 				bootstrap, _, err = o.loadOrCreatePairing(ctx, string(ns.UID), version.GitVersion, audience, availableNamespaces)
 				if err != nil {
 					return fmt.Errorf("create replacement pairing: %w", err)
 				}
-				log.Printf("PAM pairing code: %s (expires %s)", bootstrap.Code, bootstrap.ExpiresAt.Format(time.RFC3339))
+				log.Printf("Warden pairing code: %s (expires %s)", bootstrap.Code, bootstrap.ExpiresAt.Format(time.RFC3339))
 				continue
 			case "CONFIRMED", "READY", "DELETE_REQUESTED":
 				return o.reconcileLoop(ctx, bootstrap, status, audience)
@@ -151,7 +151,7 @@ func resolvedTokenAudience(configured, fallback string) string {
 }
 
 func (o *operator) loadOrCreatePairing(ctx context.Context, clusterUID, clusterVersion, audience string, namespaces []string) (pairingBootstrap, bool, error) {
-	secret, err := o.client.CoreV1().Secrets(o.namespace).Get(ctx, "pam-operator-state", metav1.GetOptions{})
+	secret, err := o.client.CoreV1().Secrets(o.namespace).Get(ctx, "warden-operator-state", metav1.GetOptions{})
 	if err == nil && len(secret.Data["pairingId"]) > 0 && len(secret.Data["bootstrapToken"]) > 0 {
 		bootstrap := pairingBootstrap{PairingID: string(secret.Data["pairingId"]), BootstrapToken: string(secret.Data["bootstrapToken"]), Code: string(secret.Data["code"])}
 		if value := string(secret.Data["expiresAt"]); value != "" {
@@ -172,7 +172,7 @@ func (o *operator) loadOrCreatePairing(ctx context.Context, clusterUID, clusterV
 		return pairingBootstrap{}, false, fmt.Errorf("create pairing: %w", err)
 	}
 	state := map[string][]byte{"pairingId": []byte(bootstrap.PairingID), "bootstrapToken": []byte(bootstrap.BootstrapToken), "code": []byte(bootstrap.Code), "expiresAt": []byte(bootstrap.ExpiresAt.Format(time.RFC3339Nano))}
-	if err := upsertSecret(ctx, o.client, o.namespace, "pam-operator-state", state); err != nil {
+	if err := upsertSecret(ctx, o.client, o.namespace, "warden-operator-state", state); err != nil {
 		return pairingBootstrap{}, false, fmt.Errorf("persist pairing state: %w", err)
 	}
 	return bootstrap, true, nil
@@ -224,33 +224,33 @@ func (o *operator) cleanup(ctx context.Context, pairing pairingStatus) error {
 	suffix := pairing.ConnectorID[:8]
 	namespaces := stringsFromConfig(pairing.Config, "allowedNamespaces")
 	for _, namespace := range namespaces {
-		for _, name := range []string{"pam-token-issuer-" + suffix, "pam-executor-" + suffix, "pam-resource-discoverer-" + suffix} {
+		for _, name := range []string{"warden-token-issuer-" + suffix, "warden-executor-" + suffix, "warden-resource-discoverer-" + suffix} {
 			if err := o.client.RbacV1().RoleBindings(namespace).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
-		if err := o.client.RbacV1().ClusterRoleBindings().Delete(ctx, "pam-cluster-reader-executor-"+namespace+"-"+suffix, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		if err := o.client.RbacV1().ClusterRoleBindings().Delete(ctx, "warden-cluster-reader-executor-"+namespace+"-"+suffix, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
-	if err := o.client.RbacV1().ClusterRoleBindings().Delete(ctx, "pam-cluster-reader-discoverer-"+suffix, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+	if err := o.client.RbacV1().ClusterRoleBindings().Delete(ctx, "warden-cluster-reader-discoverer-"+suffix, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 		return err
 	}
 	for _, deleteResource := range []func() error{
 		func() error {
-			return o.client.AppsV1().Deployments(o.namespace).Delete(ctx, "pam-connector-"+suffix, metav1.DeleteOptions{})
+			return o.client.AppsV1().Deployments(o.namespace).Delete(ctx, "warden-connector-"+suffix, metav1.DeleteOptions{})
 		},
 		func() error {
-			return o.client.CoreV1().Secrets(o.namespace).Delete(ctx, "pam-task-signing-"+suffix, metav1.DeleteOptions{})
+			return o.client.CoreV1().Secrets(o.namespace).Delete(ctx, "warden-task-signing-"+suffix, metav1.DeleteOptions{})
 		},
 		func() error {
-			return o.client.CoreV1().ServiceAccounts(o.namespace).Delete(ctx, "pam-connector-"+suffix, metav1.DeleteOptions{})
+			return o.client.CoreV1().ServiceAccounts(o.namespace).Delete(ctx, "warden-connector-"+suffix, metav1.DeleteOptions{})
 		},
 		func() error {
-			return o.client.RbacV1().RoleBindings(o.namespace).Delete(ctx, "pam-secret-reader-"+suffix, metav1.DeleteOptions{})
+			return o.client.RbacV1().RoleBindings(o.namespace).Delete(ctx, "warden-secret-reader-"+suffix, metav1.DeleteOptions{})
 		},
 		func() error {
-			return o.client.RbacV1().Roles(o.namespace).Delete(ctx, "pam-secret-reader-"+suffix, metav1.DeleteOptions{})
+			return o.client.RbacV1().Roles(o.namespace).Delete(ctx, "warden-secret-reader-"+suffix, metav1.DeleteOptions{})
 		},
 	} {
 		if err := deleteResource(); err != nil && !apierrors.IsNotFound(err) {
@@ -271,15 +271,15 @@ func (o *operator) reconcile(ctx context.Context, pairing pairingStatus, fallbac
 		return fmt.Errorf("pairing has no allowed namespaces")
 	}
 	audience := resolvedTokenAudience(stringFromConfig(pairing.Config, "tokenAudience", fallbackAudience), fallbackAudience)
-	executorSA := stringFromConfig(pairing.Config, "executionServiceAccount", "pam-executor")
-	connectorName := "pam-connector-" + pairing.ConnectorID[:8]
+	executorSA := stringFromConfig(pairing.Config, "executionServiceAccount", "warden-executor")
+	connectorName := "warden-connector-" + pairing.ConnectorID[:8]
 	// Each connector gets an isolated runtime identity. Its Secret Role below
 	// contains resourceNames for only this connector's Integration credentials.
 	bootstrapSA := connectorName
-	tokenIssuerRole := "pam-token-issuer-" + o.namespace
-	executorRole := "pam-executor-" + o.namespace
-	discovererRole := "pam-resource-discoverer-" + o.namespace
-	clusterReaderRole := "pam-cluster-reader-" + o.namespace
+	tokenIssuerRole := "warden-token-issuer-" + o.namespace
+	executorRole := "warden-executor-" + o.namespace
+	discovererRole := "warden-resource-discoverer-" + o.namespace
+	clusterReaderRole := "warden-cluster-reader-" + o.namespace
 	allowedSet := make(map[string]struct{}, len(namespaces))
 	for _, namespace := range namespaces {
 		allowedSet[namespace] = struct{}{}
@@ -292,17 +292,17 @@ func (o *operator) reconcile(ctx context.Context, pairing pairingStatus, fallbac
 		if _, allowed := allowedSet[namespace.Name]; allowed {
 			continue
 		}
-		for _, name := range []string{"pam-token-issuer-" + pairing.ConnectorID[:8], "pam-executor-" + pairing.ConnectorID[:8], "pam-resource-discoverer-" + pairing.ConnectorID[:8]} {
+		for _, name := range []string{"warden-token-issuer-" + pairing.ConnectorID[:8], "warden-executor-" + pairing.ConnectorID[:8], "warden-resource-discoverer-" + pairing.ConnectorID[:8]} {
 			if err := o.client.RbacV1().RoleBindings(namespace.Name).Delete(ctx, name, metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 				return err
 			}
 		}
-		if err := o.client.RbacV1().ClusterRoleBindings().Delete(ctx, "pam-cluster-reader-executor-"+namespace.Name+"-"+pairing.ConnectorID[:8], metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
+		if err := o.client.RbacV1().ClusterRoleBindings().Delete(ctx, "warden-cluster-reader-executor-"+namespace.Name+"-"+pairing.ConnectorID[:8], metav1.DeleteOptions{}); err != nil && !apierrors.IsNotFound(err) {
 			return err
 		}
 	}
 
-	if err := upsertSecret(ctx, o.client, o.namespace, "pam-task-signing-"+pairing.ConnectorID[:8], map[string][]byte{"key": taskKey}); err != nil {
+	if err := upsertSecret(ctx, o.client, o.namespace, "warden-task-signing-"+pairing.ConnectorID[:8], map[string][]byte{"key": taskKey}); err != nil {
 		return err
 	}
 	if err := upsertServiceAccount(ctx, o.client, o.namespace, bootstrapSA); err != nil {
@@ -316,7 +316,7 @@ func (o *operator) reconcile(ctx context.Context, pairing pairingStatus, fallbac
 			APIGroups: []string{""}, Resources: []string{"secrets"}, ResourceNames: credentialRefs, Verbs: []string{"get"},
 		})
 	}
-	secretRole := "pam-secret-reader-" + pairing.ConnectorID[:8]
+	secretRole := "warden-secret-reader-" + pairing.ConnectorID[:8]
 	if err := upsertRole(ctx, o.client, o.namespace, secretRole, secretRules); err != nil {
 		return err
 	}
@@ -325,7 +325,7 @@ func (o *operator) reconcile(ctx context.Context, pairing pairingStatus, fallbac
 	}
 	// Cluster-scoped read access (nodes, namespaces) for discovery + execution.
 	// The ClusterRole is fixed and installed by the chart.
-	if err := upsertClusterRoleBinding(ctx, o.client, "pam-cluster-reader-discoverer-"+pairing.ConnectorID[:8], clusterReaderRole, o.namespace, bootstrapSA); err != nil {
+	if err := upsertClusterRoleBinding(ctx, o.client, "warden-cluster-reader-discoverer-"+pairing.ConnectorID[:8], clusterReaderRole, o.namespace, bootstrapSA); err != nil {
 		return err
 	}
 	for _, namespace := range namespaces {
@@ -335,33 +335,33 @@ func (o *operator) reconcile(ctx context.Context, pairing pairingStatus, fallbac
 		if err := upsertServiceAccount(ctx, o.client, namespace, executorSA); err != nil {
 			return err
 		}
-		// pam-token-issuer is a fixed ClusterRole installed by the chart. A
-		// namespaced binding keeps token issuance limited to pam-executor in the
+		// warden-token-issuer is a fixed ClusterRole installed by the chart. A
+		// namespaced binding keeps token issuance limited to warden-executor in the
 		// selected namespace without asking the operator to escalate a Role.
-		if err := upsertRoleBindingToClusterRole(ctx, o.client, namespace, "pam-token-issuer-"+pairing.ConnectorID[:8], tokenIssuerRole, o.namespace, bootstrapSA); err != nil {
+		if err := upsertRoleBindingToClusterRole(ctx, o.client, namespace, "warden-token-issuer-"+pairing.ConnectorID[:8], tokenIssuerRole, o.namespace, bootstrapSA); err != nil {
 			return err
 		}
-		if err := upsertRoleBindingToClusterRole(ctx, o.client, namespace, "pam-executor-"+pairing.ConnectorID[:8], executorRole, namespace, executorSA); err != nil {
+		if err := upsertRoleBindingToClusterRole(ctx, o.client, namespace, "warden-executor-"+pairing.ConnectorID[:8], executorRole, namespace, executorSA); err != nil {
 			return err
 		}
-		if err := upsertClusterRoleBinding(ctx, o.client, "pam-cluster-reader-executor-"+namespace+"-"+pairing.ConnectorID[:8], clusterReaderRole, namespace, executorSA); err != nil {
+		if err := upsertClusterRoleBinding(ctx, o.client, "warden-cluster-reader-executor-"+namespace+"-"+pairing.ConnectorID[:8], clusterReaderRole, namespace, executorSA); err != nil {
 			return err
 		}
-		if err := upsertRoleBindingToClusterRole(ctx, o.client, namespace, "pam-resource-discoverer-"+pairing.ConnectorID[:8], discovererRole, o.namespace, bootstrapSA); err != nil {
+		if err := upsertRoleBindingToClusterRole(ctx, o.client, namespace, "warden-resource-discoverer-"+pairing.ConnectorID[:8], discovererRole, o.namespace, bootstrapSA); err != nil {
 			return err
 		}
 	}
 	environment := map[string]string{
-		"PAM_KUBERNETES_ENABLED": "true", "PAM_CONTROL_URL": o.controlURL,
-		"PAM_CONNECTOR_NAME":        stringFromConfig(pairing.Config, "connectorName", connectorName),
-		"PAM_CONNECTOR_ENVIRONMENT": stringFromConfig(pairing.Config, "environment", "testing"),
-		"PAM_ALLOWED_NAMESPACES":    strings.Join(namespaces, ","), "PAM_ALLOWED_IMAGE_PREFIXES": strings.Join(registries, ","),
-		"PAM_EXECUTION_SERVICE_ACCOUNT": executorSA, "PAM_KUBERNETES_TOKEN_AUDIENCE": audience,
-		"PAM_CONNECTOR_NAMESPACE": o.namespace,
+		"WARDEN_KUBERNETES_ENABLED": "true", "WARDEN_CONTROL_URL": o.controlURL,
+		"WARDEN_CONNECTOR_NAME":        stringFromConfig(pairing.Config, "connectorName", connectorName),
+		"WARDEN_CONNECTOR_ENVIRONMENT": stringFromConfig(pairing.Config, "environment", "testing"),
+		"WARDEN_ALLOWED_NAMESPACES":    strings.Join(namespaces, ","), "WARDEN_ALLOWED_IMAGE_PREFIXES": strings.Join(registries, ","),
+		"WARDEN_EXECUTION_SERVICE_ACCOUNT": executorSA, "WARDEN_KUBERNETES_TOKEN_AUDIENCE": audience,
+		"WARDEN_CONNECTOR_NAMESPACE": o.namespace,
 	}
 
 	return upsertDeployment(ctx, o.client, o.namespace, connectorName, bootstrapSA, o.connectorImage, environment,
-		nil, "pam-task-signing-"+pairing.ConnectorID[:8], o.imagePullSecret)
+		nil, "warden-task-signing-"+pairing.ConnectorID[:8], o.imagePullSecret)
 }
 
 func (o *operator) get(ctx context.Context, path, token string, output any) error {
@@ -518,7 +518,7 @@ func upsertClusterRoleBinding(ctx context.Context, client kubernetes.Interface, 
 }
 func upsertDeployment(ctx context.Context, client kubernetes.Interface, namespace, name, sa, image string, env map[string]string,
 	extraEnv []corev1.EnvVar, secret, imagePullSecret string) error {
-	labels := map[string]string{"app.kubernetes.io/name": "pam-connector", "pam.io/managed-by": "pam-operator"}
+	labels := map[string]string{"app.kubernetes.io/name": "warden-connector", "pam.io/managed-by": "warden-operator"}
 	values := make([]corev1.EnvVar, 0, len(env)+1)
 	keys := make([]string, 0, len(env))
 	for key := range env {
@@ -530,7 +530,7 @@ func upsertDeployment(ctx context.Context, client kubernetes.Interface, namespac
 		values = append(values, corev1.EnvVar{Name: key, Value: value})
 	}
 	values = append(values, extraEnv...)
-	values = append(values, corev1.EnvVar{Name: "PAM_TASK_SIGNING_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: secret}, Key: "key"}}})
+	values = append(values, corev1.EnvVar{Name: "WARDEN_TASK_SIGNING_KEY", ValueFrom: &corev1.EnvVarSource{SecretKeyRef: &corev1.SecretKeySelector{LocalObjectReference: corev1.LocalObjectReference{Name: secret}, Key: "key"}}})
 	replicas := int32(1)
 	// Release jobs may republish a connector tag before the chart version is
 	// bumped. Always resolve the tag when a Pod is created so a rollout cannot

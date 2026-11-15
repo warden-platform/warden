@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var credentialReferencePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$`)
@@ -323,7 +323,7 @@ func (h *Handler) UpdateIntegrationProjectScope(w http.ResponseWriter, r *http.R
 	jsonResp(w, http.StatusOK, updated)
 }
 
-// prepareHuaweiECSCreate validates the requested PAM project against the
+// prepareHuaweiECSCreate validates the requested Warden project against the
 // Integration allow-list and injects signed, server-owned task context. The
 // Connector never trusts user-provided pam-* labels.
 func (h *Handler) prepareHuaweiECSCreate(ctx context.Context, resource *domain.Resource, principal *domain.Principal, parameters map[string]any) (map[string]any, error) {
@@ -333,7 +333,7 @@ func (h *Handler) prepareHuaweiECSCreate(ctx context.Context, resource *domain.R
 	projectID, _ := parameters["projectId"].(string)
 	projectID = strings.TrimSpace(projectID)
 	if projectID == "" {
-		return nil, &configError{"创建 ECS 必须明确选择 PAM 项目"}
+		return nil, &configError{"创建 ECS 必须明确选择 Warden 项目"}
 	}
 	region, _ := parameters["region"].(string)
 	if region == "" || resource.ExternalID != "account/"+region {
@@ -341,7 +341,7 @@ func (h *Handler) prepareHuaweiECSCreate(ctx context.Context, resource *domain.R
 	}
 	project, err := h.projects.GetByID(ctx, projectID)
 	if err != nil || project == nil {
-		return nil, &configError{"选择的 PAM 项目不存在"}
+		return nil, &configError{"选择的 Warden 项目不存在"}
 	}
 	integration, err := h.integrations.GetByID(ctx, resource.IntegrationID)
 	if err != nil || integration == nil {
@@ -368,18 +368,18 @@ func (h *Handler) prepareHuaweiECSCreate(ctx context.Context, resource *domain.R
 }
 
 // prepareHuaweiECSMetadataUpdate derives governance labels from the resource's
-// current PAM ownership. Callers may supply business tags, but never pam-* keys.
+// current Warden ownership. Callers may supply business tags, but never pam-* keys.
 func (h *Handler) prepareHuaweiECSMetadataUpdate(ctx context.Context, resource *domain.Resource, parameters map[string]any) (map[string]any, error) {
 	if resource.IntegrationID == "" {
 		return nil, &configError{"华为云 ECS 资源缺少 Integration"}
 	}
 	projectID, err := h.resources.EffectiveProjectID(ctx, resource.ID)
 	if err != nil || projectID == "" {
-		return nil, &configError{"ECS 资源缺少有效的 PAM 项目归属"}
+		return nil, &configError{"ECS 资源缺少有效的 Warden 项目归属"}
 	}
 	project, err := h.projects.GetByID(ctx, projectID)
 	if err != nil || project == nil {
-		return nil, &configError{"ECS 资源所属 PAM 项目不存在"}
+		return nil, &configError{"ECS 资源所属 Warden 项目不存在"}
 	}
 	integration, err := h.integrations.GetByID(ctx, resource.IntegrationID)
 	if err != nil || integration == nil {
@@ -417,7 +417,7 @@ func validateIntegration(input integrationInput) error {
 	if strings.TrimSpace(input.Name) == "" || len(input.Name) > 255 {
 		return &configError{"Integration 名称不能为空且不能超过 255 个字符"}
 	}
-	// A "pam:" prefix references a PAM-managed credential (resolved at runtime
+	// A "pam:" prefix references a Warden-managed credential (resolved at runtime
 	// over the connector channel); otherwise the ref is a K8s Secret name (or
 	// Linux credential file) using the same DNS-1123 shape.
 	if strings.HasPrefix(input.CredentialRef, "pam:") {

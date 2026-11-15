@@ -32,7 +32,7 @@ export function NetworkConnectorProvisionModal({
   }
   const shellQuote = (value: string) => `'${value.replaceAll("'", `"'"'`)}'`
   const command = result
-    ? `sudo install -d -m 0750 /etc/pam-network\nprintf '%s' ${shellQuote(result.key)} | sudo install -o root -g pam-network -m 0640 /dev/stdin /etc/pam-network/task-signing-key\nPAM_CONTROL_URL=${shellQuote('https://pam.example.com')} PAM_CONNECTOR_NAME=${shellQuote(name.trim())} PAM_CONNECTOR_ENVIRONMENT=${shellQuote(environment)} PAM_TASK_SIGNING_KEY_FILE=${shellQuote('/etc/pam-network/task-signing-key')} /usr/local/bin/pam-network-connector`
+    ? `sudo install -d -m 0750 /etc/warden-network\nprintf '%s' ${shellQuote(result.key)} | sudo install -o root -g warden-network -m 0640 /dev/stdin /etc/warden-network/task-signing-key\nWARDEN_CONTROL_URL=${shellQuote('https://warden.example.com')} WARDEN_CONNECTOR_NAME=${shellQuote(name.trim())} WARDEN_CONNECTOR_ENVIRONMENT=${shellQuote(environment)} WARDEN_TASK_SIGNING_KEY_FILE=${shellQuote('/etc/warden-network/task-signing-key')} /usr/local/bin/warden-network-connector`
     : ''
   const copy = () =>
     navigator.clipboard.writeText(command).then(() => {
@@ -50,7 +50,7 @@ export function NetworkConnectorProvisionModal({
               Network Connector
             </span>
             <h2>配置 H3C 内网执行通道</h2>
-            <p>先在 PAM 中预置 Connector 身份，再把一次性任务密钥放到内网主机。</p>
+            <p>先在 Warden 中预置 Connector 身份，再把一次性任务密钥放到内网主机。</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="关闭">
             <X size={20} />

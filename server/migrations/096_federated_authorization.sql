@@ -1,8 +1,8 @@
 -- Federated authorization and provisioning foundation.
 --
 -- An external enterprise is represented by its verified enterprise key and is
--- mapped to exactly one PAM tenant.  The external workspace and project IDs are
--- retained as external context; they never replace PAM's own tenant/project
+-- mapped to exactly one Warden tenant.  The external workspace and project IDs are
+-- retained as external context; they never replace Warden's own tenant/project
 -- authorization checks.
 
 CREATE TABLE IF NOT EXISTS external_tenant_bindings (

@@ -74,7 +74,7 @@ export function OnboardModal({
   const imagePullSecretArg = imagePullSecret.trim() ? ` --set imagePullSecret=${shellQuote(imagePullSecret.trim())}` : ''
   const installCommand =
     installConfig && chartReference
-      ? `helm upgrade --install pam-operator ${shellQuote(chartReference)} --namespace pam-system --create-namespace --set controlPlaneURL=${shellQuote(controlURL)} --set image.repository=${shellQuote(installConfig.operatorImageRepository)} --set image.tag=${shellQuote(installConfig.operatorImageTag)} --set connectorImage=${shellQuote(installConfig.connectorImage)}${imagePullSecretArg}`
+      ? `helm upgrade --install warden-operator ${shellQuote(chartReference)} --namespace warden-system --create-namespace --set controlPlaneURL=${shellQuote(controlURL)} --set image.repository=${shellQuote(installConfig.operatorImageRepository)} --set image.tag=${shellQuote(installConfig.operatorImageTag)} --set connectorImage=${shellQuote(installConfig.connectorImage)}${imagePullSecretArg}`
       : ''
   const linuxInstallCommand = installConfig
     ? `curl -fsSL ${shellQuote(`${controlURL}/downloads/install-linux.sh`)} | sudo bash -s -- --control-url ${shellQuote(controlURL)}`
@@ -316,10 +316,10 @@ export function OnboardModal({
                 日志中的{' '}
                 <code>
                   {targetType === 'linux'
-                    ? 'PAM Linux pairing code'
+                    ? 'Warden Linux pairing code'
                     : hostPlatform
-                      ? `PAM ${hostPlatform} host pairing code`
-                      : 'PAM pairing code'}
+                      ? `Warden ${hostPlatform} host pairing code`
+                      : 'Warden pairing code'}
                   : XXXX-XXXX
                 </code>{' '}
                 就是下一步需要输入的配对码。
@@ -327,12 +327,12 @@ export function OnboardModal({
               <div className="command-block">
                 <code>
                   {targetType === 'linux'
-                    ? 'sudo journalctl -u pam-linux-connector -f'
+                    ? 'sudo journalctl -u warden-linux-connector -f'
                     : hostPlatform === 'windows'
-                      ? 'type C:\\ProgramData\\pam-host\\connector.log'
+                      ? 'type C:\\ProgramData\\warden-host\\connector.log'
                       : hostPlatform
-                        ? 'sudo tail -f /var/log/pam-host-connector.log'
-                        : 'kubectl logs -n pam-system deployment/pam-operator -f'}
+                        ? 'sudo tail -f /var/log/warden-host-connector.log'
+                        : 'kubectl logs -n warden-system deployment/warden-operator -f'}
                 </code>
               </div>
             </div>
@@ -540,7 +540,7 @@ export function OnboardModal({
               <span>目标</span>
               <ArrowRight size={18} />
               <strong>
-                {targetType === 'linux' ? `pam-linux-connector-${connectorId.slice(0, 8)}` : `pam-connector-${connectorId.slice(0, 8)}`}
+                {targetType === 'linux' ? `warden-linux-connector-${connectorId.slice(0, 8)}` : `warden-connector-${connectorId.slice(0, 8)}`}
               </strong>
               <span>执行通道</span>
             </div>

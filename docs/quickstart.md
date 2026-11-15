@@ -1,13 +1,13 @@
 # 教程：15 分钟在本地跑起来
 
-> **面向**：第一次接触 HighTower PAM 的开发者。
+> **面向**：第一次接触 Warden Warden 的开发者。
 > **读完你会得到**：一个能登录的管理端、一个能响应 API 的控制面、一套可用的本地密钥，以及明确的下一步。
 > 这是教程，只给一条能走通的路。配置项含义查 [configuration.md](configuration.md)，出问题查 [troubleshooting.md](troubleshooting.md)。
 
 ## 你会搭出什么
 
 ```text
-浏览器 http://localhost:4173  ──/api 代理──>  pam-control http://127.0.0.1:8080  ──>  PostgreSQL :5433
+浏览器 http://localhost:4173  ──/api 代理──>  warden-control http://127.0.0.1:8080  ──>  PostgreSQL :5433
                                                       │
                                                       └── 内嵌 Rego 策略 / 审计
 ```
@@ -54,12 +54,12 @@ chmod 600 .secrets/*
 
 | 文件 | 对应变量 |
 |---|---|
-| `database_url` | `PAM_DATABASE_URL_FILE` |
-| `task_signing_key` | `PAM_TASK_SIGNING_KEY_FILE` |
-| `jwt_signing_key` | `PAM_JWT_SIGNING_KEY_FILE` |
-| `credential_encryption_key` | `PAM_CREDENTIAL_ENCRYPTION_KEY_FILE` |
-| `agent_api_key` | `PAM_ADMIN_API_KEY_FILE`（引导用管理 Key） |
-| `admin_password` | `PAM_ADMIN_PASSWORD_FILE` |
+| `database_url` | `WARDEN_DATABASE_URL_FILE` |
+| `task_signing_key` | `WARDEN_TASK_SIGNING_KEY_FILE` |
+| `jwt_signing_key` | `WARDEN_JWT_SIGNING_KEY_FILE` |
+| `credential_encryption_key` | `WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE` |
+| `agent_api_key` | `WARDEN_ADMIN_API_KEY_FILE`（引导用管理 Key） |
+| `admin_password` | `WARDEN_ADMIN_PASSWORD_FILE` |
 | `postgres_password` | Compose 的 `postgres_password` Docker secret |
 
 ## 2. 启动数据库
@@ -73,7 +73,7 @@ docker compose -f deploy/docker-compose.yaml ps
 
 ## 3. 执行数据库迁移
 
-> **重要**：`pam-control` **不会在启动时自动跑迁移**，内置 `admin` 账号也不是运行时创建的，而是 `002_seed.sql` 写入的。必须先手工执行迁移。
+> **重要**：`warden-control` **不会在启动时自动跑迁移**，内置 `admin` 账号也不是运行时创建的，而是 `002_seed.sql` 写入的。必须先手工执行迁移。
 
 全新空库按文件名顺序执行全部迁移：
 
@@ -98,15 +98,15 @@ docker compose -f deploy/docker-compose.yaml exec -T postgresql \
 
 ```bash
 make server-build
-PAM_FOREGROUND=1 scripts/start-local-control.sh
+WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 ```
 
-`start-local-control.sh` 会读取 `.secrets/` 并组装环境变量；`PAM_FOREGROUND=1` 让进程留在当前终端，方便看日志（`Ctrl-C` 结束）。不加这个变量时脚本后台运行，日志写到 `/tmp/pam-control-direct.log`。
+`start-local-control.sh` 会读取 `.secrets/` 并组装环境变量；`WARDEN_FOREGROUND=1` 让进程留在当前终端，方便看日志（`Ctrl-C` 结束）。不加这个变量时脚本后台运行，日志写到 `/tmp/warden-control-direct.log`。
 
 注意两点：
 
-- 脚本会**清理占用 `PAM_PORT`（默认 8080）的已有进程**；如该端口有别的服务，先设 `PAM_PORT=8090`。
-- 脚本为本地 HTTP 自动设 `PAM_COOKIE_SECURE=false`。**生产环境永远不要关掉它**（见 [installation.md](installation.md)）。
+- 脚本会**清理占用 `WARDEN_PORT`（默认 8080）的已有进程**；如该端口有别的服务，先设 `WARDEN_PORT=8090`。
+- 脚本为本地 HTTP 自动设 `WARDEN_COOKIE_SECURE=false`。**生产环境永远不要关掉它**（见 [installation.md](installation.md)）。
 
 保持这个终端运行，另开一个终端继续。
 
@@ -134,7 +134,7 @@ make web-install
 make web-dev
 ```
 
-Vite 默认监听 `http://localhost:4173`，并把 `/api` 代理到 `http://localhost:8080`（可用 `PAM_WEB_PORT` / `PAM_WEB_HOST` / `PAM_CONTROL_TARGET` 覆盖，见 [configuration.md](configuration.md)）。
+Vite 默认监听 `http://localhost:4173`，并把 `/api` 代理到 `http://localhost:8080`（可用 `WARDEN_WEB_PORT` / `WARDEN_WEB_HOST` / `WARDEN_CONTROL_TARGET` 覆盖，见 [configuration.md](configuration.md)）。
 
 打开 `http://localhost:4173/login`：
 
@@ -160,7 +160,7 @@ make clean                                           # 删除 server/bin、web/d
 ## 你刚刚跑通了什么
 
 - 文件型 Secret → 控制面启动校验 → PostgreSQL 连接池 → 路由注册 → 会话签发
-- 内置 `admin` 的 bcrypt 密码哈希在启动时与 `PAM_ADMIN_PASSWORD_FILE` 同步
+- 内置 `admin` 的 bcrypt 密码哈希在启动时与 `WARDEN_ADMIN_PASSWORD_FILE` 同步
 - 前端通过 `/api` 代理、HttpOnly Cookie 与 `capabilities` 渲染菜单
 
 ## 下一步

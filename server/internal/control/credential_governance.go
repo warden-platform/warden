@@ -9,14 +9,14 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 )
 
 // executeCredentialAction performs a control-plane inline credential action.
 // Unlike Connector-dispatched actions it never claims a task and never creates
 // an AccessGrant: the policy decision, approval, audit and timeout pipeline is
-// still honored, but the effect is applied directly against the PAM-managed
+// still honored, but the effect is applied directly against the Warden-managed
 // credential ledger.
 //
 // Plaintext boundary: secretValue exists only in memory. It is AES-GCM

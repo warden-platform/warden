@@ -31,7 +31,7 @@ const TABS: Tab[] = [
   { key: 'network', label: '网络设备' },
 ]
 
-const DOMAIN_STORAGE_KEY = 'pam.resources.domain'
+const DOMAIN_STORAGE_KEY = 'warden.resources.domain'
 const isDomainKey = (v: string | null): v is ResourceDomain => TABS.some((t) => t.key === v)
 const countStatuses = (counts: StatusCounts | undefined, view: ResourceView) =>
   Object.entries(counts ?? {}).reduce((total, [status, count]) => {

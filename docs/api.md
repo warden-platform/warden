@@ -14,12 +14,12 @@
 | Admin session | 管理 Web | `POST /auth/login` 设置 HttpOnly Cookie；浏览器请求携带 `credentials: include` |
 | OIDC session | 企业 IdP 登录的 Web 用户 | 授权码 + PKCE S256；回调校验 state/nonce 后复用同一份 `pam_session` Cookie |
 | Agent API Key | 外部 Agent | `Authorization: Bearer <agent-api-key>`，按 Key Scope 授权 |
-| Registration Key | Multica 资源注册机器人 | `Authorization: Bearer <pam_rgk_...>`；绑定指定 PAM API audience，仅开放注册白名单 |
+| Registration Key | Multica 资源注册机器人 | `Authorization: Bearer <pam_rgk_...>`；绑定指定 Warden API audience，仅开放注册白名单 |
 | Connector signature | Connector Runtime | 每 Connector 独立任务 Key签名；覆盖时间戳、nonce、方法、路径和请求体 |
 
 当前支持共享控制面的多租户模式。业务对象按 tenant 隔离，tenant 从登录用户、API Key 或 Connector 凭据推导，客户端不能通过请求体选择或切换 tenant。平台管理员可以创建 tenant 和首个租户管理员；初始迁移数据属于 `platform` tenant。
 
-用于外部编排平台集成的 Principal 可以在 `metadata.project_ids` 中声明最多 100 个 PAM Project ID。字段一旦存在，项目列表、资源列表、资源统计、单资源动作查询、诊断上下文和 Execution 创建都会在服务端强制限制到这些项目；它是现有项目成员权限之上的额外上限，不会绕过项目 RBAC，空数组表示不允许访问任何项目或资源。Jenkins Job 的额外 `consumer-projects` 关系允许消费项目读取和触发该 Job，但不授予配置、禁用、删除或通用 Provider 写权限。未声明该字段的既有 Principal 保持原有租户内访问行为。V0.1 的企业级租户隔离通过每个外部企业/工作区独立部署 PAM 实例实现。
+用于外部编排平台集成的 Principal 可以在 `metadata.project_ids` 中声明最多 100 个 Warden Project ID。字段一旦存在，项目列表、资源列表、资源统计、单资源动作查询、诊断上下文和 Execution 创建都会在服务端强制限制到这些项目；它是现有项目成员权限之上的额外上限，不会绕过项目 RBAC，空数组表示不允许访问任何项目或资源。Jenkins Job 的额外 `consumer-projects` 关系允许消费项目读取和触发该 Job，但不授予配置、禁用、删除或通用 Provider 写权限。未声明该字段的既有 Principal 保持原有租户内访问行为。V0.1 的企业级租户隔离通过每个外部企业/工作区独立部署 Warden 实例实现。
 
 ### Agent Scope
 
@@ -93,8 +93,8 @@
 
 - 三个端点均为 Public；`login_url` / `logout_url` 由服务端按注册的 `redirect_uri` 推导，浏览器必须使用这两个绝对地址发起跳转。host-only 的 state/nonce cookie 要求登录与回调同源，混用 `localhost` 与 `127.0.0.1` 会返回 `INVALID_OIDC_STATE`。
 - 授权码流强制 PKCE S256；缺失 `oidc_verifier` cookie 返回 `OIDC_PKCE_MISSING`，不会降级为无 PKCE 兑换。失败的回调不清除 state cookie，允许重试。
-- 首次登录按 `(issuer, subject)` 建立 `federated_identities` 与 `principals` 记录；缺少 `sub` 返回 `OIDC_INVALID_SUBJECT`，避免所有用户被合并为同一身份。后续登录刷新展示名、邮箱、头像，但保留管理员在 PAM 中调整过的 `role`。
-- 默认角色由 `PAM_OIDC_DEFAULT_ROLE` 决定，取值只允许 `user`（默认）/ `tenant_admin`；**配置 `platform_admin` 会导致启动失败**，非法值同样拒绝启动。生产环境保持最小权限，超级管理员只能通过账号接口手工指派。
+- 首次登录按 `(issuer, subject)` 建立 `federated_identities` 与 `principals` 记录；缺少 `sub` 返回 `OIDC_INVALID_SUBJECT`，避免所有用户被合并为同一身份。后续登录刷新展示名、邮箱、头像，但保留管理员在 Warden 中调整过的 `role`。
+- 默认角色由 `WARDEN_OIDC_DEFAULT_ROLE` 决定，取值只允许 `user`（默认）/ `tenant_admin`；**配置 `platform_admin` 会导致启动失败**，非法值同样拒绝启动。生产环境保持最小权限，超级管理员只能通过账号接口手工指派。
 - 联邦用户登出走 `/auth/oidc/logout`，同时终止 IdP 会话；普通登出仍用 `/auth/logout`。
 
 ### 账号与权限管理
@@ -108,7 +108,7 @@
 
 账号列表、目标查询、管理员计数与更新 SQL 均带 `tenant_id` 过滤，跨租户目标返回 `ACCOUNT_NOT_FOUND`（404）。角色变更会立即 `UPDATE admin_sessions SET revoked_at=now()`，被改的账号需要重新登录才能拿到新的 JWT scope；审计事件 `account.role_updated` 与角色变更在**同一事务**内提交，审计写入失败则整个变更回滚。约束：内置应急超管 `00000000-…-0003` 不可修改（`BUILTIN_ADMIN_PROTECTED`）、不能给自己降权（`CANNOT_DEMOTE_SELF`）、必须保留至少一个非内置 `platform_admin`（`LAST_PLATFORM_ADMIN`）、非法角色返回 `INVALID_ACCOUNT_ROLE`、非平台租户返回 `PLATFORM_TENANT_REQUIRED`（403）。
 
-`PAM_OIDC_DEFAULT_ROLE` 只允许 `user` / `tenant_admin`；配置 `platform_admin` 会导致启动失败——超级管理员只能由管理员在本接口手工指派。完整权限模型见 [`authorization.md`](authorization.md)。
+`WARDEN_OIDC_DEFAULT_ROLE` 只允许 `user` / `tenant_admin`；配置 `platform_admin` 会导致启动失败——超级管理员只能由管理员在本接口手工指派。完整权限模型见 [`authorization.md`](authorization.md)。
 
 ## 平台租户管理
 
@@ -146,7 +146,7 @@
 
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
-| GET | `/api/v1/resources` | `pam:resources:read` | 查询资源；支持 `availableForExecution=true` 和 `projectId=<pam-project-id>`，可执行资源同样返回有效项目、环境及各自来源 |
+| GET | `/api/v1/resources` | `pam:resources:read` | 查询资源；支持 `availableForExecution=true` 和 `projectId=<warden-project-id>`，可执行资源同样返回有效项目、环境及各自来源 |
 | GET | `/api/v1/resources/stats` | `pam:resources:read` | 查询当前、活跃、异常和历史资源聚合统计 |
 | GET | `/api/v1/actions` | `pam:resources:read` | 查询动作定义 |
 | GET | `/api/v1/resources/{id}/actions` | `pam:resources:read` | 查询指定资源可执行的动作及参数 Schema |
@@ -174,7 +174,7 @@
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
 | POST | `/api/v1/executions` | `pam:executions:create` | 创建受策略约束的执行 |
-| GET | `/api/v1/executions` | `pam:executions:read:self` | 查询执行；Agent只能看到自己的记录，支持 `projectId=<pam-project-id>` 按资源项目过滤 |
+| GET | `/api/v1/executions` | `pam:executions:read:self` | 查询执行；Agent只能看到自己的记录，支持 `projectId=<warden-project-id>` 按资源项目过滤 |
 | GET | `/api/v1/executions/{id}` | `pam:executions:read:self` | 查询执行详情 |
 | POST | `/api/v1/executions/{id}/cancel` | `pam:executions:cancel:self` | 取消尚未完成的执行 |
 
@@ -217,18 +217,18 @@ Content-Type: application/json
 `workspaceId`、`projectId`、`agentId`、`taskId`、`issueId`、
 `originatorUserId`、`accountableUserId`、`originatorSource` 和
 `delegatedFromTaskId`。`source` 和至少一个关联标识必填；各标识只接受有限长度的
-安全字符。PAM 将其原样保存在 Execution、审批请求和相关审计事件中，用于追踪
+安全字符。Warden 将其原样保存在 Execution、审批请求和相关审计事件中，用于追踪
 “哪个 Agent、哪个任务、代表谁发起”，但不会把这些字段当作授权依据，也不会因为
 请求体中的用户 ID 放宽 Principal、Tenant 或项目成员校验。若同时提供顶层 `taskId`
 和 `externalContext.taskId`，二者必须一致；仅提供后者时会兼容填入 Execution 的
-顶层任务字段。重试时若同一个 Principal 使用相同幂等键但外部上下文不同，PAM 会返回
+顶层任务字段。重试时若同一个 Principal 使用相同幂等键但外部上下文不同，Warden 会返回
 `IDEMPOTENCY_CONFLICT`。
 
 服务端根据策略返回 `WAITING_APPROVAL`、`QUEUED` 或明确失败状态。调用方应保存返回的 `execution_id` 并通过查询接口跟踪终态。
 
 风险为 `low` 的查询动作保持免审批。生产环境变更具有不可放宽的审批下限：策略矩阵可以进一步拒绝，但不能把生产变更降为自动执行。变更只会下发给同时具备动作 capability 和 `pam.change-safety@v1` 的 Connector。Connector 在变更前读取目标状态摘要，成功后重新读取验证；结果中的 `_pam_safety` 包含前后状态、验证状态和 `MANUAL`/`NOT_SUPPORTED` 回滚语义。超时或连接中断产生 `UNKNOWN` 时，Connector 会重新读取目标状态并明确禁止自动重试。
 
-Kubernetes 保留 Deployment、StatefulSet、CronJob 等高频结构化动作，并增加 `kubernetes.resource.get/list/preview/create/update/delete` 通用资源动作。通用动作只接受固定白名单 GVK：ConfigMap、Service、Deployment、StatefulSet、DaemonSet、Job、CronJob、Ingress、NetworkPolicy 和 PodDisruptionBudget；Secret、RBAC、CRD、Webhook、Node 及其他未列出的类型默认拒绝。list/create 绑定已授权 Namespace PAM 资源，get/update/delete 绑定已发现的具体 PAM 资源，不能通过参数切换 Connector、Namespace、Kind 或 Name。
+Kubernetes 保留 Deployment、StatefulSet、CronJob 等高频结构化动作，并增加 `kubernetes.resource.get/list/preview/create/update/delete` 通用资源动作。通用动作只接受固定白名单 GVK：ConfigMap、Service、Deployment、StatefulSet、DaemonSet、Job、CronJob、Ingress、NetworkPolicy 和 PodDisruptionBudget；Secret、RBAC、CRD、Webhook、Node 及其他未列出的类型默认拒绝。list/create 绑定已授权 Namespace Warden 资源，get/update/delete 绑定已发现的具体 Warden 资源，不能通过参数切换 Connector、Namespace、Kind 或 Name。
 
 create/update 在实际写入前必须先调用 `kubernetes.resource.preview` 完成 server-side dry-run；预检返回净化后的 `before`、`after` 与 `previewHash`，写请求会重跑 dry-run 并要求哈希完全一致。update 需要读取动作返回的 `expectedResourceVersion`，delete 同时要求 `expectedResourceVersion`、精确的 `Kind/Namespace/Name` 二次确认和 `Background`/`Foreground`/`Orphan` 传播策略。create 使用 Execution ID 注解实现确定性幂等，Manifest 限制为 1 MiB，`status` 与 `managedFields` 被移除，密码、Token、私钥、client secret、Authorization 等敏感字段会被拒绝并在结果中净化。只读与预检动作免审批；生产环境写操作强制审批。超时或连接中断进入 `UNKNOWN` 后仅重新读取目标状态，禁止自动重放。
 
@@ -265,11 +265,11 @@ create/update 在实际写入前必须先调用 `kubernetes.resource.preview` �
 矩阵可以把 Rego `ALLOW` 收紧为审批/拒绝，也可以在非生产环境把 `REQUIRE_APPROVAL` 放宽为自动放行；生产变更始终至少需要审批。
 规则按优先级降序匹配，同优先级选择项目、资源、动作、环境、风险、身份条件更精确的规则。
 
-钉钉互动卡片需要企业内部应用的 `PAM_DINGTALK_APP_KEY_FILE`、
-`PAM_DINGTALK_APP_SECRET_FILE`、`PAM_DINGTALK_CARD_TEMPLATE_ID_FILE` 和
-`PAM_DINGTALK_OPEN_CONVERSATION_ID_FILE`、`PAM_DINGTALK_ROBOT_CODE_FILE`。Robot Code
+钉钉互动卡片需要企业内部应用的 `WARDEN_DINGTALK_APP_KEY_FILE`、
+`WARDEN_DINGTALK_APP_SECRET_FILE`、`WARDEN_DINGTALK_CARD_TEMPLATE_ID_FILE` 和
+`WARDEN_DINGTALK_OPEN_CONVERSATION_ID_FILE`、`WARDEN_DINGTALK_ROBOT_CODE_FILE`。Robot Code
 需要独立配置，实际值允许与 Client ID/AppKey 相同。控制面通过官方 Stream SDK 接收卡片按钮回调，
-不需要公网回调 URL。`PAM_DINGTALK_WEBHOOK_FILE` 与 `PAM_DINGTALK_SECRET_FILE`
+不需要公网回调 URL。`WARDEN_DINGTALK_WEBHOOK_FILE` 与 `WARDEN_DINGTALK_SECRET_FILE`
 仅用于可选的 Markdown 兜底通知。
 互动卡片根据回调 User ID 调用钉钉 `/topapi/v2/user/get` 查询处理人姓名，应用需具备成员信息读权限 `qyapi_get_member`；查询失败时降级记录 User ID，不阻断审批。显式绑定仅供兼容酷应用免登使用。
 Web、互动卡片和兼容的酷应用页面复用同一个审批事务；数据库行锁确保并发操作只产生一个结果。
@@ -306,7 +306,7 @@ AppSecret、AccessToken、免登码和会话 JWT 不写入数据库、审计或 
 
 ```json
 {
-  "name": "PAM注册机器人",
+  "name": "Warden注册机器人",
   "kind": "workload",
   "metadata": {
     "platform": "multica",
@@ -331,13 +331,13 @@ AppSecret、AccessToken、免登码和会话 JWT 不写入数据库、审计或 
 }
 ```
 
-创建 Registration Key；`audience` 可省略，服务端会绑定 `PAM_REGISTRATION_AUDIENCE`，或由
-`PAM_PUBLIC_CONTROL_URL` 推导出的 `<control-url>/api/v1`：
+创建 Registration Key；`audience` 可省略，服务端会绑定 `WARDEN_REGISTRATION_AUDIENCE`，或由
+`WARDEN_PUBLIC_CONTROL_URL` 推导出的 `<control-url>/api/v1`：
 
 ```json
 {
   "name": "pam-resource-registration",
-  "audience": "https://pam-admin.example.com/api/v1",
+  "audience": "https://warden-admin.example.com/api/v1",
   "expiresAt": "2026-10-01T00:00:00Z"
 }
 ```
@@ -351,24 +351,24 @@ Registration Key 使用独立的 `pam_rgk_` 前缀，固定拥有 `pam:registrat
 
 ### 联邦授权与 Provisioning
 
-PAM 支持外部联邦使用独立的非对称 JWT Assertion 进行企业/用户授权交换。普通外部 Session JWT
-和 `JWT_SECRET` 不会被 PAM 接受。企业与 Project 必须先由 PAM 租户管理员显式绑定；联邦登录不会
-批量创建 PAM Project 成员。完整 Assertion 字段、配置项和管理员操作流程见
+Warden 支持外部联邦使用独立的非对称 JWT Assertion 进行企业/用户授权交换。普通外部 Session JWT
+和 `JWT_SECRET` 不会被 Warden 接受。企业与 Project 必须先由 Warden 租户管理员显式绑定；联邦登录不会
+批量创建 Warden Project 成员。完整 Assertion 字段、配置项和管理员操作流程见
 [`docs/federated-authorization.md`](federated-authorization.md)。
 
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
-| POST | `/api/v1/auth/federated/login` | 无（Federated Assertion） | 校验短期 Assertion，JIT 创建/更新 PAM User 并签发 PAM Bearer Token |
+| POST | `/api/v1/auth/federated/login` | 无（Federated Assertion） | 校验短期 Assertion，JIT 创建/更新 Warden User 并签发 Warden Bearer Token |
 | GET | `/api/v1/federated/tenants` | 租户管理员 | 查询当前租户的 联邦企业绑定 |
-| POST | `/api/v1/federated/tenants` | 租户管理员 | 将 联邦企业/Workspace 绑定到当前 PAM Tenant |
-| GET | `/api/v1/federated/projects` | 租户管理员 | 查询 联邦 Project → PAM Project 绑定 |
-| POST | `/api/v1/federated/projects` | 租户管理员 | 手工绑定 联邦 Project 到已有 PAM Project |
+| POST | `/api/v1/federated/tenants` | 租户管理员 | 将 联邦企业/Workspace 绑定到当前 Warden Tenant |
+| GET | `/api/v1/federated/projects` | 租户管理员 | 查询 联邦 Project → Warden Project 绑定 |
+| POST | `/api/v1/federated/projects` | 租户管理员 | 手工绑定 联邦 Project 到已有 Warden Project |
 | DELETE | `/api/v1/federated/projects/{id}` | 租户管理员 | 撤销外部 Project 绑定 |
 
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
 | GET | `/api/v1/external-bindings` | 租户管理员 | 查询当前租户的外部 Agent/User Binding |
-| POST | `/api/v1/external-bindings` | 租户管理员 | 将外部 Agent/User 映射到 PAM Principal；Agent 必须同时绑定一个 PAM project |
+| POST | `/api/v1/external-bindings` | 租户管理员 | 将外部 Agent/User 映射到 Warden Principal；Agent 必须同时绑定一个 Warden project |
 | DELETE | `/api/v1/external-bindings/{id}` | 租户管理员 | 撤销 Binding，并立即撤销受其影响的委托 Token |
 | POST | `/api/v1/external-delegations/exchange` | `pam:delegation:exchange` | 使用长期 Agent Key 换取短时委托 Token |
 | POST | `/api/v1/external-delegations/{id}/revoke` | 租户管理员 | 单独撤销一个委托 Token |
@@ -383,8 +383,8 @@ PAM 支持外部联邦使用独立的非对称 JWT Assertion 进行企业/用户
   "externalProjectId": "external-project-payments",
   "identityType": "AGENT",
   "externalId": "agent-release-01",
-  "principalId": "<pam-agent-principal-id>",
-  "projectId": "<pam-project-id>"
+  "principalId": "<warden-agent-principal-id>",
+  "projectId": "<warden-project-id>"
 }
 ```
 
@@ -410,25 +410,25 @@ PAM 支持外部联邦使用独立的非对称 JWT Assertion 进行企业/用户
 }
 ```
 
-PAM 只有在以下条件全部满足时才会签发委托 Token：
+Warden 只有在以下条件全部满足时才会签发委托 Token：
 
 - 当前长期 Key 属于 `agent_instance` 或 `workload` Principal，并拥有
   `pam:delegation:exchange`；
 - `source + workspaceId + externalProjectId + agentId` 命中一个仍有效的 Agent Binding，
   且 Binding 所属 Principal 就是当前认证 Principal；
-- Agent Binding 对应的 PAM project 仍允许该 Principal 执行；
+- Agent Binding 对应的 Warden project 仍允许该 Principal 执行；
 - `originatorUserId` 和 `accountableUserId` 如有提供，必须命中有效的 USER Binding，且
-  对应 PAM Principal 仍是启用的 `user`；
+  对应 Warden Principal 仍是启用的 `user`；
 - `originatorSource` 为 `human` 时必须提供 `originatorUserId`。
 
 委托 Token 是服务端只保存 Hash 的 `pam_dtk_...` opaque credential，默认 5 分钟、最长
-15 分钟。它携带签发时固定的外部上下文和 PAM `actingProjectId`；后续创建 Execution 时
+15 分钟。它携带签发时固定的外部上下文和 Warden `actingProjectId`；后续创建 Execution 时
 可以不再传这两个字段，但如果显式传入，必须与 Token 完全一致。撤销 Agent Binding、
-User Binding、父级 API Key 或 PAM Principal 会使对应 Token 立即失效。委托 Token 不包含
+User Binding、父级 API Key 或 Warden Principal 会使对应 Token 立即失效。委托 Token 不包含
 审批权限，也不能再次调用 Token Exchange。
 
 通过委托 Token 创建的 Execution 返回 `delegationTokenId`、`onBehalfOfPrincipalId` 和
-`accountablePrincipalId`；Access Request 使用同名的 snake_case 字段。三者是 PAM 内部
+`accountablePrincipalId`；Access Request 使用同名的 snake_case 字段。三者是 Warden 内部
 Principal/Token ID，不是外部用户 ID，适合用于审计关联和责任追踪。审计事件的
 `metadata` 也会记录这三个字段以及 `external_context`，但不会把委托 Token 明文写入
 数据库或审计日志。
@@ -558,11 +558,11 @@ Integration 请求结构：
 }
 ```
 
-支持的协议以当前 Connector Runner 为准，包括 Jenkins、Grafana、PostgreSQL、MySQL、华为云和阿里云 SLS。`credentialRef` 只引用目标侧凭据；Secret 明文不进入前端或 pam-control 数据库。阿里云 SLS 新接入填写种子 Region，凭据为目标侧保存的 `AK:SK` 或等价 JSON；`scope.regionPolicy` 控制全部/指定/单 Region，`scope.allowedProjects` 可限制 Project。旧项目级官方 HTTPS Endpoint 继续兼容。
+支持的协议以当前 Connector Runner 为准，包括 Jenkins、Grafana、PostgreSQL、MySQL、华为云和阿里云 SLS。`credentialRef` 只引用目标侧凭据；Secret 明文不进入前端或 warden-control 数据库。阿里云 SLS 新接入填写种子 Region，凭据为目标侧保存的 `AK:SK` 或等价 JSON；`scope.regionPolicy` 控制全部/指定/单 Region，`scope.allowedProjects` 可限制 Project。旧项目级官方 HTTPS Endpoint 继续兼容。
 
 Jenkins Job 生命周期使用独立动作：`jenkins.job.create` 只创建且同名冲突，`jenkins.job.update` 更新 inline/SCM Pipeline 定义，`jenkins.job.configure` 仅修改描述和静默期，`jenkins.job.delete` 需要审批及完整 Job 名称二次确认。Job 身份由资源固定，不提供 rename/move；SCM 参数只接受 Credential ID，不接受或返回 Secret。
 
-数据库表资源可使用 `database.table.rows.query@v1` 查询业务行。请求必须提供与资源一致的 `name`、`namespace` 和 1-20 个 `columns`；可选 `filters`、`orderBy`、`limit`（最大 100）及 `offset`（最大 10000）。所有过滤值均使用驱动参数，字段/Schema/表名由 Connector 对照实时 `information_schema` 校验并引用。该动作不接受 SQL 文本、不支持 JOIN 或写操作，响应限制为 1 MiB，超长单元格会截断并返回 `truncatedCells`。该有界查询默认直接执行并完整审计，不进入人工审批；原始行结果在 PAM 中保留 10 分钟，随后替换为清理标记，执行参数、身份、目标、终态和审计继续保留。
+数据库表资源可使用 `database.table.rows.query@v1` 查询业务行。请求必须提供与资源一致的 `name`、`namespace` 和 1-20 个 `columns`；可选 `filters`、`orderBy`、`limit`（最大 100）及 `offset`（最大 10000）。所有过滤值均使用驱动参数，字段/Schema/表名由 Connector 对照实时 `information_schema` 校验并引用。该动作不接受 SQL 文本、不支持 JOIN 或写操作，响应限制为 1 MiB，超长单元格会截断并返回 `truncatedCells`。该有界查询默认直接执行并完整审计，不进入人工审批；原始行结果在 Warden 中保留 10 分钟，随后替换为清理标记，执行参数、身份、目标、终态和审计继续保留。
 
 Integration 项目范围请求示例：
 
@@ -590,7 +590,7 @@ Integration 项目范围请求示例：
 
 ECS 实例支持 `huawei.ecs.start@v1`、`huawei.ecs.stop@v1`、`huawei.ecs.reboot@v1`、`huawei.ecs.update_metadata@v1` 和 `huawei.ecs.delete@v1`。生命周期动作等待华为云 Job 完成并回读最终状态；治理更新只接受最多 3 个业务标签和备注，`pam-*` 项目/环境/Integration 标签由服务端按当前资源归属生成；删除必须提交与固定目标完全一致的 `confirmServerName`，并显式选择是否同时删除公网 IP 和数据盘。所有动作均拒绝跨 Region 或跨资源目标并进入审批。
 
-AIOps 新增动作均为结构化契约：`pod.metrics`、`node.metrics` 读取 Metrics API；华为云自动发现 `huawei_lts_log_group` 和 `huawei_lts_log_stream`，`huawei.lts.logs.query` 直接绑定日志流，由 Connector 从授权资源身份推导日志组/日志流 ID；`aliyun.sls.logs.query` 直接绑定 Logstore。两类云日志查询不限制云端历史范围，但单次最多 500 条/4 MiB，原始结果在 PAM 中仅保留 10 分钟；Grafana 增加 `grafana.folder.update` 与只返回非敏感配置的 `grafana.datasource.get`，Folder 更新必须携带只读预取到的当前 `version` 以执行乐观锁校验，Folder/Dashboard/Datasource 更新均把 UID 固定为授权资源，并递归拒绝 `secureJsonData`、密码、Token、API Key 和 Authorization 字段；Dashboard ConfigMap 只接受 `grafana-dashboard-*` 名称和单个 `.json` Dashboard，并始终进入审批。
+AIOps 新增动作均为结构化契约：`pod.metrics`、`node.metrics` 读取 Metrics API；华为云自动发现 `huawei_lts_log_group` 和 `huawei_lts_log_stream`，`huawei.lts.logs.query` 直接绑定日志流，由 Connector 从授权资源身份推导日志组/日志流 ID；`aliyun.sls.logs.query` 直接绑定 Logstore。两类云日志查询不限制云端历史范围，但单次最多 500 条/4 MiB，原始结果在 Warden 中仅保留 10 分钟；Grafana 增加 `grafana.folder.update` 与只返回非敏感配置的 `grafana.datasource.get`，Folder 更新必须携带只读预取到的当前 `version` 以执行乐观锁校验，Folder/Dashboard/Datasource 更新均把 UID 固定为授权资源，并递归拒绝 `secureJsonData`、密码、Token、API Key 和 Authorization 字段；Dashboard ConfigMap 只接受 `grafana-dashboard-*` 名称和单个 `.json` Dashboard，并始终进入审批。
 
 ## Operator 与 Linux 配对
 
@@ -630,10 +630,10 @@ Connector 签名协议属于内部协议。外部客户端不应模拟该接口�
 | GET | `/downloads/install-linux.sh` | Linux 安装脚本 |
 | GET | `/downloads/install-network.sh` | Network Connector 安装脚本 |
 | GET | `/downloads/uninstall-linux.sh` | Linux 卸载脚本 |
-| GET | `/downloads/pam-linux-connector-linux/{arch}` | Linux Connector，`arch` 为受支持架构 |
-| GET | `/downloads/pam-network-connector-linux/{arch}` | Network Connector，`arch` 为受支持架构 |
-| GET | `/downloads/pam-linux-helper-linux/{arch}` | Linux Helper |
-| GET | `/downloads/pam-operator-chart.tgz` | Operator Helm Chart |
+| GET | `/downloads/warden-linux-connector-linux/{arch}` | Linux Connector，`arch` 为受支持架构 |
+| GET | `/downloads/warden-network-connector-linux/{arch}` | Network Connector，`arch` 为受支持架构 |
+| GET | `/downloads/warden-linux-helper-linux/{arch}` | Linux Helper |
+| GET | `/downloads/warden-operator-chart.tgz` | Operator Helm Chart |
 
 ## 维护规则
 

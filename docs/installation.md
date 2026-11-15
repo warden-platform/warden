@@ -1,6 +1,6 @@
 # 操作指南：部署到正式环境
 
-> **面向**：要把 HighTower PAM 部署到生产 / 预发布环境的工程师。
+> **面向**：要把 Warden Warden 部署到生产 / 预发布环境的工程师。
 > **目标**：搭出一套 HTTPS、最小权限、可回滚的运行环境。
 > 变量含义查 [configuration.md](configuration.md)，SSO 接入查 [oidc-setup.md](oidc-setup.md)，日常运维查 [operations.md](operations.md)。
 
@@ -10,13 +10,13 @@
 
 | 制品 | 构建方式 | 说明 |
 |---|---|---|
-| 控制面镜像 | `docker build -f server/Dockerfile --build-arg TARGET=pam-control -t <registry>/pam-control:<tag> .` | 多阶段构建，运行阶段为 distroless nonroot |
+| 控制面镜像 | `docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<tag> .` | 多阶段构建，运行阶段为 distroless nonroot |
 | 预编译发布镜像 | `server/Dockerfile.release` | 需先 `make server-build-linux-amd64` 产出 `server/bin/linux-amd64/` |
 | 管理端 | `web/Dockerfile`（构建 `web/dist` 并用 nginx 托管） | 也可自行用任意静态服务器托管 `web/dist` |
-| 随镜像打包的目录 | `deploy/`、`server/migrations/` | 控制面的 `/downloads/*`、Helm Chart、安装脚本都从 `PAM_ARTIFACT_ROOT` 读取，缺了会导致接入向导不可用 |
+| 随镜像打包的目录 | `deploy/`、`server/migrations/` | 控制面的 `/downloads/*`、Helm Chart、安装脚本都从 `WARDEN_ARTIFACT_ROOT` 读取，缺了会导致接入向导不可用 |
 | Connector / Helper 二进制 | `make server-build-linux-amd64` / `server-build-linux-arm64` / `server-build-hosts` | 同上，供目标机器下载 |
 
-镜像必须自包含：`server/Dockerfile` 会把 `deploy/` 与 `server/migrations/` 复制到 `/app-artifacts` 并设置 `PAM_ARTIFACT_ROOT`。
+镜像必须自包含：`server/Dockerfile` 会把 `deploy/` 与 `server/migrations/` 复制到 `/app-artifacts` 并设置 `WARDEN_ARTIFACT_ROOT`。
 
 ## 2. 准备 Secret
 
@@ -33,13 +33,13 @@ openssl rand -hex 24   # admin_password（8–72 字节）
 
 - 4 个必需 Secret 两两不得相同，否则控制面启动失败。
 - 文件权限 `600`，仅控制面进程可读。
-- `PAM_ADMIN_PASSWORD_FILE` 是内置 `admin` 密码哈希的同步源，改文件并重启会轮换哈希；妥善保管。
+- `WARDEN_ADMIN_PASSWORD_FILE` 是内置 `admin` 密码哈希的同步源，改文件并重启会轮换哈希；妥善保管。
 - OIDC client secret 单独存放，见 [oidc-setup.md](oidc-setup.md)。
 
 ## 3. 准备 PostgreSQL
 
 - 使用独立实例，开启 TLS 或置于可信网络；创建专用数据库与账号。
-- 用 `PAM_DATABASE_URL_FILE` 提供 DSN，不要把 DSN 写进 compose 的 `environment`。
+- 用 `WARDEN_DATABASE_URL_FILE` 提供 DSN，不要把 DSN 写进 compose 的 `environment`。
 - **先备份、后变更**：任何升级前执行一次 `pg_dump`，见 [operations.md](operations.md)。
 
 ## 4. 执行数据库迁移
@@ -71,19 +71,19 @@ done < deploy/release/migrations.txt
 ```nginx
 server {
     listen 443 ssl http2;
-    server_name <pam.example.com>;
+    server_name <warden.example.com>;
 
     # ssl_certificate / ssl_certificate_key 指向真实证书
 
     location /api/ {
-        proxy_pass http://<pam-control-upstream>:8080;
+        proxy_pass http://<warden-control-upstream>:8080;
         proxy_set_header Host $host;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
 
     location / {
-        root /var/www/pam/dist;
+        root /var/www/warden/dist;
         try_files $uri $uri/ /index.html;
     }
 }
@@ -93,12 +93,12 @@ server {
 
 | 变量 | 生产值 |
 |---|---|
-| `PAM_COOKIE_SECURE` | `true`（默认，不要改） |
-| `PAM_PUBLIC_CONTROL_URL` | `https://<pam.example.com>` |
-| `PAM_CORS_ORIGIN` | 与前端同源的绝对 origin（若前后端分离） |
-| `PAM_TRUST_PROXY_HEADERS` | `true` |
-| `PAM_TRUSTED_PROXY_CIDRS` | 反向代理所在 CIDR，逗号分隔 |
-| `PAM_REGISTRATION_AUDIENCE` | 与 `PAM_PUBLIC_CONTROL_URL` 一致（`.../api/v1`），或省略让它自动推导 |
+| `WARDEN_COOKIE_SECURE` | `true`（默认，不要改） |
+| `WARDEN_PUBLIC_CONTROL_URL` | `https://<warden.example.com>` |
+| `WARDEN_CORS_ORIGIN` | 与前端同源的绝对 origin（若前后端分离） |
+| `WARDEN_TRUST_PROXY_HEADERS` | `true` |
+| `WARDEN_TRUSTED_PROXY_CIDRS` | 反向代理所在 CIDR，逗号分隔 |
+| `WARDEN_REGISTRATION_AUDIENCE` | 与 `WARDEN_PUBLIC_CONTROL_URL` 一致（`.../api/v1`），或省略让它自动推导 |
 
 > 全站 HTTPS 是硬性要求：非本地 HTTP 会被安装脚本、注册脚本与会话 Cookie 策略拒绝。
 
@@ -107,14 +107,14 @@ server {
 最小必需变量（全部用 `_FILE`）：
 
 ```text
-PAM_DATABASE_URL_FILE
-PAM_TASK_SIGNING_KEY_FILE
-PAM_JWT_SIGNING_KEY_FILE
-PAM_CREDENTIAL_ENCRYPTION_KEY_FILE
-PAM_ADMIN_API_KEY_FILE
-PAM_ADMIN_PASSWORD_FILE
-PAM_PUBLIC_CONTROL_URL
-PAM_COOKIE_SECURE=true
+WARDEN_DATABASE_URL_FILE
+WARDEN_TASK_SIGNING_KEY_FILE
+WARDEN_JWT_SIGNING_KEY_FILE
+WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE
+WARDEN_ADMIN_API_KEY_FILE
+WARDEN_ADMIN_PASSWORD_FILE
+WARDEN_PUBLIC_CONTROL_URL
+WARDEN_COOKIE_SECURE=true
 ```
 
 其余按需配置，见 [configuration.md](configuration.md)。启动顺序：
@@ -129,20 +129,20 @@ PAM_COOKIE_SECURE=true
 
 ## 7. 可选：启用 SSO
 
-按 [oidc-setup.md](oidc-setup.md) 配置 `PAM_OIDC_*`。生产务必保持 `PAM_OIDC_DEFAULT_ROLE=user`，超级管理员只能通过页面手工指派。SSO 未配置时登录页自动隐藏 SSO 入口，密码登录仍可用。
+按 [oidc-setup.md](oidc-setup.md) 配置 `WARDEN_OIDC_*`。生产务必保持 `WARDEN_OIDC_DEFAULT_ROLE=user`，超级管理员只能通过页面手工指派。SSO 未配置时登录页自动隐藏 SSO 入口，密码登录仍可用。
 
 ## 8. 上线前检查清单
 
 - [ ] HTTPS 证书有效，`http` 正确跳转到 `https`
-- [ ] `PAM_COOKIE_SECURE=true`，浏览器会话 Cookie 带 `Secure; HttpOnly; SameSite=Strict`
+- [ ] `WARDEN_COOKIE_SECURE=true`，浏览器会话 Cookie 带 `Secure; HttpOnly; SameSite=Strict`
 - [ ] 4 个必需 Secret 独立且互不相同，权限 600，未进入镜像层或日志
 - [ ] 数据库已备份、迁移已按正确清单执行
 - [ ] `/api/v1/health`、`/livez`、`/readyz` 返回 200
-- [ ] `PAM_PUBLIC_CONTROL_URL` 与实际访问地址一致；安装命令里的地址可被目标机器访问
+- [ ] `WARDEN_PUBLIC_CONTROL_URL` 与实际访问地址一致；安装命令里的地址可被目标机器访问
 - [ ] `/downloads/SHA256SUMS`、Helm Chart、各平台 Connector 二进制可下载
 - [ ] `GET /api/v1/auth/oidc/config` 返回预期的 `enabled` 与绝对 URL
 - [ ] 内置 `admin` 密码可用（break-glass），但日常不使用
-- [ ] `PAM_OIDC_DEFAULT_ROLE=user`，`PAM_ENABLE_LEGACY_*` 保持关闭
+- [ ] `WARDEN_OIDC_DEFAULT_ROLE=user`，`WARDEN_ENABLE_LEGACY_*` 保持关闭
 - [ ] 反向代理 CIDR 白名单已收紧，未对公网开放数据库与 OPA
 - [ ] 保留上一版镜像 ID、前端产物目录、数据库备份，随时可回滚
 

@@ -15,14 +15,14 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
 	dingTalkCookieName = "pam_dingtalk_session"
-	dingTalkAudience   = "hightower-dingtalk-coolapp"
+	dingTalkAudience   = "warden-dingtalk-coolapp"
 )
 
 type dingTalkCoolAppClient struct {
@@ -39,11 +39,11 @@ type dingTalkCoolAppClient struct {
 }
 
 func loadDingTalkCoolAppClient() (*dingTalkCoolAppClient, error) {
-	appKey, err := config.Secret("PAM_DINGTALK_APP_KEY")
+	appKey, err := config.Secret("WARDEN_DINGTALK_APP_KEY")
 	if err != nil {
 		return nil, err
 	}
-	appSecret, err := config.Secret("PAM_DINGTALK_APP_SECRET")
+	appSecret, err := config.Secret("WARDEN_DINGTALK_APP_SECRET")
 	if err != nil {
 		return nil, err
 	}
@@ -51,10 +51,10 @@ func loadDingTalkCoolAppClient() (*dingTalkCoolAppClient, error) {
 		return nil, nil
 	}
 	if appKey == "" || appSecret == "" {
-		return nil, errors.New("PAM_DINGTALK_APP_KEY and PAM_DINGTALK_APP_SECRET must be configured together")
+		return nil, errors.New("WARDEN_DINGTALK_APP_KEY and WARDEN_DINGTALK_APP_SECRET must be configured together")
 	}
 	if len(appSecret) < 16 {
-		return nil, errors.New("PAM_DINGTALK_APP_SECRET must contain at least 16 bytes")
+		return nil, errors.New("WARDEN_DINGTALK_APP_SECRET must contain at least 16 bytes")
 	}
 	return &dingTalkCoolAppClient{appKey: appKey, appSecret: appSecret, http: &http.Client{Timeout: 8 * time.Second},
 		tokenEndpoint:       "https://api.dingtalk.com/v1.0/oauth2/accessToken",
@@ -358,7 +358,7 @@ func (h *Handler) DingTalkAuth(w http.ResponseWriter, r *http.Request) {
 	}
 	principal, err := h.principals.GetByID(ctx, adminPrincipalID)
 	if err != nil || principal == nil || principal.Status != domain.PrincipalStatusActive || principal.Kind != domain.PrincipalKindUser {
-		jsonError(w, http.StatusForbidden, "DINGTALK_PRINCIPAL_DISABLED", "PAM 审批身份不可用")
+		jsonError(w, http.StatusForbidden, "DINGTALK_PRINCIPAL_DISABLED", "Warden 审批身份不可用")
 		return
 	}
 	token, expiresAt, err := h.issueDingTalkSession(userID, displayName, body.CorpID, body.OpenConversationID)
@@ -366,7 +366,7 @@ func (h *Handler) DingTalkAuth(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "SESSION_CREATE_FAILED", "创建钉钉审批会话失败")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: dingTalkCookieName, Value: token, Path: "/api/v1/dingtalk", HttpOnly: true, Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteLaxMode, Expires: expiresAt})
+	http.SetCookie(w, &http.Cookie{Name: dingTalkCookieName, Value: token, Path: "/api/v1/dingtalk", HttpOnly: true, Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteLaxMode, Expires: expiresAt})
 	h.writeNotificationAudit(ctx, "dingtalk.coolapp.login", userID, "钉钉酷应用审批用户免登成功", map[string]any{
 		"dingtalk_user_id": userID, "dingtalk_user_name": displayName,
 	}, principal.ID, "user")
@@ -468,6 +468,6 @@ func (h *Handler) DingTalkLogout(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusForbidden, "CSRF_REJECTED", "请求来源无效")
 		return
 	}
-	http.SetCookie(w, &http.Cookie{Name: dingTalkCookieName, Value: "", Path: "/api/v1/dingtalk", HttpOnly: true, Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteLaxMode, MaxAge: -1})
+	http.SetCookie(w, &http.Cookie{Name: dingTalkCookieName, Value: "", Path: "/api/v1/dingtalk", HttpOnly: true, Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteLaxMode, MaxAge: -1})
 	w.WriteHeader(http.StatusNoContent)
 }

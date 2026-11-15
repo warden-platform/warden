@@ -120,7 +120,7 @@ function DatabaseRowsResult({ result }: { result: Record<string, unknown> }) {
         <Clock3 size={20} />
         <div>
           <strong>原始数据库结果已清理</strong>
-          <span>PAM 仅保留执行审计；业务数据仍只保存在源数据库。</span>
+          <span>Warden 仅保留执行审计；业务数据仍只保存在源数据库。</span>
         </div>
       </section>
     )
@@ -198,7 +198,7 @@ function DatabaseQueryResult({ result }: { result: Record<string, unknown> }) {
         <Clock3 size={20} />
         <div>
           <strong>原始数据库结果已清理</strong>
-          <span>PAM 仅保留执行审计；业务数据仍只保存在源数据库。</span>
+          <span>Warden 仅保留执行审计；业务数据仍只保存在源数据库。</span>
         </div>
       </section>
     )
@@ -368,7 +368,7 @@ function CloudLogResult({ result, entries }: { result: Record<string, unknown>; 
         <Clock3 size={20} />
         <div>
           <strong>原始日志结果已清理</strong>
-          <span>PAM 只保留执行审计，长期日志仍在云厂商。</span>
+          <span>Warden 只保留执行审计，长期日志仍在云厂商。</span>
         </div>
       </section>
     )
@@ -380,7 +380,7 @@ function CloudLogResult({ result, entries }: { result: Record<string, unknown>; 
           <Database size={17} />
           <span>
             <strong>日志结果</strong>
-            <small>{entries.length} 条 · 原始结果将在 PAM 中保留 10 分钟</small>
+            <small>{entries.length} 条 · 原始结果将在 Warden 中保留 10 分钟</small>
           </span>
         </div>
         <CopyButton value={raw} />

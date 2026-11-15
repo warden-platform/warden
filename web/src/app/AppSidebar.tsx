@@ -57,8 +57,8 @@ export function AppSidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClo
           <Shield size={21} strokeWidth={2.2} />
         </div>
         <div>
-          <strong>HighTower</strong>
-          <span>Agent PAM</span>
+          <strong>Warden</strong>
+          <span>Agent Warden</span>
         </div>
         <button className="icon-button sidebar-close" onClick={onClose} aria-label="关闭导航">
           <X size={20} />

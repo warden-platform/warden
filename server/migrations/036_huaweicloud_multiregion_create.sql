@@ -1,5 +1,5 @@
 -- Huawei Cloud account-scoped ECS creation. The action targets a regional
--- huawei_cloud_account resource; control injects trusted PAM context and the
+-- huawei_cloud_account resource; control injects trusted Warden context and the
 -- Connector injects reserved pam-* tags before signing the cloud request.
 INSERT INTO action_definitions
     (name, version, display_name, description, resource_type, risk_level, execution_mode, parameter_schema, timeout_seconds)

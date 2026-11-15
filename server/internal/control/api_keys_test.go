@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 type fakeAPIKeyStore struct {
@@ -54,7 +54,7 @@ func TestGeneratedAPIKeyCanBeParsedAndVerified(t *testing.T) {
 	if subtle.ConstantTimeCompare(digest[:], storedHash) != 1 {
 		t.Fatal("stored hash does not verify generated secret")
 	}
-	if _, _, ok := parseAPIKey("not-a-pam-key"); ok {
+	if _, _, ok := parseAPIKey("not-a-warden-key"); ok {
 		t.Fatal("invalid API key was accepted")
 	}
 }
@@ -92,10 +92,10 @@ func TestRegistrationCredentialAuthenticationRequiresAudienceAndWorkload(t *test
 	store := &fakeAPIKeyStore{
 		key: &domain.PrincipalAPIKey{ID: "11111111-1111-4111-8111-111111111111", KeyHash: storedHash,
 			Status: domain.APIKeyActive, Purpose: domain.APIKeyPurposeRegistration,
-			Audience: "https://pam.example.test/api/v1", Scopes: registrationCredentialScopes, ExpiresAt: &expires},
+			Audience: "https://warden.example.test/api/v1", Scopes: registrationCredentialScopes, ExpiresAt: &expires},
 		principal: &domain.Principal{ID: "22222222-2222-4222-8222-222222222222", Kind: domain.PrincipalKindWorkload, Status: domain.PrincipalStatusActive},
 	}
-	h := &Handler{apiKeys: store, registrationAudience: "https://pam.example.test/api/v1"}
+	h := &Handler{apiKeys: store, registrationAudience: "https://warden.example.test/api/v1"}
 	identity, err := h.authenticate(context.Background(), plaintext, "192.0.2.10:1234")
 	if err != nil || identity == nil || identity.Kind != "REGISTRATION" || !identity.HasScope("pam:registration:write") || !store.used {
 		t.Fatalf("registration authentication = %#v err=%v used=%v", identity, err, store.used)
@@ -115,7 +115,7 @@ func TestCreateRegistrationCredentialUsesFixedScopesAndPurpose(t *testing.T) {
 		Kind: domain.PrincipalKindWorkload, Status: domain.PrincipalStatusActive, Metadata: map[string]any{"purpose": "pam_resource_registration"}}
 	principals.byID[principal.ID] = principal
 	store := &fakeAPIKeyStore{}
-	h := &Handler{principals: principals, apiKeys: store, registrationAudience: "https://pam.example.test/api/v1"}
+	h := &Handler{principals: principals, apiKeys: store, registrationAudience: "https://warden.example.test/api/v1"}
 	expires := time.Now().Add(24 * time.Hour)
 	actor := &AuthenticatedIdentity{Principal: &domain.Principal{ID: "00000000-0000-0000-0000-000000000003"}}
 	key, plaintext, err := h.createCredential(context.Background(), principal.ID, createAPIKeyRequest{
@@ -143,7 +143,7 @@ func TestCreateRegistrationAPIKeyDefaultsToBoundThirtyDayCredential(t *testing.T
 		Kind: domain.PrincipalKindWorkload, Status: domain.PrincipalStatusActive, Metadata: map[string]any{"purpose": "pam_resource_registration"}}
 	principals.byID[principal.ID] = principal
 	store := &fakeAPIKeyStore{}
-	h := &Handler{principals: principals, apiKeys: store, registrationAudience: "https://pam.example.test/api/v1"}
+	h := &Handler{principals: principals, apiKeys: store, registrationAudience: "https://warden.example.test/api/v1"}
 	body := bytes.NewBufferString(`{"name":"registration-test"}`)
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/principals/"+principal.ID+"/registration-api-keys", body)
 	req.SetPathValue("id", principal.ID)

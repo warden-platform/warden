@@ -17,7 +17,7 @@ const titleMap: Record<string, { title: string; subtitle: string }> = {
   '/connectors': { title: '执行通道', subtitle: '诊断目标侧执行代理的连接、版本、能力和权限健康度' },
   '/resources': { title: '资源目录', subtitle: '统一管理目标资源、Owner 和允许动作' },
   '/agents': { title: 'Agent 身份', subtitle: '为每个 Multica Agent 管理独立 Principal、API Key 和访问范围' },
-  '/external-identities': { title: '外部身份', subtitle: '维护外部联邦身份 Binding 与 PAM 委托边界' },
+  '/external-identities': { title: '外部身份', subtitle: '维护外部联邦身份 Binding 与 Warden 委托边界' },
   '/executions': { title: '执行记录', subtitle: '跟踪所有受控动作的真实执行状态' },
   '/approvals': { title: '访问审批', subtitle: '审查与具体任务、资源和参数绑定的授权申请' },
   '/audit': { title: '审计追踪', subtitle: '还原身份、决策、授权、凭据和目标执行责任链' },
@@ -29,7 +29,7 @@ function resolveTitle(pathname: string): { title: string; subtitle: string } {
   if (pathname.startsWith('/integrations/')) return { title: '中间件详情', subtitle: '管理 Integration 配置、Job 范围和关联资源' }
   if (pathname.startsWith('/targets/')) return { title: '主机与集群详情', subtitle: '查看目标资源、项目环境和关联执行代理' }
   if (pathname.startsWith('/connectors/')) return { title: '执行通道详情', subtitle: '诊断关联服务目标、代理能力、权限范围和连接状态' }
-  return { title: 'HighTower', subtitle: '' }
+  return { title: 'Warden', subtitle: '' }
 }
 
 function useDarkMode() {
@@ -39,7 +39,7 @@ function useDarkMode() {
       const next = !prev
       document.documentElement.classList.toggle('dark', next)
       try {
-        localStorage.setItem('pam-theme', next ? 'dark' : 'light')
+        localStorage.setItem('warden-theme', next ? 'dark' : 'light')
       } catch {
         /* ignore */
       }

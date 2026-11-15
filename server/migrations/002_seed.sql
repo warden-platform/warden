@@ -1,4 +1,4 @@
--- 种子数据：HighTower 演示数据
+-- 种子数据：Warden 演示数据
 
 -- 1. 种子主体
 INSERT INTO principals (id, kind, name, status, metadata) VALUES

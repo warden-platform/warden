@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const (
@@ -76,10 +76,10 @@ type JenkinsRunner struct {
 func NewJenkinsRunner(config JenkinsConfig) (*JenkinsRunner, error) {
 	endpoint, err := url.Parse(strings.TrimSpace(config.BaseURL))
 	if err != nil || endpoint.Scheme == "" || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
-		return nil, fmt.Errorf("PAM_JENKINS_URL must be an absolute http(s) URL")
+		return nil, fmt.Errorf("WARDEN_JENKINS_URL must be an absolute http(s) URL")
 	}
 	if endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.User != nil {
-		return nil, fmt.Errorf("PAM_JENKINS_URL must not contain credentials, query, or fragment")
+		return nil, fmt.Errorf("WARDEN_JENKINS_URL must not contain credentials, query, or fragment")
 	}
 	if err := rejectMetadataEndpoint(endpoint); err != nil {
 		return nil, err
@@ -123,8 +123,8 @@ func NewJenkinsRunner(config JenkinsConfig) (*JenkinsRunner, error) {
 
 func NewJenkinsRunnerFromEnvironment() (*JenkinsRunner, error) {
 	return NewJenkinsRunner(JenkinsConfig{
-		BaseURL: os.Getenv("PAM_JENKINS_URL"), Username: os.Getenv("PAM_JENKINS_USERNAME"),
-		APIToken: os.Getenv("PAM_JENKINS_API_TOKEN"), AllowedJobs: splitCommaSeparated(os.Getenv("PAM_JENKINS_ALLOWED_JOBS")),
+		BaseURL: os.Getenv("WARDEN_JENKINS_URL"), Username: os.Getenv("WARDEN_JENKINS_USERNAME"),
+		APIToken: os.Getenv("WARDEN_JENKINS_API_TOKEN"), AllowedJobs: splitCommaSeparated(os.Getenv("WARDEN_JENKINS_ALLOWED_JOBS")),
 	})
 }
 

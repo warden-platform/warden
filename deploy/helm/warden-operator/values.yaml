@@ -1,8 +1,8 @@
 controlPlaneURL: ""
-connectorImage: ghcr.io/your-org/pam-connector:v0.3.118-cloud-20260904
+connectorImage: ghcr.io/your-org/warden-connector:v0.3.118-cloud-20260904
 imagePullSecret: ""
 image:
-  repository: ghcr.io/your-org/pam-operator
+  repository: ghcr.io/your-org/warden-operator
   tag: "v0.3.118-cloud-20260904"
   pullPolicy: Always
 resources:
