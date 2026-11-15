@@ -56,18 +56,14 @@ export const userInitial = (user: Pick<AuthUser, 'name' | 'display_name' | 'emai
  * Every list/detail view should call this helper so the hash never reaches the
  * UI unless the IdP provided no profile attributes at all.
  */
-export const apiPrincipalDisplayName = (
-  principal: Pick<ApiPrincipal, 'name' | 'metadata'> | null | undefined,
-) => {
+export const apiPrincipalDisplayName = (principal: Pick<ApiPrincipal, 'name' | 'metadata'> | null | undefined) => {
   if (!principal) return ''
   const label = principal.metadata?.display_name
   const email = principal.metadata?.email
-  return (typeof label === 'string' && label.trim()) ||
-    (typeof email === 'string' && email.trim()) || principal.name || ''
+  return (typeof label === 'string' && label.trim()) || (typeof email === 'string' && email.trim()) || principal.name || ''
 }
 
-export const projectUserDisplayName = (user: Pick<ApiProjectUser, 'name' | 'display_name'>) =>
-  user.display_name?.trim() || user.name
+export const projectUserDisplayName = (user: Pick<ApiProjectUser, 'name' | 'display_name'>) => user.display_name?.trim() || user.name
 
 export const membershipDisplayName = (member: Pick<ApiProjectMembership, 'principal_name' | 'principal_display_name'>) =>
   member.principal_display_name?.trim() || member.principal_name
@@ -112,6 +108,8 @@ export type ApiAccount = {
 export const listAccounts = () => request<ApiAccount[]>('GET', '/accounts')
 export const updateAccountRole = (id: string, role: AccountRole) =>
   request<{ id: string; role: string; previous_role: string; revoked_sessions: number; force_relogin: boolean }>(
-    'PUT', `/accounts/${encodeURIComponent(id)}/role`, { role })
-export const accountDisplayName = (account: ApiAccount) =>
-  account.display_name?.trim() || account.email?.trim() || account.name
+    'PUT',
+    `/accounts/${encodeURIComponent(id)}/role`,
+    { role },
+  )
+export const accountDisplayName = (account: ApiAccount) => account.display_name?.trim() || account.email?.trim() || account.name

@@ -16,16 +16,13 @@ export type ApiNotificationChannel = {
   updated_at?: string
 }
 
-export const getDingTalkChannel = () =>
-  request<ApiNotificationChannel>('GET', '/notification-channels/dingtalk')
+export const getDingTalkChannel = () => request<ApiNotificationChannel>('GET', '/notification-channels/dingtalk')
 export const updateDingTalkChannel = (body: { name: string; enabled: boolean; events: string[] }) =>
   request<ApiNotificationChannel>('PUT', '/notification-channels/dingtalk', body)
-export const testDingTalkChannel = () =>
-  request<{ status: 'SUCCEEDED' }>('POST', '/notification-channels/dingtalk/test')
+export const testDingTalkChannel = () => request<{ status: 'SUCCEEDED' }>('POST', '/notification-channels/dingtalk/test')
 
 export type DingTalkCoolAppUser = { id: string; name: string }
-export const getDingTalkCoolAppConfig = () =>
-  coolAppRequest<{ client_id: string }>('GET', '/dingtalk/config')
+export const getDingTalkCoolAppConfig = () => coolAppRequest<{ client_id: string }>('GET', '/dingtalk/config')
 export type DingTalkCoolAppApproval = {
   id: string
   status: string
@@ -43,8 +40,10 @@ export type DingTalkCoolAppApproval = {
 
 export const authenticateDingTalkCoolApp = (body: { auth_code: string; corp_id: string; open_conversation_id: string }) =>
   coolAppRequest<{ user: DingTalkCoolAppUser; expires_at: string }>('POST', '/dingtalk/auth', body)
-export const listDingTalkCoolAppApprovals = () =>
-  coolAppRequest<DingTalkCoolAppApproval[]>('GET', '/dingtalk/access-requests')
+export const listDingTalkCoolAppApprovals = () => coolAppRequest<DingTalkCoolAppApproval[]>('GET', '/dingtalk/access-requests')
 export const decideDingTalkCoolAppApproval = (id: string, approve: boolean) =>
-  coolAppRequest<{ id: string; status: string }>('POST', `/dingtalk/access-requests/${encodeURIComponent(id)}/${approve ? 'approve' : 'reject'}`)
+  coolAppRequest<{ id: string; status: string }>(
+    'POST',
+    `/dingtalk/access-requests/${encodeURIComponent(id)}/${approve ? 'approve' : 'reject'}`,
+  )
 export const logoutDingTalkCoolApp = () => coolAppRequest<void>('POST', '/dingtalk/logout')

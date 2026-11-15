@@ -1,22 +1,28 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import {
-  Boxes, Cloud, Container, Cog, GitBranch, ListChecks, Network, Server, Workflow, type LucideIcon,
-} from 'lucide-react'
+import { Boxes, Cloud, Container, Cog, GitBranch, ListChecks, Network, Server, Workflow, type LucideIcon } from 'lucide-react'
 import type { TopoNodeData, TopoStatus } from '../../lib/topology/buildTopology'
 
 function iconFor(kind: string, entity: string): LucideIcon {
   if (entity === 'action') return ListChecks
   if (kind.startsWith('huawei')) return Cloud
   switch (kind) {
-    case 'kubernetes': return Cloud
-    case 'network': return Network
-    case 'linux': return Server
-    case 'linux_host': return Server
-    case 'systemd_service': return Cog
-    case 'docker_container': return Container
-    case 'pod': return Container
-    case 'deployment': return Boxes
+    case 'kubernetes':
+      return Cloud
+    case 'network':
+      return Network
+    case 'linux':
+      return Server
+    case 'linux_host':
+      return Server
+    case 'systemd_service':
+      return Cog
+    case 'docker_container':
+      return Container
+    case 'pod':
+      return Container
+    case 'deployment':
+      return Boxes
     case 'jenkins':
     case 'jenkins_job':
     case 'jenkins_build':
@@ -24,8 +30,10 @@ function iconFor(kind: string, entity: string): LucideIcon {
     case 'jenkins_node':
     case 'jenkins_queue_item':
       return Workflow
-    case 'postgres': return Workflow
-    default: return Boxes
+    case 'postgres':
+      return Workflow
+    default:
+      return Boxes
   }
 }
 
@@ -43,7 +51,24 @@ const statusIconBg: Record<TopoStatus, string> = {
   neutral: 'bg-surface-muted text-content-subtle dark:bg-surface-dark-muted dark:text-content-dark-subtle',
 }
 
-const K8S_KINDS = new Set(['kubernetes', 'pod', 'deployment', 'statefulset', 'daemonset', 'replicaset', 'job', 'cronjob', 'service', 'endpoints', 'ingress', 'configmap', 'secret', 'event', 'node', 'namespace'])
+const K8S_KINDS = new Set([
+  'kubernetes',
+  'pod',
+  'deployment',
+  'statefulset',
+  'daemonset',
+  'replicaset',
+  'job',
+  'cronjob',
+  'service',
+  'endpoints',
+  'ingress',
+  'configmap',
+  'secret',
+  'event',
+  'node',
+  'namespace',
+])
 
 // Domain accent dot: lets users visually group nodes by ecosystem at a glance.
 export function domainDotClass(kind: string): string {
@@ -63,7 +88,9 @@ function TopologyNode({ data, selected }: NodeProps) {
   return (
     <div
       className={`flex w-[220px] items-center gap-3 rounded-lg border bg-white/80 px-3 py-2.5 shadow-glass backdrop-blur-xl transition dark:bg-surface-dark/80 dark:shadow-glass-dark ${
-        selected ? 'border-brand ring-2 ring-brand/30 dark:border-brand-dark dark:ring-brand-dark/30' : 'border-white/70 dark:border-white/10'
+        selected
+          ? 'border-brand ring-2 ring-brand/30 dark:border-brand-dark dark:ring-brand-dark/30'
+          : 'border-white/70 dark:border-white/10'
       }`}
     >
       <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-0 !bg-gray-400" />
@@ -79,7 +106,9 @@ function TopologyNode({ data, selected }: NodeProps) {
         {d.sublabel && <p className="mt-0.5 truncate text-[11px] text-content-subtle dark:text-content-dark-subtle">{d.sublabel}</p>}
       </div>
       {typeof d.count === 'number' && (
-        <span className="ml-auto flex-none rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand dark:bg-brand-dark/15 dark:text-brand-dark">{d.count}</span>
+        <span className="ml-auto flex-none rounded-md bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand dark:bg-brand-dark/15 dark:text-brand-dark">
+          {d.count}
+        </span>
       )}
       <Handle type="source" position={Position.Right} className="!h-2 !w-2 !border-0 !bg-gray-400" />
     </div>

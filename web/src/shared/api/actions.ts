@@ -13,11 +13,13 @@ export type ApiAction = {
   parameter_schema: Record<string, unknown>
   timeout_seconds: number
   available?: boolean
-  availability_code?: 'RESOURCE_NOT_ACTIVE' | 'CONNECTOR_NOT_ACTIVE' | 'CONNECTOR_HEARTBEAT_TIMEOUT' | 'INTEGRATION_NOT_ACTIVE' | 'CONNECTOR_UPGRADE_REQUIRED'
+  availability_code?:
+    'RESOURCE_NOT_ACTIVE' | 'CONNECTOR_NOT_ACTIVE' | 'CONNECTOR_HEARTBEAT_TIMEOUT' | 'INTEGRATION_NOT_ACTIVE' | 'CONNECTOR_UPGRADE_REQUIRED'
   availability_reason?: string
   required_capability?: string
   connector_version?: string
 }
 
 export const listAvailableActions = () => request<ApiAction[]>('GET', '/actions')
-export const listResourceActions = (id: string, includeUnavailable = false) => request<ApiAction[]>('GET', `/resources/${id}/actions${includeUnavailable ? '?includeUnavailable=true' : ''}`)
+export const listResourceActions = (id: string, includeUnavailable = false) =>
+  request<ApiAction[]>('GET', `/resources/${id}/actions${includeUnavailable ? '?includeUnavailable=true' : ''}`)

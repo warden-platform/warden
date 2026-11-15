@@ -1,7 +1,15 @@
 import { useEffect, useState } from 'react'
 import { Activity, ArrowRight, Clock3, FileClock, Network, Plus, ShieldCheck } from 'lucide-react'
 import type { ApiAccessRequest, ApiConnector, ApiError, ApiExecution, ApiResourceStats } from '../../shared/api'
-import { canUser, connectorHealthLabel, getResourceStats, isConnectorHealthy, listAccessRequests, listConnectors, listExecutions } from '../../shared/api'
+import {
+  canUser,
+  connectorHealthLabel,
+  getResourceStats,
+  isConnectorHealthy,
+  listAccessRequests,
+  listConnectors,
+  listExecutions,
+} from '../../shared/api'
 import { useNavigate } from '../../shared/router'
 import { useApp } from '../components/Toast'
 import { Kpi } from '../components/Kpi'
@@ -30,7 +38,12 @@ export function OverviewPage() {
   const load = (showSpinner = true) => {
     if (showSpinner) setLoading(true)
     setError('')
-    Promise.all([listExecutions(), canApprove ? listAccessRequests('PENDING') : Promise.resolve([]), canManage ? listConnectors() : Promise.resolve([]), getResourceStats()])
+    Promise.all([
+      listExecutions(),
+      canApprove ? listAccessRequests('PENDING') : Promise.resolve([]),
+      canManage ? listConnectors() : Promise.resolve([]),
+      getResourceStats(),
+    ])
       .then(([execs, reqs, conns, resStats]) => {
         setExecutions(execs ?? [])
         setRequests(reqs ?? [])
@@ -63,45 +76,119 @@ export function OverviewPage() {
     <div className="view-stack">
       <section className="kpi-grid">
         <Kpi label="今日受控动作" value={String(todayExecs)} detail={`总计 ${executions.length} 次`} tone="blue" icon={Activity} />
-        <Kpi label="活跃资源" value={String(stats?.active ?? 0)} detail={`当前 ${stats?.current ?? stats?.total ?? 0} · 历史 ${stats?.history ?? 0}`} tone="green" icon={ShieldCheck} />
-        <Kpi label="待处理审批" value={String(requests.length)} detail={requests.length ? '需要人工确认' : '当前无待处理'} tone="amber" icon={FileClock} />
-        <Kpi label="执行通道" value={`${activeConnectors}/${connectors.length}`} detail={connectors.length - activeConnectors ? `${connectors.length - activeConnectors} 个离线或未激活` : '全部正常'} tone="red" icon={Network} />
+        <Kpi
+          label="活跃资源"
+          value={String(stats?.active ?? 0)}
+          detail={`当前 ${stats?.current ?? stats?.total ?? 0} · 历史 ${stats?.history ?? 0}`}
+          tone="green"
+          icon={ShieldCheck}
+        />
+        <Kpi
+          label="待处理审批"
+          value={String(requests.length)}
+          detail={requests.length ? '需要人工确认' : '当前无待处理'}
+          tone="amber"
+          icon={FileClock}
+        />
+        <Kpi
+          label="执行通道"
+          value={`${activeConnectors}/${connectors.length}`}
+          detail={connectors.length - activeConnectors ? `${connectors.length - activeConnectors} 个离线或未激活` : '全部正常'}
+          tone="red"
+          icon={Network}
+        />
       </section>
 
       <section className="panel">
-        <div className="panel-header"><div><h2>最近执行</h2><p>所有 Agent 的受控动作</p></div><div className="header-actions"><button className="quiet-button" onClick={() => navigate('/executions')}>查看全部<ArrowRight size={15} /></button><button className="primary-button compact" onClick={() => navigate('/executions')}><Plus size={16} />新建执行</button></div></div>
-        {viewExecs.length === 0 ? <EmptyState icon={Activity} title="暂无执行记录" text="新提交的受控动作会出现在这里。" /> : <ExecutionTable executions={viewExecs} />}
+        <div className="panel-header">
+          <div>
+            <h2>最近执行</h2>
+            <p>所有 Agent 的受控动作</p>
+          </div>
+          <div className="header-actions">
+            <button className="quiet-button" onClick={() => navigate('/executions')}>
+              查看全部
+              <ArrowRight size={15} />
+            </button>
+            <button className="primary-button compact" onClick={() => navigate('/executions')}>
+              <Plus size={16} />
+              新建执行
+            </button>
+          </div>
+        </div>
+        {viewExecs.length === 0 ? (
+          <EmptyState icon={Activity} title="暂无执行记录" text="新提交的受控动作会出现在这里。" />
+        ) : (
+          <ExecutionTable executions={viewExecs} />
+        )}
       </section>
 
       <section className="overview-grid">
-        {canApprove && <div className="panel">
-          <div className="panel-header"><div><h2>待处理审批</h2><p>需要人工确认的生产动作</p></div><button className="quiet-button" onClick={() => navigate('/approvals')}>查看全部<ArrowRight size={15} /></button></div>
-          {requests.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: '#85919a', fontSize: 11 }}>当前没有待处理的审批</div> : (
-            <div className="approval-list">
-              {requests.slice(0, 3).map((r) => {
-                return <div className="approval-mini" key={r.id}>
-                  <div><Badge tone="danger">高风险</Badge><strong>{r.action_display_name || mapActionName(r.action_name || r.action_id)}</strong><span>{r.resource_name ?? r.resource_id.slice(0, 8)}</span></div>
-                  <span className="approval-expire"><Clock3 size={14} />{r.expires_at ? `${Math.max(0, Math.round((new Date(r.expires_at).getTime() - Date.now()) / 60000))}分钟` : '不限'}</span>
-                </div>
-              })}
+        {canApprove && (
+          <div className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>待处理审批</h2>
+                <p>需要人工确认的生产动作</p>
+              </div>
+              <button className="quiet-button" onClick={() => navigate('/approvals')}>
+                查看全部
+                <ArrowRight size={15} />
+              </button>
             </div>
-          )}
-        </div>}
-        {canManage && <div className="panel">
-          <div className="panel-header"><div><h2>执行通道健康</h2><p>Connector 心跳状态</p></div><button className="quiet-button" onClick={() => navigate('/connectors')}>管理<ArrowRight size={15} /></button></div>
-          {connectors.length === 0 ? <div style={{ padding: 30, textAlign: 'center', color: '#85919a', fontSize: 11 }}>尚未接入执行通道</div> : (
-            <div className="connector-health-list">
-              {connectors.map((c) => (
-                <div className="connector-health-row" key={c.id} onClick={() => navigate(`/connectors/${c.id}`)}>
-                  <span className={`health-dot ${isConnectorHealthy(c, now) ? 'healthy' : 'down'}`} />
-                  <strong>{c.name}</strong>
-                  <Badge tone={isConnectorHealthy(c, now) ? 'success' : 'warning'}>{connectorHealthLabel(c, now)}</Badge>
-                  <small>{connectorTypeLabel(c.connector_type)} · {heartbeatAgo(c)}</small>
-                </div>
-              ))}
+            {requests.length === 0 ? (
+              <div style={{ padding: 30, textAlign: 'center', color: '#85919a', fontSize: 11 }}>当前没有待处理的审批</div>
+            ) : (
+              <div className="approval-list">
+                {requests.slice(0, 3).map((r) => {
+                  return (
+                    <div className="approval-mini" key={r.id}>
+                      <div>
+                        <Badge tone="danger">高风险</Badge>
+                        <strong>{r.action_display_name || mapActionName(r.action_name || r.action_id)}</strong>
+                        <span>{r.resource_name ?? r.resource_id.slice(0, 8)}</span>
+                      </div>
+                      <span className="approval-expire">
+                        <Clock3 size={14} />
+                        {r.expires_at ? `${Math.max(0, Math.round((new Date(r.expires_at).getTime() - Date.now()) / 60000))}分钟` : '不限'}
+                      </span>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
+        {canManage && (
+          <div className="panel">
+            <div className="panel-header">
+              <div>
+                <h2>执行通道健康</h2>
+                <p>Connector 心跳状态</p>
+              </div>
+              <button className="quiet-button" onClick={() => navigate('/connectors')}>
+                管理
+                <ArrowRight size={15} />
+              </button>
             </div>
-          )}
-        </div>}
+            {connectors.length === 0 ? (
+              <div style={{ padding: 30, textAlign: 'center', color: '#85919a', fontSize: 11 }}>尚未接入执行通道</div>
+            ) : (
+              <div className="connector-health-list">
+                {connectors.map((c) => (
+                  <div className="connector-health-row" key={c.id} onClick={() => navigate(`/connectors/${c.id}`)}>
+                    <span className={`health-dot ${isConnectorHealthy(c, now) ? 'healthy' : 'down'}`} />
+                    <strong>{c.name}</strong>
+                    <Badge tone={isConnectorHealthy(c, now) ? 'success' : 'warning'}>{connectorHealthLabel(c, now)}</Badge>
+                    <small>
+                      {connectorTypeLabel(c.connector_type)} · {heartbeatAgo(c)}
+                    </small>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </section>
     </div>
   )

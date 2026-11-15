@@ -20,7 +20,11 @@ type UseApiQueryOptions<T> = {
   onSuccess?: (data: T) => void
 }
 
-export function useApiQuery<T>(fetcher: () => Promise<T>, deps: unknown[], { intervalMs, enabled = true, isEqual, onSuccess }: UseApiQueryOptions<T> = {}) {
+export function useApiQuery<T>(
+  fetcher: () => Promise<T>,
+  deps: unknown[],
+  { intervalMs, enabled = true, isEqual, onSuccess }: UseApiQueryOptions<T> = {},
+) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
@@ -33,18 +37,29 @@ export function useApiQuery<T>(fetcher: () => Promise<T>, deps: unknown[], { int
   const isEqualRef = useRef(isEqual)
   isEqualRef.current = isEqual
 
-  const reload = useCallback((showSpinner = true) => {
-    if (!enabled) return
-    if (showSpinner) { setLoading(true); setError('') }
-    fetcherRef.current()
-      .then((result) => {
-        setData((prev) => (prev !== null && isEqualRef.current?.(prev, result) ? prev : result))
+  const reload = useCallback(
+    (showSpinner = true) => {
+      if (!enabled) return
+      if (showSpinner) {
+        setLoading(true)
         setError('')
-        onSuccessRef.current?.(result)
-      })
-      .catch((e: Error) => { if (showSpinner) setError(e.message || '加载失败') })
-      .finally(() => { if (showSpinner) setLoading(false) })
-  }, [enabled])
+      }
+      fetcherRef
+        .current()
+        .then((result) => {
+          setData((prev) => (prev !== null && isEqualRef.current?.(prev, result) ? prev : result))
+          setError('')
+          onSuccessRef.current?.(result)
+        })
+        .catch((e: Error) => {
+          if (showSpinner) setError(e.message || '加载失败')
+        })
+        .finally(() => {
+          if (showSpinner) setLoading(false)
+        })
+    },
+    [enabled],
+  )
 
   useEffect(() => {
     if (!enabled) return

@@ -33,11 +33,12 @@ const TABS: Tab[] = [
 
 const DOMAIN_STORAGE_KEY = 'pam.resources.domain'
 const isDomainKey = (v: string | null): v is ResourceDomain => TABS.some((t) => t.key === v)
-const countStatuses = (counts: StatusCounts | undefined, view: ResourceView) => Object.entries(counts ?? {}).reduce((total, [status, count]) => {
-  if (view === 'history') return total + (status === 'ORPHANED' ? count : 0)
-  if (view === 'abnormal') return total + (status !== 'ACTIVE' && status !== 'ORPHANED' ? count : 0)
-  return total + (status !== 'ORPHANED' ? count : 0)
-}, 0)
+const countStatuses = (counts: StatusCounts | undefined, view: ResourceView) =>
+  Object.entries(counts ?? {}).reduce((total, [status, count]) => {
+    if (view === 'history') return total + (status === 'ORPHANED' ? count : 0)
+    if (view === 'abnormal') return total + (status !== 'ACTIVE' && status !== 'ORPHANED' ? count : 0)
+    return total + (status !== 'ORPHANED' ? count : 0)
+  }, 0)
 
 const mergeStatusCounts = (domains: Record<string, StatusCounts> | undefined) => {
   const result: StatusCounts = {}
@@ -106,7 +107,13 @@ export function ResourcesPage() {
     const request = ++loadRequest.current
     if (showSpinner) setLoading(true)
     setError('')
-    Promise.all([listResources({ domain, excludeType: domain === 'jenkins' ? 'jenkins_build' : undefined }), isTenantAdmin ? listConnectors() : Promise.resolve([]), listProjects(), isTenantAdmin ? listIntegrations() : Promise.resolve([]), getResourceStats()])
+    Promise.all([
+      listResources({ domain, excludeType: domain === 'jenkins' ? 'jenkins_build' : undefined }),
+      isTenantAdmin ? listConnectors() : Promise.resolve([]),
+      listProjects(),
+      isTenantAdmin ? listIntegrations() : Promise.resolve([]),
+      getResourceStats(),
+    ])
       .then(([res, conns, projs, integrationItems, resourceStats]) => {
         if (request !== loadRequest.current) return
         setApiResources(res ?? [])
@@ -133,11 +140,15 @@ export function ResourcesPage() {
 
   const connectorName = useMemo(() => (id: string) => connectors.find((c) => c.id === id)?.name ?? '', [connectors])
 
-  const viewResources = useMemo(() => apiResources.filter((resource) => {
-    if (resourceView === 'history') return resource.status === 'ORPHANED'
-    if (resourceView === 'abnormal') return resource.status !== 'ACTIVE' && resource.status !== 'ORPHANED'
-    return resource.status !== 'ORPHANED'
-  }), [apiResources, resourceView])
+  const viewResources = useMemo(
+    () =>
+      apiResources.filter((resource) => {
+        if (resourceView === 'history') return resource.status === 'ORPHANED'
+        if (resourceView === 'abnormal') return resource.status !== 'ACTIVE' && resource.status !== 'ORPHANED'
+        return resource.status !== 'ORPHANED'
+      }),
+    [apiResources, resourceView],
+  )
 
   const catalogStats = stats?.catalogByProjectDomainStatus ?? {}
   const projectCounts = useMemo(() => {
@@ -153,23 +164,43 @@ export function ResourcesPage() {
     [viewResources, projectFilter],
   )
 
-  const selectedProjectStatusCounts = useMemo(() => projectFilter === 'all'
-    ? mergeStatusCounts(stats?.catalogByDomainStatus)
-    : mergeProjectStatusCounts([catalogStats[projectFilter]]), [catalogStats, projectFilter, stats?.catalogByDomainStatus])
+  const selectedProjectStatusCounts = useMemo(
+    () =>
+      projectFilter === 'all' ? mergeStatusCounts(stats?.catalogByDomainStatus) : mergeProjectStatusCounts([catalogStats[projectFilter]]),
+    [catalogStats, projectFilter, stats?.catalogByDomainStatus],
+  )
   const activeCount = selectedProjectStatusCounts.ACTIVE ?? 0
-  const abnormalCount = Object.entries(selectedProjectStatusCounts).reduce((total, [status, count]) =>
-    total + (status !== 'ACTIVE' && status !== 'ORPHANED' ? count : 0), 0)
+  const abnormalCount = Object.entries(selectedProjectStatusCounts).reduce(
+    (total, [status, count]) => total + (status !== 'ACTIVE' && status !== 'ORPHANED' ? count : 0),
+    0,
+  )
   const historyCount = selectedProjectStatusCounts.ORPHANED ?? 0
   const currentCount = activeCount + abnormalCount
 
   const byDomain = useMemo(() => {
-    const groups: Record<ResourceDomain, ApiResource[]> = { kubernetes: [], linux: [], jenkins: [], grafana: [], database: [], huawei: [], network: [] }
+    const groups: Record<ResourceDomain, ApiResource[]> = {
+      kubernetes: [],
+      linux: [],
+      jenkins: [],
+      grafana: [],
+      database: [],
+      huawei: [],
+      network: [],
+    }
     for (const r of projectFiltered) groups[resourceDomain(r)].push(r)
     return groups
   }, [projectFiltered])
 
-  const visibleIntegrations = useMemo(() => projectFilter === 'all' ? integrations : integrations.filter((integration) =>
-    integration.project_id === projectFilter || projectFiltered.some((resource) => resource.integration_id === integration.id)), [integrations, projectFilter, projectFiltered])
+  const visibleIntegrations = useMemo(
+    () =>
+      projectFilter === 'all'
+        ? integrations
+        : integrations.filter(
+            (integration) =>
+              integration.project_id === projectFilter || projectFiltered.some((resource) => resource.integration_id === integration.id),
+          ),
+    [integrations, projectFilter, projectFiltered],
+  )
 
   const domainCounts = useMemo(() => {
     const counts: Record<ResourceDomain, number> = { kubernetes: 0, linux: 0, jenkins: 0, grafana: 0, database: 0, huawei: 0, network: 0 }
@@ -187,7 +218,10 @@ export function ResourcesPage() {
     for (const r of apiResources) {
       if (!r.namespace || resourceDomain(r) !== 'kubernetes') continue
       const list = m.get(r.connector_id) ?? []
-      if (!list.includes(r.namespace)) { list.push(r.namespace); m.set(r.connector_id, list) }
+      if (!list.includes(r.namespace)) {
+        list.push(r.namespace)
+        m.set(r.connector_id, list)
+      }
     }
     for (const [, list] of m) list.sort()
     return m
@@ -202,7 +236,10 @@ export function ResourcesPage() {
     setPanelOpen(true)
   }
   const openProject = (resource: ApiResource) => {
-    if (!isTenantAdmin) { notify('资源项目范围由租户管理员维护'); return }
+    if (!isTenantAdmin) {
+      notify('资源项目范围由租户管理员维护')
+      return
+    }
     setProjectResource(resource)
   }
 
@@ -210,30 +247,52 @@ export function ResourcesPage() {
     <div className="view-stack">
       <div className="panel">
         <div className="toolbar">
-          <div className="search-box"><Search size={17} /><input aria-label="搜索资源" value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索资源名称、类型或服务目标" /></div>
+          <div className="search-box">
+            <Search size={17} />
+            <input
+              aria-label="搜索资源"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="搜索资源名称、类型或服务目标"
+            />
+          </div>
           <div className="resource-overview" aria-label="资源概览">
-            <span>当前 <strong>{currentCount}</strong> 个资源</span>
-            <span>正常 <strong className="overview-ok">{activeCount}</strong></span>
+            <span>
+              当前 <strong>{currentCount}</strong> 个资源
+            </span>
+            <span>
+              正常 <strong className="overview-ok">{activeCount}</strong>
+            </span>
             <button
               type="button"
               className={`overview-abnormal${resourceView === 'abnormal' ? ' selected' : ''}`}
-              onClick={() => setResourceView((current) => current === 'abnormal' ? 'current' : 'abnormal')}
+              onClick={() => setResourceView((current) => (current === 'abnormal' ? 'current' : 'abnormal'))}
               title={resourceView === 'abnormal' ? '点击显示当前资源' : '点击只看需要处理的异常资源'}
             >
-              <AlertTriangle size={13} />异常 <strong>{abnormalCount}</strong>
+              <AlertTriangle size={13} />
+              异常 <strong>{abnormalCount}</strong>
             </button>
             <button
               type="button"
               className={`overview-history${resourceView === 'history' ? ' selected' : ''}`}
-              onClick={() => setResourceView((current) => current === 'history' ? 'current' : 'history')}
+              onClick={() => setResourceView((current) => (current === 'history' ? 'current' : 'history'))}
               title={resourceView === 'history' ? '点击显示当前资源' : '点击查看已从目标环境消失的历史资源'}
             >
-              <History size={13} />历史 <strong>{historyCount}</strong>
+              <History size={13} />
+              历史 <strong>{historyCount}</strong>
             </button>
           </div>
           <div className="toolbar-actions">
-            {isTenantAdmin && <button className="quiet-button" onClick={() => setManageOpen(true)}><FolderKanban size={16} />项目管理</button>}
-            <button className="quiet-button" onClick={() => load()}><RefreshCw size={16} />刷新</button>
+            {isTenantAdmin && (
+              <button className="quiet-button" onClick={() => setManageOpen(true)}>
+                <FolderKanban size={16} />
+                项目管理
+              </button>
+            )}
+            <button className="quiet-button" onClick={() => load()}>
+              <RefreshCw size={16} />
+              刷新
+            </button>
           </div>
         </div>
         <div className="project-filter-bar" role="tablist" aria-label="按项目筛选">
@@ -247,14 +306,16 @@ export function ResourcesPage() {
               onClick={() => setProjectFilter(project.id)}
               title={project.description || project.name}
             >
-              {project.name}<small>{projectCounts.get(project.id) ?? 0}</small>
+              {project.name}
+              <small>{projectCounts.get(project.id) ?? 0}</small>
             </button>
           ))}
         </div>
         <div className="segmented domain-tabs">
           {TABS.map((t) => (
             <button key={t.key} className={domain === t.key ? 'selected' : ''} onClick={() => setDomain(t.key)}>
-              {t.label}<small className="tab-count">{domainCounts[t.key]}</small>
+              {t.label}
+              <small className="tab-count">{domainCounts[t.key]}</small>
             </button>
           ))}
         </div>
@@ -262,30 +323,90 @@ export function ResourcesPage() {
 
       <div className="panel resources-panel">
         {domain === 'kubernetes' && (
-          <KubernetesResources resources={byDomain.kubernetes} connectorName={connectorName} query={deferredQuery} onAction={openAction} onProject={openProject} />
+          <KubernetesResources
+            resources={byDomain.kubernetes}
+            connectorName={connectorName}
+            query={deferredQuery}
+            onAction={openAction}
+            onProject={openProject}
+          />
         )}
         {domain === 'linux' && (
-          <LinuxResources resources={byDomain.linux} connectors={connectors} query={deferredQuery} onAction={openAction} onProject={openProject} />
+          <LinuxResources
+            resources={byDomain.linux}
+            connectors={connectors}
+            query={deferredQuery}
+            onAction={openAction}
+            onProject={openProject}
+          />
         )}
         {domain === 'jenkins' && (
-          <JenkinsResources resources={byDomain.jenkins} connectorName={connectorName} query={deferredQuery} onAction={openAction} onProject={openProject} />
+          <JenkinsResources
+            resources={byDomain.jenkins}
+            connectorName={connectorName}
+            query={deferredQuery}
+            onAction={openAction}
+            onProject={openProject}
+          />
         )}
         {domain === 'grafana' && (
-          <GrafanaResources resources={byDomain.grafana} connectorName={connectorName} query={deferredQuery} onAction={openAction} onProject={openProject} />
+          <GrafanaResources
+            resources={byDomain.grafana}
+            connectorName={connectorName}
+            query={deferredQuery}
+            onAction={openAction}
+            onProject={openProject}
+          />
         )}
         {domain === 'database' && (
-          <DatabaseResources resources={byDomain.database} connectorName={connectorName} query={deferredQuery} onAction={openAction} onProject={openProject} />
+          <DatabaseResources
+            resources={byDomain.database}
+            connectorName={connectorName}
+            query={deferredQuery}
+            onAction={openAction}
+            onProject={openProject}
+          />
         )}
         {domain === 'huawei' && (
-          <HuaweiResources resources={byDomain.huawei} integrations={visibleIntegrations} connectorName={connectorName} query={deferredQuery} onAction={openAction} onProject={openProject} />
+          <HuaweiResources
+            resources={byDomain.huawei}
+            integrations={visibleIntegrations}
+            connectorName={connectorName}
+            query={deferredQuery}
+            onAction={openAction}
+            onProject={openProject}
+          />
         )}
         {domain === 'network' && (
-          <NetworkResources resources={byDomain.network} connectorName={connectorName} query={deferredQuery} onAction={openAction} onProject={openProject} />
+          <NetworkResources
+            resources={byDomain.network}
+            connectorName={connectorName}
+            query={deferredQuery}
+            onAction={openAction}
+            onProject={openProject}
+          />
         )}
       </div>
 
-      {panelOpen && selectedResource && <ActionPanel initialResource={selectedResource} initialAction={selectedAction} initialActingProjectId={projectFilter === 'all' ? undefined : projectFilter} onClose={() => { setPanelOpen(false); setSelectedAction(undefined) }} />}
-      {isTenantAdmin && projectResource && <ResourceProjectPanel resource={projectResource} projects={projects} onChanged={() => load(false)} onClose={() => setProjectResource(null)} />}
+      {panelOpen && selectedResource && (
+        <ActionPanel
+          initialResource={selectedResource}
+          initialAction={selectedAction}
+          initialActingProjectId={projectFilter === 'all' ? undefined : projectFilter}
+          onClose={() => {
+            setPanelOpen(false)
+            setSelectedAction(undefined)
+          }}
+        />
+      )}
+      {isTenantAdmin && projectResource && (
+        <ResourceProjectPanel
+          resource={projectResource}
+          projects={projects}
+          onChanged={() => load(false)}
+          onClose={() => setProjectResource(null)}
+        />
+      )}
       {isTenantAdmin && manageOpen && (
         <ProjectManagePanel
           projects={projects}

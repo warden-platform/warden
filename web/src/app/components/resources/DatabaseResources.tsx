@@ -6,7 +6,13 @@ import { ResourceCard } from './ResourceCard'
 import { TypeFilterBar } from './TypeFilterBar'
 import { useToggleSet } from '../../lib/useToggleSet'
 
-export function DatabaseResources({ resources, connectorName, query, onAction, onProject }: {
+export function DatabaseResources({
+  resources,
+  connectorName,
+  query,
+  onAction,
+  onProject,
+}: {
   resources: ApiResource[]
   connectorName: (id: string) => string
   query: string
@@ -21,9 +27,24 @@ export function DatabaseResources({ resources, connectorName, query, onAction, o
   const filtered = hiddenTypes.size === 0 ? searched : searched.filter((r) => !hiddenTypes.has(r.resource_type))
 
   const typeChips = [
-    { type: 'database_instance', label: '实例', icon: <Database size={14} />, count: searched.filter((r) => r.resource_type === 'database_instance').length },
-    { type: 'database_schema', label: 'Schema', icon: <Database size={14} />, count: searched.filter((r) => r.resource_type === 'database_schema').length },
-    { type: 'database_table', label: 'Table', icon: <Table2 size={14} />, count: searched.filter((r) => r.resource_type === 'database_table').length },
+    {
+      type: 'database_instance',
+      label: '实例',
+      icon: <Database size={14} />,
+      count: searched.filter((r) => r.resource_type === 'database_instance').length,
+    },
+    {
+      type: 'database_schema',
+      label: 'Schema',
+      icon: <Database size={14} />,
+      count: searched.filter((r) => r.resource_type === 'database_schema').length,
+    },
+    {
+      type: 'database_table',
+      label: 'Table',
+      icon: <Table2 size={14} />,
+      count: searched.filter((r) => r.resource_type === 'database_table').length,
+    },
   ]
 
   const multiConnector = useMemo(() => {
@@ -52,7 +73,9 @@ export function DatabaseResources({ resources, connectorName, query, onAction, o
   }, [filtered, connectorName])
 
   if (resources.length === 0) {
-    return <EmptyState icon={Database} title="暂无数据库资源" text="接入 PostgreSQL 或 MySQL 后，实例、Schema、Table 和 View 会在这里展示。" />
+    return (
+      <EmptyState icon={Database} title="暂无数据库资源" text="接入 PostgreSQL 或 MySQL 后，实例、Schema、Table 和 View 会在这里展示。" />
+    )
   }
   if (searched.length === 0) {
     return <EmptyState icon={Search} title="没有匹配的资源" text="尝试调整搜索条件。" />
@@ -63,9 +86,46 @@ export function DatabaseResources({ resources, connectorName, query, onAction, o
     const schemas = items.filter((r) => r.resource_type === 'database_schema')
     const tables = items.filter((r) => r.resource_type === 'database_table')
     const sections = [
-      { type: 'database_instance', label: '数据库实例', icon: <Server size={14} />, items: instances, cardIcon: <Database size={20} />, meta: (r: ApiResource) => <div className="res-card-meta"><span>协议</span><strong>{String(r.metadata.protocol ?? '-')}</strong></div> },
-      { type: 'database_schema', label: 'Schema / Database', icon: <Database size={14} />, items: schemas, cardIcon: <Database size={20} />, meta: () => null },
-      { type: 'database_table', label: 'Table / View', icon: <Table2 size={14} />, items: tables, cardIcon: <Table2 size={20} />, meta: (r: ApiResource) => <><div className="res-card-meta"><span>Schema</span><strong>{r.namespace ?? '-'}</strong></div><div className="res-card-meta"><span>类型</span><strong>{String(r.metadata.kind ?? 'TABLE')}</strong></div></> },
+      {
+        type: 'database_instance',
+        label: '数据库实例',
+        icon: <Server size={14} />,
+        items: instances,
+        cardIcon: <Database size={20} />,
+        meta: (r: ApiResource) => (
+          <div className="res-card-meta">
+            <span>协议</span>
+            <strong>{String(r.metadata.protocol ?? '-')}</strong>
+          </div>
+        ),
+      },
+      {
+        type: 'database_schema',
+        label: 'Schema / Database',
+        icon: <Database size={14} />,
+        items: schemas,
+        cardIcon: <Database size={20} />,
+        meta: () => null,
+      },
+      {
+        type: 'database_table',
+        label: 'Table / View',
+        icon: <Table2 size={14} />,
+        items: tables,
+        cardIcon: <Table2 size={20} />,
+        meta: (r: ApiResource) => (
+          <>
+            <div className="res-card-meta">
+              <span>Schema</span>
+              <strong>{r.namespace ?? '-'}</strong>
+            </div>
+            <div className="res-card-meta">
+              <span>类型</span>
+              <strong>{String(r.metadata.kind ?? 'TABLE')}</strong>
+            </div>
+          </>
+        ),
+      },
     ].filter((s) => s.items.length > 0)
 
     return sections.map((s) => {
@@ -73,23 +133,36 @@ export function DatabaseResources({ resources, connectorName, query, onAction, o
       const collapsed = collapsedSections.has(sectionKey)
       return (
         <section key={sectionKey} className="group-section">
-          <button type="button" className="group-header group-header-button" onClick={() => toggleSection(sectionKey)} aria-expanded={!collapsed}>
+          <button
+            type="button"
+            className="group-header group-header-button"
+            onClick={() => toggleSection(sectionKey)}
+            aria-expanded={!collapsed}
+          >
             <ChevronRight size={14} className={`chevron${collapsed ? '' : ' chevron-open'}`} />
             {s.icon}
             <span>{s.label}</span>
             <small className="group-count">{s.items.length}</small>
           </button>
-          {!collapsed && (
-            s.type === 'database_table' && s.items.length === 0 ? (
+          {!collapsed &&
+            (s.type === 'database_table' && s.items.length === 0 ? (
               <EmptyState icon={Search} title="没有匹配的表" text="尝试调整搜索条件或检查 Schema scope。" />
             ) : (
               <div className="res-list">
                 {s.items.map((r) => (
-                  <ResourceCard key={r.id} resource={r} connectorName={connectorName(r.connector_id)} onAction={onAction} onProject={onProject} icon={s.cardIcon}>{s.meta(r)}</ResourceCard>
+                  <ResourceCard
+                    key={r.id}
+                    resource={r}
+                    connectorName={connectorName(r.connector_id)}
+                    onAction={onAction}
+                    onProject={onProject}
+                    icon={s.cardIcon}
+                  >
+                    {s.meta(r)}
+                  </ResourceCard>
                 ))}
               </div>
-            )
-          )}
+            ))}
         </section>
       )
     })
@@ -106,7 +179,12 @@ export function DatabaseResources({ resources, connectorName, query, onAction, o
           const collapsed = collapsedConnectors.has(connId)
           return (
             <section key={connId} className="group-section cluster-section">
-              <button type="button" className="group-header group-header-button cluster-header" onClick={() => toggleConnector(connId)} aria-expanded={!collapsed}>
+              <button
+                type="button"
+                className="group-header group-header-button cluster-header"
+                onClick={() => toggleConnector(connId)}
+                aria-expanded={!collapsed}
+              >
                 <ChevronRight size={14} className={`chevron${collapsed ? '' : ' chevron-open'}`} />
                 <Database size={14} />
                 <span>{name}</span>

@@ -1,7 +1,22 @@
 import { NavLink } from '../shared/router'
 import {
-  Bot, Boxes, Building2, FileClock, Fingerprint, FolderKanban, LayoutDashboard, Link2, Network,
-  ServerCog, Share2, Shield, ShieldCheck, TerminalSquare, Users, X, type LucideIcon,
+  Bot,
+  Boxes,
+  Building2,
+  FileClock,
+  Fingerprint,
+  FolderKanban,
+  LayoutDashboard,
+  Link2,
+  Network,
+  ServerCog,
+  Share2,
+  Shield,
+  ShieldCheck,
+  TerminalSquare,
+  Users,
+  X,
+  type LucideIcon,
 } from 'lucide-react'
 import { canUser } from '../shared/api'
 import { useApp } from './components/Toast'
@@ -38,24 +53,36 @@ export function AppSidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClo
   return (
     <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
       <div className="brand">
-        <div className="brand-mark"><Shield size={21} strokeWidth={2.2} /></div>
-        <div><strong>HighTower</strong><span>Agent PAM</span></div>
-        <button className="icon-button sidebar-close" onClick={onClose} aria-label="关闭导航"><X size={20} /></button>
+        <div className="brand-mark">
+          <Shield size={21} strokeWidth={2.2} />
+        </div>
+        <div>
+          <strong>HighTower</strong>
+          <span>Agent PAM</span>
+        </div>
+        <button className="icon-button sidebar-close" onClick={onClose} aria-label="关闭导航">
+          <X size={20} />
+        </button>
       </div>
       <nav aria-label="主导航">
-        {platformAdmin && <>
-          <p className="nav-caption">平台管理</p>
-          <NavLink to="/platform/tenants" className={({ isActive }) => isActive ? 'nav-active' : ''} onClick={onClose}>
-            <Building2 size={18} /><span>租户管理</span>
-          </NavLink>
-          <NavLink to="/platform/accounts" className={({ isActive }) => isActive ? 'nav-active' : ''} onClick={onClose}>
-            <Users size={18} /><span>账号与权限</span>
-          </NavLink>
-        </>}
+        {platformAdmin && (
+          <>
+            <p className="nav-caption">平台管理</p>
+            <NavLink to="/platform/tenants" className={({ isActive }) => (isActive ? 'nav-active' : '')} onClick={onClose}>
+              <Building2 size={18} />
+              <span>租户管理</span>
+            </NavLink>
+            <NavLink to="/platform/accounts" className={({ isActive }) => (isActive ? 'nav-active' : '')} onClick={onClose}>
+              <Users size={18} />
+              <span>账号与权限</span>
+            </NavLink>
+          </>
+        )}
         <p className="nav-caption">工作台</p>
         {visibleItems.map(({ to, label, icon: Icon }) => (
-          <NavLink key={to} to={to} className={({ isActive }) => isActive ? 'nav-active' : ''} onClick={onClose}>
-            <Icon size={18} /><span>{label}</span>
+          <NavLink key={to} to={to} className={({ isActive }) => (isActive ? 'nav-active' : '')} onClick={onClose}>
+            <Icon size={18} />
+            <span>{label}</span>
             {to === '/approvals' && pendingApprovals > 0 && <b>{pendingApprovals}</b>}
           </NavLink>
         ))}

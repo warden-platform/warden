@@ -9,7 +9,8 @@ export function useToggleSet(initial?: () => Set<string>) {
   const toggle = useCallback((key: string) => {
     setSet((prev) => {
       const next = new Set(prev)
-      if (next.has(key)) next.delete(key); else next.add(key)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
       return next
     })
   }, [])

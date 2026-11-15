@@ -5,7 +5,9 @@ export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
 // Admin authentication is held in an HttpOnly cookie; these compatibility
 // helpers intentionally keep JWT material out of browser storage.
-export function getToken() { return '' }
+export function getToken() {
+  return ''
+}
 export function setToken(_token: string) {}
 export function clearToken() {}
 
@@ -33,10 +35,14 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   const text = resp.status === 204 ? '' : await resp.text()
   let data: unknown = null
   if (text) {
-    try { data = JSON.parse(text) } catch { data = text }
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = text
+    }
   }
   if (resp.status === 401) {
-    const errObj = (typeof data === 'object' && data && 'error' in (data as object)) ? data as { error?: string; message?: string } : null
+    const errObj = typeof data === 'object' && data && 'error' in (data as object) ? (data as { error?: string; message?: string }) : null
     if (errObj?.error === 'INVALID_CREDENTIALS') {
       throw new ApiError(401, errObj.error, errObj.message ?? '用户名或密码错误')
     }
@@ -50,7 +56,7 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   }
   if (resp.status === 204) return undefined as T
   if (!resp.ok) {
-    const errObj = (typeof data === 'object' && data && 'error' in (data as object)) ? data as { error?: string; message?: string } : null
+    const errObj = typeof data === 'object' && data && 'error' in (data as object) ? (data as { error?: string; message?: string }) : null
     throw new ApiError(resp.status, errObj?.error ?? 'HTTP_ERROR', errObj?.message ?? `请求失败 (${resp.status})`)
   }
   return data as T
@@ -59,15 +65,26 @@ export async function request<T>(method: string, path: string, body?: unknown): 
 export async function coolAppRequest<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
   let payload: BodyInit | undefined
-  if (body !== undefined) { headers['Content-Type'] = 'application/json'; payload = JSON.stringify(body) }
+  if (body !== undefined) {
+    headers['Content-Type'] = 'application/json'
+    payload = JSON.stringify(body)
+  }
   const resp = await fetch(`${API_BASE}${path}`, { method, headers, body: payload, credentials: 'include' })
   const text = resp.status === 204 ? '' : await resp.text()
   let data: unknown = null
-  if (text) { try { data = JSON.parse(text) } catch { data = text } }
+  if (text) {
+    try {
+      data = JSON.parse(text)
+    } catch {
+      data = text
+    }
+  }
   if (resp.status === 204) return undefined as T
   if (!resp.ok) {
-    const errObj = (typeof data === 'object' && data) ? data as { error?: string; message?: string; user_id?: string } : null
-    const error = new ApiError(resp.status, errObj?.error ?? 'HTTP_ERROR', errObj?.message ?? `请求失败 (${resp.status})`) as ApiError & { userId?: string }
+    const errObj = typeof data === 'object' && data ? (data as { error?: string; message?: string; user_id?: string }) : null
+    const error = new ApiError(resp.status, errObj?.error ?? 'HTTP_ERROR', errObj?.message ?? `请求失败 (${resp.status})`) as ApiError & {
+      userId?: string
+    }
     error.userId = errObj?.user_id
     throw error
   }

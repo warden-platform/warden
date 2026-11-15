@@ -20,9 +20,10 @@ export function apiResourceToView(r: ApiResource, connectorName: string): Resour
 export function apiExecutionToView(e: ApiExecution, resourceLookup?: (id: string) => ApiResource | undefined): Execution {
   const res = e.resourceName ? undefined : resourceLookup?.(e.resourceId)
   const hasFinished = e.status === 'SUCCEEDED' || e.status === 'FAILED'
-  const dur = hasFinished && e.updatedAt && e.createdAt
-    ? Math.max(0, (new Date(e.updatedAt).getTime() - new Date(e.createdAt).getTime()) / 1000).toFixed(1) + 's'
-    : '-'
+  const dur =
+    hasFinished && e.updatedAt && e.createdAt
+      ? Math.max(0, (new Date(e.updatedAt).getTime() - new Date(e.createdAt).getTime()) / 1000).toFixed(1) + 's'
+      : '-'
   const principalLabel = e.principalName
     ? `${e.principalName}${e.credentialName ? ` · key ${e.credentialName}` : ''}`
     : e.principalId
@@ -61,20 +62,26 @@ export function apiRequestToApproval(r: ApiAccessRequest, resourceLookup?: (id: 
 
 export function apiAuditToView(e: ApiAuditEvent): AuditItem {
   const categoryMap: Record<string, string> = {
-    'execution': '执行',
-    'access_request': '审批',
-    'grant': '授权',
-    'connector': '连接器',
-    'policy': '策略',
-    'permission_drift': '权限',
+    execution: '执行',
+    access_request: '审批',
+    grant: '授权',
+    connector: '连接器',
+    policy: '策略',
+    permission_drift: '权限',
   }
   const category = categoryMap[e.action.split('.')[0]] || '系统'
   const resultMap: Record<string, AuditItem['result']> = {
-    'allow': '允许', 'allowed': '允许',
-    'deny': '拒绝', 'denied': '拒绝',
-    'approve': '允许', 'approved': '允许',
-    'reject': '拒绝', 'rejected': '拒绝',
-    'queued': '待处理', 'dispatched': '系统', 'completed': '完成',
+    allow: '允许',
+    allowed: '允许',
+    deny: '拒绝',
+    denied: '拒绝',
+    approve: '允许',
+    approved: '允许',
+    reject: '拒绝',
+    rejected: '拒绝',
+    queued: '待处理',
+    dispatched: '系统',
+    completed: '完成',
   }
   const actionVerb = e.action.split('.').slice(-1)[0]
   const result = resultMap[actionVerb] || '系统'

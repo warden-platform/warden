@@ -43,7 +43,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
       .catch(() => {
         setAuth({ user: null, loading: false })
       })
-    getOIDCConfig().then((config) => setOIDCLogoutUrl(config.logout_url ?? '')).catch(() => undefined)
+    getOIDCConfig()
+      .then((config) => setOIDCLogoutUrl(config.logout_url ?? ''))
+      .catch(() => undefined)
   }, [])
 
   const signIn = useCallback((user: AuthUser) => {
@@ -62,7 +64,10 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setAuth({ user: null, loading: false })
   }, [isFederated, oidcLogoutUrl])
 
-  const value = useMemo(() => ({ notify, pendingApprovals, setPendingApprovals, auth, signIn, signOut }), [notify, pendingApprovals, auth, signIn, signOut])
+  const value = useMemo(
+    () => ({ notify, pendingApprovals, setPendingApprovals, auth, signIn, signOut }),
+    [notify, pendingApprovals, auth, signIn, signOut],
+  )
 
   return (
     <AppContext.Provider value={value}>

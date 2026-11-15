@@ -22,20 +22,29 @@ export function connectorSupportsAction(connector: ApiConnector, action: ApiActi
   return connector.capabilities?.some((capability) => capability === required || capability === action.name) ?? false
 }
 
-export const actionNeedsUpgrade = (action: ApiAction) => action.available === false && (action.availability_code === 'CONNECTOR_UPGRADE_REQUIRED' || action.availability_reason === '需要升级执行通道')
+export const actionNeedsUpgrade = (action: ApiAction) =>
+  action.available === false &&
+  (action.availability_code === 'CONNECTOR_UPGRADE_REQUIRED' || action.availability_reason === '需要升级执行通道')
 
 export function withTimeout<T>(promise: Promise<T>, milliseconds = 10_000): Promise<T> {
-  return Promise.race([promise, new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error('加载执行信息超时，请重试')), milliseconds))])
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) => window.setTimeout(() => reject(new Error('加载执行信息超时，请重试')), milliseconds)),
+  ])
 }
 
 export function asRecord(value: unknown): Record<string, unknown> {
-  return value && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {}
+  return value && typeof value === 'object' && !Array.isArray(value) ? (value as Record<string, unknown>) : {}
 }
 
 export function genericPreviewableSignature(parameters: Record<string, unknown>): string {
   return JSON.stringify({
-    apiVersion: parameters.apiVersion, kind: parameters.kind, namespace: parameters.namespace, name: parameters.name,
-    expectedResourceVersion: parameters.expectedResourceVersion, manifest: parameters.manifest,
+    apiVersion: parameters.apiVersion,
+    kind: parameters.kind,
+    namespace: parameters.namespace,
+    name: parameters.name,
+    expectedResourceVersion: parameters.expectedResourceVersion,
+    manifest: parameters.manifest,
   })
 }
 
@@ -62,7 +71,11 @@ export async function waitForTerminalExecution(initial: ApiExecution): Promise<A
   return current
 }
 
-export async function loadGenericKubernetesParameters(resource: ApiResource, mutationAction: string, startExecution: ExecutionStarter): Promise<Record<string, unknown>> {
+export async function loadGenericKubernetesParameters(
+  resource: ApiResource,
+  mutationAction: string,
+  startExecution: ExecutionStarter,
+): Promise<Record<string, unknown>> {
   const gvk = GENERIC_KUBERNETES_KINDS[resource.resource_type]
   if (!gvk) throw new Error(`资源类型 ${resource.resource_type} 不支持通用 Kubernetes 变更`)
   const execution = await startExecution({
@@ -77,7 +90,13 @@ export async function loadGenericKubernetesParameters(resource: ApiResource, mut
   if (completed.status !== 'SUCCEEDED') throw new Error(completed.errorMessage || completed.errorCode || '读取 Kubernetes 当前资源失败')
   const resourceVersion = String(completed.result?.resourceVersion ?? '')
   if (!resourceVersion) throw new Error('Kubernetes 未返回 resourceVersion，无法安全变更')
-  const base = { apiVersion: gvk.apiVersion, kind: gvk.kind, name: resource.name, namespace: resource.namespace ?? '', expectedResourceVersion: resourceVersion }
+  const base = {
+    apiVersion: gvk.apiVersion,
+    kind: gvk.kind,
+    name: resource.name,
+    namespace: resource.namespace ?? '',
+    expectedResourceVersion: resourceVersion,
+  }
   if (mutationAction === 'kubernetes.resource.delete') {
     return { ...base, propagationPolicy: 'Background', confirmResource: '' }
   }
@@ -86,7 +105,12 @@ export async function loadGenericKubernetesParameters(resource: ApiResource, mut
   return { ...base, manifest }
 }
 
-export async function loadKubernetesMutationParameters(resource: ApiResource, readAction: string, mutationAction: string, startExecution: ExecutionStarter): Promise<Record<string, unknown>> {
+export async function loadKubernetesMutationParameters(
+  resource: ApiResource,
+  readAction: string,
+  mutationAction: string,
+  startExecution: ExecutionStarter,
+): Promise<Record<string, unknown>> {
   const execution = await startExecution({
     taskId: `ui-k8s-prefill-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     resourceId: resource.id,
@@ -107,7 +131,12 @@ export async function loadKubernetesMutationParameters(resource: ApiResource, re
   return { expectedGeneration }
 }
 
-export async function loadGrafanaUpdateParameters(resource: ApiResource, readAction: string, updateAction: string, startExecution: ExecutionStarter): Promise<Record<string, unknown>> {
+export async function loadGrafanaUpdateParameters(
+  resource: ApiResource,
+  readAction: string,
+  updateAction: string,
+  startExecution: ExecutionStarter,
+): Promise<Record<string, unknown>> {
   const execution = await startExecution({
     taskId: `ui-prefill-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
     resourceId: resource.id,
@@ -148,7 +177,8 @@ function stripGrafanaSensitiveFields(value: Record<string, unknown>): Record<str
   const safe: Record<string, unknown> = {}
   for (const [key, item] of Object.entries(value)) {
     const normalized = key.toLowerCase().replaceAll('_', '').replaceAll('-', '')
-    if (['securejsondata', 'securejsonfields', 'password', 'basicauthpassword', 'token', 'apikey', 'authorization'].includes(normalized)) continue
+    if (['securejsondata', 'securejsonfields', 'password', 'basicauthpassword', 'token', 'apikey', 'authorization'].includes(normalized))
+      continue
     safe[key] = stripGrafanaSensitiveValue(item)
   }
   return safe
@@ -165,8 +195,10 @@ export function isCloudLogAction(actionName: string) {
 }
 
 export function isCloudLogTimeParameter(actionName: string, key: string) {
-  return (actionName === 'huawei.lts.logs.query' && (key === 'startTime' || key === 'endTime')) ||
+  return (
+    (actionName === 'huawei.lts.logs.query' && (key === 'startTime' || key === 'endTime')) ||
     (actionName === 'aliyun.sls.logs.query' && (key === 'from' || key === 'to'))
+  )
 }
 
 export function epochToLocalInput(epoch: number) {

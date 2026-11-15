@@ -41,8 +41,10 @@ export type ApiPolicyRule = {
   updated_at: string
 }
 
-export type PolicyRuleInput = Omit<ApiPolicyRule,
-  'id' | 'project_name' | 'hit_count' | 'last_hit_at' | 'conflict_ids' | 'shadowed_by' | 'created_at' | 'updated_at'>
+export type PolicyRuleInput = Omit<
+  ApiPolicyRule,
+  'id' | 'project_name' | 'hit_count' | 'last_hit_at' | 'conflict_ids' | 'shadowed_by' | 'created_at' | 'updated_at'
+>
 
 export type PolicySimulationInput = {
   project_id?: string

@@ -61,18 +61,15 @@ export type CreateRegistrationAPIKeyRequest = {
 export const listPrincipals = (kind = 'agent_instance') =>
   request<ApiPrincipal[]>('GET', `/principals${kind ? `?kind=${encodeURIComponent(kind)}` : ''}`)
 export const createPrincipal = (req: CreatePrincipalRequest) => request<ApiPrincipal>('POST', '/principals', req)
-export const deletePrincipal = (id: string) =>
-  request<{ id: string; status: 'DISABLED' }>('DELETE', `/principals/${id}`)
-export const listPrincipalAPIKeys = (principalId: string) =>
-  request<ApiPrincipalKey[]>('GET', `/principals/${principalId}/api-keys`)
+export const deletePrincipal = (id: string) => request<{ id: string; status: 'DISABLED' }>('DELETE', `/principals/${id}`)
+export const listPrincipalAPIKeys = (principalId: string) => request<ApiPrincipalKey[]>('GET', `/principals/${principalId}/api-keys`)
 export const createPrincipalAPIKey = (principalId: string, req: CreateAPIKeyRequest) =>
   request<CreateAPIKeyResponse>('POST', `/principals/${principalId}/api-keys`, req)
 export const createRegistrationAPIKey = (principalId: string, req: CreateRegistrationAPIKeyRequest) =>
   request<CreateAPIKeyResponse>('POST', `/principals/${principalId}/registration-api-keys`, req)
 export const revokePrincipalAPIKey = (credentialId: string) =>
   request<{ id: string; status: 'REVOKED' }>('POST', `/api-keys/${credentialId}/revoke`)
-export const rotatePrincipalAPIKey = (credentialId: string) =>
-  request<CreateAPIKeyResponse>('POST', `/api-keys/${credentialId}/rotate`)
+export const rotatePrincipalAPIKey = (credentialId: string) => request<CreateAPIKeyResponse>('POST', `/api-keys/${credentialId}/rotate`)
 export type ApiExternalBinding = {
   id: string
   tenantId?: string
@@ -91,9 +88,16 @@ export type ApiExternalBinding = {
 }
 export const listExternalBindings = () => request<ApiExternalBinding[]>('GET', '/external-bindings')
 export const createExternalBinding = (body: {
-  source: string; workspaceId: string; externalProjectId?: string; identityType: ApiExternalBinding['identityType']; externalId: string; principalId: string; projectId?: string
+  source: string
+  workspaceId: string
+  externalProjectId?: string
+  identityType: ApiExternalBinding['identityType']
+  externalId: string
+  principalId: string
+  projectId?: string
 }) => request<ApiExternalBinding>('POST', '/external-bindings', body)
-export const revokeExternalBinding = (id: string) => request<{ id: string; status: 'REVOKED' }>('DELETE', `/external-bindings/${encodeURIComponent(id)}`)
+export const revokeExternalBinding = (id: string) =>
+  request<{ id: string; status: 'REVOKED' }>('DELETE', `/external-bindings/${encodeURIComponent(id)}`)
 export const revokeExternalWorkspace = (body: { source: string; workspaceId: string }) =>
   request<{ source: string; workspaceId: string; revokedBindings: number }>('POST', '/external-bindings/revoke-workspace', body)
 export type ApiFederatedTenantBinding = {
@@ -126,6 +130,11 @@ export const listFederatedTenants = () => request<ApiFederatedTenantBinding[]>('
 export const bindFederatedTenant = (body: { source: string; externalEnterpriseId: string; externalWorkspaceId: string }) =>
   request<ApiFederatedTenantBinding>('POST', '/federated/tenants', body)
 export const listFederatedProjects = () => request<ApiFederatedProjectBinding[]>('GET', '/federated/projects')
-export const bindFederatedProject = (body: { source: string; externalWorkspaceId: string; externalProjectId: string; externalProjectName?: string; projectId: string }) =>
-  request<ApiFederatedProjectBinding>('POST', '/federated/projects', body)
+export const bindFederatedProject = (body: {
+  source: string
+  externalWorkspaceId: string
+  externalProjectId: string
+  externalProjectName?: string
+  projectId: string
+}) => request<ApiFederatedProjectBinding>('POST', '/federated/projects', body)
 export const revokeFederatedProject = (id: string) => request<void>('DELETE', `/federated/projects/${encodeURIComponent(id)}`)

@@ -39,8 +39,18 @@ export const importQueryTemplate = (body: { integrationId: string; schemaResourc
 export const submitQueryTemplatePublish = (templateId: string) =>
   request<ApiTemplatePublishRequest>('POST', `/database/query-templates/${encodeURIComponent(templateId)}/publish`)
 export const listTemplatePublishRequests = (status = '') =>
-  request<ApiTemplatePublishRequest[]>('GET', `/database/query-templates/publish-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`)
+  request<ApiTemplatePublishRequest[]>(
+    'GET',
+    `/database/query-templates/publish-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`,
+  )
 export const approveTemplatePublish = (templateId: string, requestId: string) =>
-  request<{ id: string; status: string }>('POST', `/database/query-templates/${encodeURIComponent(templateId)}/publish-requests/${encodeURIComponent(requestId)}/approve`)
+  request<{ id: string; status: string }>(
+    'POST',
+    `/database/query-templates/${encodeURIComponent(templateId)}/publish-requests/${encodeURIComponent(requestId)}/approve`,
+  )
 export const rejectTemplatePublish = (templateId: string, requestId: string, reason: string) =>
-  request<{ id: string; status: string }>('POST', `/database/query-templates/${encodeURIComponent(templateId)}/publish-requests/${encodeURIComponent(requestId)}/reject`, { reason })
+  request<{ id: string; status: string }>(
+    'POST',
+    `/database/query-templates/${encodeURIComponent(templateId)}/publish-requests/${encodeURIComponent(requestId)}/reject`,
+    { reason },
+  )

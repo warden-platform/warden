@@ -38,7 +38,18 @@ const resourcesInFlight = new Map<string, Promise<ApiResource[]>>()
 // React StrictMode and concurrent page mounts may ask for the catalog at the
 // same time. Share the in-flight response so a navigation never downloads the
 // multi-megabyte catalog twice.
-export const listResources = (options: { domain?: string; topology?: boolean; type?: string; excludeType?: string; namespace?: string; integrationId?: string; projectId?: string; limit?: number } = {}) => {
+export const listResources = (
+  options: {
+    domain?: string
+    topology?: boolean
+    type?: string
+    excludeType?: string
+    namespace?: string
+    integrationId?: string
+    projectId?: string
+    limit?: number
+  } = {},
+) => {
   const params = new URLSearchParams()
   if (options.domain) params.set('domain', options.domain)
   if (options.topology) params.set('topology', 'true')
@@ -57,11 +68,18 @@ export const listResources = (options: { domain?: string; topology?: boolean; ty
   return pending
 }
 export const setResourceProject = (resourceId: string, projectId: string, reason = '') =>
-  request<{ resource_id: string; project_id: string; project_name: string; project_source: 'RESOURCE' }>('PUT', `/resources/${encodeURIComponent(resourceId)}/project`, { project_id: projectId, reason })
-export const clearResourceProject = (resourceId: string) =>
-  request<void>('DELETE', `/resources/${encodeURIComponent(resourceId)}/project`)
+  request<{ resource_id: string; project_id: string; project_name: string; project_source: 'RESOURCE' }>(
+    'PUT',
+    `/resources/${encodeURIComponent(resourceId)}/project`,
+    { project_id: projectId, reason },
+  )
+export const clearResourceProject = (resourceId: string) => request<void>('DELETE', `/resources/${encodeURIComponent(resourceId)}/project`)
 export const setResourceEnvironment = (resourceId: string, environment: 'development' | 'testing' | 'production', reason = '') =>
-  request<{ resource_id: string; environment: string; environment_source: 'RESOURCE' }>('PUT', `/resources/${encodeURIComponent(resourceId)}/environment`, { environment, reason })
+  request<{ resource_id: string; environment: string; environment_source: 'RESOURCE' }>(
+    'PUT',
+    `/resources/${encodeURIComponent(resourceId)}/environment`,
+    { environment, reason },
+  )
 export const clearResourceEnvironment = (resourceId: string) =>
   request<void>('DELETE', `/resources/${encodeURIComponent(resourceId)}/environment`)
 export type ApiResourceStats = {
@@ -76,7 +94,8 @@ export type ApiResourceStats = {
   catalogByProjectDomainStatus: Record<string, Record<string, Record<string, number>>>
 }
 export const getResourceStats = () => request<ApiResourceStats>('GET', '/resources/stats')
-export const listAvailableResources = (type?: string) => request<ApiResource[]>('GET', `/resources?availableForExecution=true${type ? `&type=${encodeURIComponent(type)}` : ''}`)
+export const listAvailableResources = (type?: string) =>
+  request<ApiResource[]>('GET', `/resources?availableForExecution=true${type ? `&type=${encodeURIComponent(type)}` : ''}`)
 export const getResourceConsumerProjects = (resourceId: string) =>
   request<{ project_ids: string[] }>('GET', `/resources/${encodeURIComponent(resourceId)}/consumer-projects`)
 export const updateResourceConsumerProjects = (resourceId: string, projectIds: string[]) =>
@@ -88,5 +107,7 @@ export type ResourceProjectScope = {
 }
 export const getResourceProjectScope = (resourceId: string) =>
   request<ResourceProjectScope>('GET', `/resources/${encodeURIComponent(resourceId)}/project-scope`)
-export const updateResourceProjectScope = (resourceId: string, body: { mode: ResourceProjectScope['mode']; projectIds: string[]; reason?: string }) =>
-  request<ResourceProjectScope>('PUT', `/resources/${encodeURIComponent(resourceId)}/project-scope`, body)
+export const updateResourceProjectScope = (
+  resourceId: string,
+  body: { mode: ResourceProjectScope['mode']; projectIds: string[]; reason?: string },
+) => request<ResourceProjectScope>('PUT', `/resources/${encodeURIComponent(resourceId)}/project-scope`, body)

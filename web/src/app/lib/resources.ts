@@ -7,8 +7,21 @@ import type { ApiResource } from '../../shared/api'
 export type ResourceDomain = 'kubernetes' | 'linux' | 'jenkins' | 'grafana' | 'database' | 'huawei' | 'network'
 
 const K8S_TYPES = new Set([
-  'pod', 'deployment', 'statefulset', 'daemonset', 'replicaset', 'job', 'cronjob',
-  'service', 'endpoints', 'ingress', 'configmap', 'secret', 'event', 'node', 'namespace',
+  'pod',
+  'deployment',
+  'statefulset',
+  'daemonset',
+  'replicaset',
+  'job',
+  'cronjob',
+  'service',
+  'endpoints',
+  'ingress',
+  'configmap',
+  'secret',
+  'event',
+  'node',
+  'namespace',
 ])
 
 export function resourceTypeDomain(t: string): ResourceDomain {
@@ -26,7 +39,19 @@ export function resourceDomain(r: ApiResource): ResourceDomain {
 }
 
 export function domainLabel(d: ResourceDomain): string {
-  return d === 'kubernetes' ? 'Kubernetes' : d === 'linux' ? 'Linux 主机' : d === 'jenkins' ? 'Jenkins' : d === 'grafana' ? 'Grafana' : d === 'huawei' ? '云厂商' : d === 'network' ? '网络设备' : '数据库'
+  return d === 'kubernetes'
+    ? 'Kubernetes'
+    : d === 'linux'
+      ? 'Linux 主机'
+      : d === 'jenkins'
+        ? 'Jenkins'
+        : d === 'grafana'
+          ? 'Grafana'
+          : d === 'huawei'
+            ? '云厂商'
+            : d === 'network'
+              ? '网络设备'
+              : '数据库'
 }
 
 // Jenkins build metadata shape: { job, number, timestamp }.
@@ -66,6 +91,10 @@ export function groupBuildsByJob(builds: ApiResource[]): Map<string, ApiResource
 export function formatBuildTime(ms: number | undefined): string {
   if (!ms) return '-'
   return new Date(ms).toLocaleString('zh-CN', {
-    month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false,
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
   })
 }

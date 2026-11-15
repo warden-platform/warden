@@ -80,9 +80,22 @@ export const listExecutions = (status?: string) =>
 export const listAccessRequests = (status?: string) =>
   request<ApiAccessRequest[]>('GET', `/access-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`)
 export type AuditEventFilters = {
-  action?: string; category?: string; executionId?: string; traceId?: string; connectorId?: string; q?: string
-  externalSource?: string; workspaceId?: string; externalProjectId?: string; agentId?: string; taskId?: string; issueId?: string
-  originatorUserId?: string; delegationTokenId?: string; onBehalfOfPrincipalId?: string; accountablePrincipalId?: string
+  action?: string
+  category?: string
+  executionId?: string
+  traceId?: string
+  connectorId?: string
+  q?: string
+  externalSource?: string
+  workspaceId?: string
+  externalProjectId?: string
+  agentId?: string
+  taskId?: string
+  issueId?: string
+  originatorUserId?: string
+  delegationTokenId?: string
+  onBehalfOfPrincipalId?: string
+  accountablePrincipalId?: string
 }
 export const listAuditEvents = (filters: AuditEventFilters = {}, limit = 200, offset = 0) => {
   const params = new URLSearchParams({ limit: String(limit), offset: String(offset) })

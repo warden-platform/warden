@@ -21,8 +21,7 @@ export type ApiProjectNamespaceRule = {
 }
 
 export const listProjects = () => request<ApiProject[]>('GET', '/projects')
-export const createProject = (body: { name: string; description?: string }) =>
-  request<ApiProject>('POST', '/projects', body)
+export const createProject = (body: { name: string; description?: string }) => request<ApiProject>('POST', '/projects', body)
 export const updateProject = (id: string, body: { name: string; description?: string }) =>
   request<ApiProject>('PUT', `/projects/${encodeURIComponent(id)}`, body)
 export const deleteProject = (id: string) => request<void>('DELETE', `/projects/${encodeURIComponent(id)}`)
@@ -54,25 +53,35 @@ export type ApiProjectUser = {
   updated_at: string
   memberships: ApiProjectMembership[]
 }
-export const listProjectMembers = (projectId: string) => request<ApiProjectMembership[]>('GET', `/projects/${encodeURIComponent(projectId)}/members`)
-export const listProjectMemberCandidates = (projectId: string) => request<ApiPrincipal[]>('GET', `/projects/${encodeURIComponent(projectId)}/member-candidates`)
-export const addProjectMember = (projectId: string, body: { principalId: string; role: ApiProjectMembership['role'] }) => request<ApiProjectMembership>('POST', `/projects/${encodeURIComponent(projectId)}/members`, body)
-export const createProjectUser = (projectId: string, body: { name: string; password: string; role: ApiProjectMembership['role'] }) => request<{ user: ApiPrincipal; membership: ApiProjectMembership }>('POST', `/projects/${encodeURIComponent(projectId)}/users`, body)
-export const updateProjectMember = (projectId: string, principalId: string, body: { role: ApiProjectMembership['role']; status: ApiProjectMembership['status'] }) => request<ApiProjectMembership>('PUT', `/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(principalId)}`, body)
-export const removeProjectMember = (projectId: string, principalId: string) => request<void>('DELETE', `/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(principalId)}`)
+export const listProjectMembers = (projectId: string) =>
+  request<ApiProjectMembership[]>('GET', `/projects/${encodeURIComponent(projectId)}/members`)
+export const listProjectMemberCandidates = (projectId: string) =>
+  request<ApiPrincipal[]>('GET', `/projects/${encodeURIComponent(projectId)}/member-candidates`)
+export const addProjectMember = (projectId: string, body: { principalId: string; role: ApiProjectMembership['role'] }) =>
+  request<ApiProjectMembership>('POST', `/projects/${encodeURIComponent(projectId)}/members`, body)
+export const createProjectUser = (projectId: string, body: { name: string; password: string; role: ApiProjectMembership['role'] }) =>
+  request<{ user: ApiPrincipal; membership: ApiProjectMembership }>('POST', `/projects/${encodeURIComponent(projectId)}/users`, body)
+export const updateProjectMember = (
+  projectId: string,
+  principalId: string,
+  body: { role: ApiProjectMembership['role']; status: ApiProjectMembership['status'] },
+) => request<ApiProjectMembership>('PUT', `/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(principalId)}`, body)
+export const removeProjectMember = (projectId: string, principalId: string) =>
+  request<void>('DELETE', `/projects/${encodeURIComponent(projectId)}/members/${encodeURIComponent(principalId)}`)
 export const getProjectMembershipPolicy = () => request<ProjectMembershipPolicy>('GET', '/project-membership-policy')
-export const updateProjectMembershipPolicy = (enforced: boolean) => request<ProjectMembershipPolicy>('PUT', '/project-membership-policy', { enforced })
+export const updateProjectMembershipPolicy = (enforced: boolean) =>
+  request<ProjectMembershipPolicy>('PUT', '/project-membership-policy', { enforced })
 export const listProjectUsers = () => request<ApiProjectUser[]>('GET', '/project-users')
 export const getProjectUser = (principalId: string) => request<ApiProjectUser>('GET', `/project-users/${encodeURIComponent(principalId)}`)
 export const updateProjectUserStatus = (principalId: string, status: ApiProjectUser['status']) =>
   request<ApiProjectUser>('PUT', `/project-users/${encodeURIComponent(principalId)}/status`, { status })
 export const resetProjectUserPassword = (principalId: string, password: string) =>
-  request<{ status: string; revoked_sessions: number }>('POST', `/project-users/${encodeURIComponent(principalId)}/reset-password`, { password })
+  request<{ status: string; revoked_sessions: number }>('POST', `/project-users/${encodeURIComponent(principalId)}/reset-password`, {
+    password,
+  })
 export const revokeProjectUserSessions = (principalId: string) =>
   request<{ status: string; revoked_sessions: number }>('POST', `/project-users/${encodeURIComponent(principalId)}/revoke-sessions`)
-export const listProjectNamespaceRules = () =>
-  request<ApiProjectNamespaceRule[]>('GET', '/project-namespace-rules')
+export const listProjectNamespaceRules = () => request<ApiProjectNamespaceRule[]>('GET', '/project-namespace-rules')
 export const upsertProjectNamespaceRule = (body: { project_id: string; connector_id: string; namespace: string }) =>
   request<ApiProjectNamespaceRule>('PUT', '/project-namespace-rules', body)
-export const deleteProjectNamespaceRule = (id: string) =>
-  request<void>('DELETE', `/project-namespace-rules/${encodeURIComponent(id)}`)
+export const deleteProjectNamespaceRule = (id: string) => request<void>('DELETE', `/project-namespace-rules/${encodeURIComponent(id)}`)

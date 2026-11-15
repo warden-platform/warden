@@ -37,12 +37,18 @@ export function connectorHealthLabel(connector: ApiConnector, now = Date.now()):
 
 function mapConnectorStatusForHealth(status: ApiConnector['status']): string {
   switch (status) {
-    case 'DRAFT': return '草稿'
-    case 'TESTING': return '测试中'
-    case 'DEGRADED': return '降级'
-    case 'QUARANTINED': return '隔离'
-    case 'DISABLED': return '已停用'
-    default: return status
+    case 'DRAFT':
+      return '草稿'
+    case 'TESTING':
+      return '测试中'
+    case 'DEGRADED':
+      return '降级'
+    case 'QUARANTINED':
+      return '隔离'
+    case 'DISABLED':
+      return '已停用'
+    default:
+      return status
   }
 }
 
@@ -90,7 +96,12 @@ export type LinuxPairingOptionsResponse = {
   machine: Record<string, unknown>
   expiresAt: string
 }
-export type HostPairingOptionsResponse = { availableCommands: string[]; machine: Record<string, unknown>; platform: 'windows' | 'macos'; expiresAt: string }
+export type HostPairingOptionsResponse = {
+  availableCommands: string[]
+  machine: Record<string, unknown>
+  platform: 'windows' | 'macos'
+  expiresAt: string
+}
 
 export type ConnectorCheckResponse = {
   connectorId: string
@@ -112,30 +123,55 @@ export type InstallConfig = {
 
 export const listConnectors = () => request<ApiConnector[]>('GET', '/connectors')
 export const getInstallConfig = () => request<InstallConfig>('GET', '/install-config')
-export type NetworkConnectorProvision = { id: string; name: string; connectorType: 'network'; status: 'DRAFT'; taskSigningKey: string; credentialWarning: string }
+export type NetworkConnectorProvision = {
+  id: string
+  name: string
+  connectorType: 'network'
+  status: 'DRAFT'
+  taskSigningKey: string
+  credentialWarning: string
+}
 export const createNetworkConnector = (body: { name: string; environment: 'development' | 'testing' | 'production'; projectId?: string }) =>
   request<NetworkConnectorProvision>('POST', '/connectors/network', body)
 export const deleteConnector = (id: string) => request<{ id: string; status: 'DISABLED' }>('DELETE', `/connectors/${id}`)
 export const archiveConnector = (id: string) => request<{ id: string; status: 'ARCHIVED' }>('POST', `/connectors/${id}/archive`)
-export const forceArchiveConnector = (id: string) => request<{ id: string; status: 'ARCHIVED' }>('POST', `/connectors/${id}/force-archive`, { confirmTargetRemoved: true })
+export const forceArchiveConnector = (id: string) =>
+  request<{ id: string; status: 'ARCHIVED' }>('POST', `/connectors/${id}/force-archive`, { confirmTargetRemoved: true })
 export const checkConnector = (id: string) => request<ConnectorCheckResponse>('POST', `/connectors/${id}/check`)
 export const updateConnectorNamespaces = (id: string, namespaces: string[]) =>
   request<{ id: string; namespaces: string[]; status: 'RECONCILING' }>('PUT', `/connectors/${id}/namespaces`, { namespaces })
 export const updateConnectorServices = (id: string, services: string[], containers: string[]) =>
-  request<{ id: string; services: string[]; containers: string[]; status: 'RECONCILING' }>('PUT', `/connectors/${id}/services`, { services, containers })
+  request<{ id: string; services: string[]; containers: string[]; status: 'RECONCILING' }>('PUT', `/connectors/${id}/services`, {
+    services,
+    containers,
+  })
 export const onboardCluster = (req: OnboardRequest) => request<OnboardResponse>('POST', '/connectors/onboard', req)
 export const confirmClusterPairing = (req: ConfirmPairingRequest) =>
   request<ConfirmPairingResponse>('POST', '/cluster-pairings/confirm', req)
-export const getClusterPairingOptions = (code: string) =>
-  request<PairingOptionsResponse>('POST', '/cluster-pairings/options', { code })
-export const getLinuxPairingOptions = (code: string) =>
-  request<LinuxPairingOptionsResponse>('POST', '/linux-pairings/options', { code })
-export const confirmLinuxPairing = (req: { code: string; name: string; environment: 'development' | 'testing' | 'production'; projectId?: string; allowedServices: string[]; allowedContainers: string[] }) =>
-  request<ConfirmPairingResponse>('POST', '/linux-pairings/confirm', req)
+export const getClusterPairingOptions = (code: string) => request<PairingOptionsResponse>('POST', '/cluster-pairings/options', { code })
+export const getLinuxPairingOptions = (code: string) => request<LinuxPairingOptionsResponse>('POST', '/linux-pairings/options', { code })
+export const confirmLinuxPairing = (req: {
+  code: string
+  name: string
+  environment: 'development' | 'testing' | 'production'
+  projectId?: string
+  allowedServices: string[]
+  allowedContainers: string[]
+}) => request<ConfirmPairingResponse>('POST', '/linux-pairings/confirm', req)
 export const getHostPairingOptions = (code: string) => request<HostPairingOptionsResponse>('POST', '/host/pairings/options', { code })
-export const confirmHostPairing = (req: { code: string; platform: 'windows' | 'macos'; name: string; environment: 'development' | 'testing' | 'production'; projectId?: string; allowedCommands: string[] }) =>
-  request<ConfirmPairingResponse>('POST', '/host/pairings/confirm', req)
+export const confirmHostPairing = (req: {
+  code: string
+  platform: 'windows' | 'macos'
+  name: string
+  environment: 'development' | 'testing' | 'production'
+  projectId?: string
+  allowedCommands: string[]
+}) => request<ConfirmPairingResponse>('POST', '/host/pairings/confirm', req)
 export const setConnectorProject = (connectorId: string, projectId: string) =>
-  request<{ connector_id: string; project_id: string }>('PUT', `/connectors/${encodeURIComponent(connectorId)}/project`, { project_id: projectId })
+  request<{ connector_id: string; project_id: string }>('PUT', `/connectors/${encodeURIComponent(connectorId)}/project`, {
+    project_id: projectId,
+  })
 export const setConnectorEnvironment = (connectorId: string, environment: 'development' | 'testing' | 'production') =>
-  request<{ connector_id: string; environment: string }>('PUT', `/connectors/${encodeURIComponent(connectorId)}/environment`, { environment })
+  request<{ connector_id: string; environment: string }>('PUT', `/connectors/${encodeURIComponent(connectorId)}/environment`, {
+    environment,
+  })

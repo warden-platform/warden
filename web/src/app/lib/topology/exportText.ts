@@ -22,7 +22,9 @@ export function exportTopologyText(
   lines.push('# PAM Organization Topology')
   lines.push('')
   lines.push(`Generated: ${new Date().toISOString()}`)
-  lines.push(`Connectors: ${connectors.length} | Integrations: ${integrations.length} | Resources: ${resources.length} | Actions: ${actions.length} | Recent executions (24h): ${executions.filter((e) => Date.now() - new Date(e.createdAt).getTime() < 86400000).length}`)
+  lines.push(
+    `Connectors: ${connectors.length} | Integrations: ${integrations.length} | Resources: ${resources.length} | Actions: ${actions.length} | Recent executions (24h): ${executions.filter((e) => Date.now() - new Date(e.createdAt).getTime() < 86400000).length}`,
+  )
   lines.push('')
 
   lines.push('## Connectors')
@@ -34,7 +36,10 @@ export function exportTopologyText(
     lines.push(`  - ID: ${c.id}`)
     lines.push(`  - Environment: ${c.environment}`)
     lines.push(`  - Heartbeat: ${heartbeatAgo(c)}`)
-    if (c.available_namespaces?.length) lines.push(`  - Namespaces: ${namespaces.join(', ')}${c.available_namespaces.length > 12 ? `, +${c.available_namespaces.length - 12} more` : ''}`)
+    if (c.available_namespaces?.length)
+      lines.push(
+        `  - Namespaces: ${namespaces.join(', ')}${c.available_namespaces.length > 12 ? `, +${c.available_namespaces.length - 12} more` : ''}`,
+      )
     if (c.available_services?.length) lines.push(`  - Services: ${c.available_services.slice(0, 12).join(', ')}`)
     lines.push(`  - Integrations: ${cIntegrations.length ? cIntegrations.map((i) => i.name).join(', ') : 'none'}`)
     if (cResources.length) {
@@ -60,7 +65,9 @@ export function exportTopologyText(
       lines.push(`  - Resources: ${[...byType.entries()].map(([t, n]) => `${n} ${t}`).join(', ')}`)
     }
     if (scope?.allowedJobs?.length) {
-      lines.push(`  - Allowed Jobs: ${scope.allowedJobs.slice(0, 20).join(', ')}${scope.allowedJobs.length > 20 ? `, +${scope.allowedJobs.length - 20} more` : ''}`)
+      lines.push(
+        `  - Allowed Jobs: ${scope.allowedJobs.slice(0, 20).join(', ')}${scope.allowedJobs.length > 20 ? `, +${scope.allowedJobs.length - 20} more` : ''}`,
+      )
     } else {
       lines.push(`  - Allowed Jobs: all`)
     }

@@ -38,7 +38,11 @@ function useDarkMode() {
     setDark((prev) => {
       const next = !prev
       document.documentElement.classList.toggle('dark', next)
-      try { localStorage.setItem('pam-theme', next ? 'dark' : 'light') } catch { /* ignore */ }
+      try {
+        localStorage.setItem('pam-theme', next ? 'dark' : 'light')
+      } catch {
+        /* ignore */
+      }
       return next
     })
   }
@@ -57,28 +61,83 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
   return (
     <header className="topbar">
       <div className="title-row">
-        <button className="icon-button mobile-menu" onClick={onMenu} aria-label="打开导航"><Menu size={20} /></button>
-        <div><h1>{title}</h1><p>{subtitle}</p></div>
+        <button className="icon-button mobile-menu" onClick={onMenu} aria-label="打开导航">
+          <Menu size={20} />
+        </button>
+        <div>
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
+        </div>
       </div>
       <div className="top-actions">
-        {auth.user?.tenant && <span className="tenant-context"><Building2 size={15} /><span>{auth.user.tenant.name}</span><code>{auth.user.tenant.slug}</code></span>}
-        {auth.user && <span className="user-identity" title={auth.user.email || auth.user.name}>
-          {auth.user.avatar_url && !avatarFailed
-            ? <img className="user-avatar" src={auth.user.avatar_url} alt="" referrerPolicy="no-referrer" onError={() => setAvatarFailed(true)} />
-            : <span className="user-avatar user-avatar-fallback" aria-hidden="true">{userInitial(auth.user)}</span>}
-          <span className="user-name">{userDisplayName(auth.user)}<small>{canUser(auth.user, 'pam:admin') ? '平台管理员' : canUser(auth.user, 'pam:tenant:admin') ? '租户管理员' : '项目成员'}{auth.user.email ? ` · ${auth.user.email}` : ''}</small></span>
-        </span>}
-        <button className="icon-button" onClick={toggle} aria-label={dark ? '切换到浅色模式' : '切换到深色模式'} title={dark ? '切换到浅色模式' : '切换到深色模式'}>
+        {auth.user?.tenant && (
+          <span className="tenant-context">
+            <Building2 size={15} />
+            <span>{auth.user.tenant.name}</span>
+            <code>{auth.user.tenant.slug}</code>
+          </span>
+        )}
+        {auth.user && (
+          <span className="user-identity" title={auth.user.email || auth.user.name}>
+            {auth.user.avatar_url && !avatarFailed ? (
+              <img
+                className="user-avatar"
+                src={auth.user.avatar_url}
+                alt=""
+                referrerPolicy="no-referrer"
+                onError={() => setAvatarFailed(true)}
+              />
+            ) : (
+              <span className="user-avatar user-avatar-fallback" aria-hidden="true">
+                {userInitial(auth.user)}
+              </span>
+            )}
+            <span className="user-name">
+              {userDisplayName(auth.user)}
+              <small>
+                {canUser(auth.user, 'pam:admin') ? '平台管理员' : canUser(auth.user, 'pam:tenant:admin') ? '租户管理员' : '项目成员'}
+                {auth.user.email ? ` · ${auth.user.email}` : ''}
+              </small>
+            </span>
+          </span>
+        )}
+        <button
+          className="icon-button"
+          onClick={toggle}
+          aria-label={dark ? '切换到浅色模式' : '切换到深色模式'}
+          title={dark ? '切换到浅色模式' : '切换到深色模式'}
+        >
           {dark ? <Sun size={18} /> : <Moon size={18} />}
         </button>
-        {auth.user && <button className="icon-button" onClick={() => setPasswordOpen(true)} aria-label="修改密码" title="修改密码"><KeyRound size={18} /></button>}
         {auth.user && (
-          <button className="quiet-button" onClick={() => { signOut(); if (auth.user?.auth_source !== 'oidc') navigate('/login') }} title="登出">
-            <LogOut size={16} />登出
+          <button className="icon-button" onClick={() => setPasswordOpen(true)} aria-label="修改密码" title="修改密码">
+            <KeyRound size={18} />
+          </button>
+        )}
+        {auth.user && (
+          <button
+            className="quiet-button"
+            onClick={() => {
+              signOut()
+              if (auth.user?.auth_source !== 'oidc') navigate('/login')
+            }}
+            title="登出"
+          >
+            <LogOut size={16} />
+            登出
           </button>
         )}
       </div>
-      {passwordOpen && <ChangePasswordDialog onClose={() => setPasswordOpen(false)} onChanged={() => { setPasswordOpen(false); signOut(); navigate('/login') }} />}
+      {passwordOpen && (
+        <ChangePasswordDialog
+          onClose={() => setPasswordOpen(false)}
+          onChanged={() => {
+            setPasswordOpen(false)
+            signOut()
+            navigate('/login')
+          }}
+        />
+      )}
     </header>
   )
 }

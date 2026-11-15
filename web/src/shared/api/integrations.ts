@@ -64,9 +64,16 @@ export type CreateIntegrationRequest = {
 
 // Legacy rows may carry mixed-case protocol values; normalize to the lowercase
 // canonical form so exact-match filtering in the UI stays consistent.
-const normalizeIntegration = (ig: Integration): Integration => ({ ...ig, protocol: ig.protocol.toLowerCase(), project_ids: ig.project_ids ?? [], project_rules: ig.project_rules ?? [] })
-export const listIntegrations = () => request<Integration[]>('GET', '/integrations').then((items) => (items ?? []).map(normalizeIntegration))
-export const listConnectorIntegrations = (id: string) => request<Integration[]>('GET', `/connectors/${id}/integrations`).then((items) => (items ?? []).map(normalizeIntegration))
+const normalizeIntegration = (ig: Integration): Integration => ({
+  ...ig,
+  protocol: ig.protocol.toLowerCase(),
+  project_ids: ig.project_ids ?? [],
+  project_rules: ig.project_rules ?? [],
+})
+export const listIntegrations = () =>
+  request<Integration[]>('GET', '/integrations').then((items) => (items ?? []).map(normalizeIntegration))
+export const listConnectorIntegrations = (id: string) =>
+  request<Integration[]>('GET', `/connectors/${id}/integrations`).then((items) => (items ?? []).map(normalizeIntegration))
 export const createIntegration = (connectorId: string, req: CreateIntegrationRequest) =>
   request<Integration>('POST', `/connectors/${connectorId}/integrations`, req).then(normalizeIntegration)
 export const updateIntegration = (connectorId: string, integrationId: string, req: CreateIntegrationRequest & { status?: string }) =>
@@ -75,5 +82,7 @@ export const deleteIntegration = (connectorId: string, integrationId: string) =>
   request<{ id: string; status: 'DELETED' }>('DELETE', `/connectors/${connectorId}/integrations/${integrationId}`)
 export const getIntegrationProjectScope = (integrationId: string) =>
   request<IntegrationProjectScope>('GET', `/integrations/${encodeURIComponent(integrationId)}/project-scope`)
-export const updateIntegrationProjectScope = (integrationId: string, body: { defaultProjectId: string; environment: string; projectIds: string[]; rules: IntegrationProjectRule[] }) =>
-  request<Integration>('PUT', `/integrations/${encodeURIComponent(integrationId)}/project-scope`, body).then(normalizeIntegration)
+export const updateIntegrationProjectScope = (
+  integrationId: string,
+  body: { defaultProjectId: string; environment: string; projectIds: string[]; rules: IntegrationProjectRule[] },
+) => request<Integration>('PUT', `/integrations/${encodeURIComponent(integrationId)}/project-scope`, body).then(normalizeIntegration)

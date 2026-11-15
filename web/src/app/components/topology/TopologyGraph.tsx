@@ -1,7 +1,16 @@
 import { useEffect, useMemo, type CSSProperties } from 'react'
 import {
-  Background, BackgroundVariant, Controls, MiniMap, ReactFlow, ReactFlowProvider,
-  useEdgesState, useNodesState, type Edge, type Node, type NodeMouseHandler,
+  Background,
+  BackgroundVariant,
+  Controls,
+  MiniMap,
+  ReactFlow,
+  ReactFlowProvider,
+  useEdgesState,
+  useNodesState,
+  type Edge,
+  type Node,
+  type NodeMouseHandler,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import TopologyNode from './TopologyNode'
@@ -11,7 +20,10 @@ import { layoutTopology } from '../../lib/topology/layout'
 const nodeTypes = { topology: TopologyNode }
 
 function TopologyGraphInner({
-  rawNodes, rawEdges, onNodeClick, onNodeDoubleClick,
+  rawNodes,
+  rawEdges,
+  onNodeClick,
+  onNodeDoubleClick,
 }: {
   rawNodes: TopoNode[]
   rawEdges: TopoEdge[]
@@ -71,7 +83,10 @@ export function TopologyGraph(props: {
 }) {
   const style: CSSProperties = { height: props.height ?? 560 }
   return (
-    <div style={style} className="relative overflow-hidden rounded-lg border border-white/60 bg-white/40 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-surface-dark/60 dark:shadow-glass-dark">
+    <div
+      style={style}
+      className="relative overflow-hidden rounded-lg border border-white/60 bg-white/40 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-surface-dark/60 dark:shadow-glass-dark"
+    >
       <ReactFlowProvider>
         <TopologyGraphInner {...props} />
       </ReactFlowProvider>
