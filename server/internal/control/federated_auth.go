@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/warden-platform/warden/server/internal/config"
-	"gitee.com/warden-platform/warden/server/internal/domain"
-	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
+	"gitee.com/pam-platform/warden/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 	"github.com/golang-jwt/jwt/v5"
 )
 

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 const safetyResultKey = "_pam_safety"

@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
 

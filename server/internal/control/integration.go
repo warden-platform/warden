@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 var credentialReferencePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$`)

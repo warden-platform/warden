@@ -12,8 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"gitee.com/warden-platform/warden/server/internal/connector"
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/connector"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 var version = "0.3.2"

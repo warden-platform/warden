@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 

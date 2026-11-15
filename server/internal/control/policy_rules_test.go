@@ -3,7 +3,7 @@ package control
 import (
 	"testing"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func TestCombinePolicyDecisionPreservesRegoDeny(t *testing.T) {

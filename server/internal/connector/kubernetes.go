@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 var dashboardConfigMapNamePattern = regexp.MustCompile(`^grafana-dashboard-[a-z0-9](?:[a-z0-9.-]{0,61}[a-z0-9])?$`)

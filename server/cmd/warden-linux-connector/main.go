@@ -16,8 +16,8 @@ import (
 	"syscall"
 	"time"
 
-	"gitee.com/warden-platform/warden/server/internal/connector"
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/connector"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 var version = "0.2.9"

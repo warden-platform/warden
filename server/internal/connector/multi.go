@@ -6,7 +6,7 @@ import (
 	"io"
 	"sync"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 // MultiRunner lets protocol adapters share an existing connector identity,

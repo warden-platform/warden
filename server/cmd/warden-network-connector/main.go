@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"gitee.com/warden-platform/warden/server/internal/connector"
+	"gitee.com/pam-platform/warden/server/internal/connector"
 )
 
 var version = "0.2.0"

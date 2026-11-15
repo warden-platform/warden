@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
+	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 	"github.com/golang-jwt/jwt/v5"
 )
 

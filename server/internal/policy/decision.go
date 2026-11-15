@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/open-policy-agent/opa/rego"
 )
 

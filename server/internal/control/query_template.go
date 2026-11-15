@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gitee.com/warden-platform/warden/server/internal/connector"
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/connector"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 // resolveQueryTemplate turns an Agent's templateId/templateVersion/bindings into

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func providerExecutorFixture(t *testing.T, handler http.HandlerFunc) (*ProviderExecutor, domain.ProviderRequest, domain.ProviderRequestBinding) {

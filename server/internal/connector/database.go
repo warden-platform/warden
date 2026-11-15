@@ -14,7 +14,7 @@ import (
 	mysql "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 var DatabaseResourceTypes = []string{"database_instance", "database_schema", "database_table"}

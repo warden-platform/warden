@@ -12,9 +12,9 @@ import (
 	"strings"
 	"sync"
 
-	"gitee.com/warden-platform/warden/server/internal/config"
-	"gitee.com/warden-platform/warden/server/internal/domain"
-	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
+	"gitee.com/pam-platform/warden/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )

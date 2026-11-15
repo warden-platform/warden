@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/config"
 )
 
 type RemoteProvider struct {
