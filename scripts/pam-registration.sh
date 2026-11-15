@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-endpoint=${PAM_API_ENDPOINT:-}
-key=${PAM_REGISTRATION_API_KEY:-}
+endpoint=${WARDEN_API_ENDPOINT:-}
+key=${WARDEN_REGISTRATION_API_KEY:-}
 
 fail() {
   echo "pam-registration: $*" >&2
@@ -14,14 +14,14 @@ require_uuid() {
     fail "$2 must be a UUID"
 }
 
-[[ -n "$endpoint" ]] || fail "PAM_API_ENDPOINT is required"
-[[ "$endpoint" =~ ^https?://[^/]+/api/v1/?$ ]] || fail "PAM_API_ENDPOINT must be an absolute PAM /api/v1 endpoint"
+[[ -n "$endpoint" ]] || fail "WARDEN_API_ENDPOINT is required"
+[[ "$endpoint" =~ ^https?://[^/]+/api/v1/?$ ]] || fail "WARDEN_API_ENDPOINT must be an absolute Warden /api/v1 endpoint"
 endpoint=${endpoint%/}
 case "$endpoint" in
   http://localhost:*|http://127.0.0.1:*|https://*) ;;
-  *) fail "non-local PAM_API_ENDPOINT must use HTTPS" ;;
+  *) fail "non-local WARDEN_API_ENDPOINT must use HTTPS" ;;
 esac
-[[ "$key" == pam_rgk_* ]] || fail "PAM_REGISTRATION_API_KEY must be a pam_rgk_ registration credential"
+[[ "$key" == pam_rgk_* ]] || fail "WARDEN_REGISTRATION_API_KEY must be a pam_rgk_ registration credential"
 
 api() {
   local method=$1 path=$2 body_file=${3:-}
@@ -59,7 +59,7 @@ case "$command" in
     [[ $# -ge 2 && $# -le 3 ]] || fail "usage: $0 create-project NAME [DESCRIPTION]"
     request=$(mktemp)
     trap 'rm -f "$request"' EXIT
-    jq -n --arg name "$2" --arg description "${3:-Created by PAM registration bot}" \
+    jq -n --arg name "$2" --arg description "${3:-Created by Warden registration bot}" \
       '{name:$name,description:$description}' >"$request"
     api POST /projects "$request"
     ;;
@@ -68,7 +68,7 @@ case "$command" in
     require_uuid "$2" "PROJECT_ID"
     request=$(mktemp)
     trap 'rm -f "$request"' EXIT
-    jq -n --arg name "$3" --arg description "${4:-Updated by PAM registration bot}" \
+    jq -n --arg name "$3" --arg description "${4:-Updated by Warden registration bot}" \
       '{name:$name,description:$description}' >"$request"
     api PUT "/projects/$2" "$request"
     ;;

@@ -48,7 +48,7 @@ type QueryAST struct {
 }
 
 // QuerySource declares a base table under a query-local alias. resourceId is a
-// PAM resource id (resolved to schema/table only at render time by the control
+// Warden resource id (resolved to schema/table only at render time by the control
 // plane), never a raw table name typed by the Agent.
 type QuerySource struct {
 	Alias      string `json:"alias"`

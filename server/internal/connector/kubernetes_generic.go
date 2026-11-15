@@ -12,10 +12,10 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
-const genericExecutionAnnotation = "pam.example.com/execution-id"
+const genericExecutionAnnotation = "warden.example.com/execution-id"
 const genericManifestMaxBytes = 1 << 20
 
 type genericKindSpec struct {
@@ -139,7 +139,7 @@ func (r *KubernetesRunner) genericPreview(ctx context.Context, resource dynamicR
 	switch operation {
 	case "create":
 		annotateGenericExecution(object, task.ExecutionID)
-		after, err = resource.Create(ctx, object, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "pam-control"})
+		after, err = resource.Create(ctx, object, metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "warden-control"})
 	case "update":
 		name, boundErr := genericBoundName(task, spec)
 		if boundErr != nil {
@@ -150,7 +150,7 @@ func (r *KubernetesRunner) genericPreview(ctx context.Context, resource dynamicR
 			err = prepareGenericUpdate(object, before, task.Parameters, task.ExecutionID)
 		}
 		if err == nil {
-			after, err = resource.Update(ctx, object, metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "pam-control"})
+			after, err = resource.Update(ctx, object, metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "warden-control"})
 		}
 	default:
 		return nil, lease, fmt.Errorf("parameter %q must be create or update", "operation")
@@ -167,7 +167,7 @@ func (r *KubernetesRunner) genericCreate(ctx context.Context, resource dynamicRe
 		return nil, lease, err
 	}
 	annotateGenericExecution(object, task.ExecutionID)
-	dryRun, err := resource.Create(ctx, object.DeepCopy(), metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "pam-control"})
+	dryRun, err := resource.Create(ctx, object.DeepCopy(), metav1.CreateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "warden-control"})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			existing, getErr := resource.Get(ctx, object.GetName(), metav1.GetOptions{})
@@ -182,7 +182,7 @@ func (r *KubernetesRunner) genericCreate(ctx context.Context, resource dynamicRe
 	if err := requireGenericPreviewHash(task.Parameters, genericPreviewResult("create", nil, dryRun, spec)); err != nil {
 		return nil, lease, err
 	}
-	created, err := resource.Create(ctx, object, metav1.CreateOptions{FieldManager: "pam-control"})
+	created, err := resource.Create(ctx, object, metav1.CreateOptions{FieldManager: "warden-control"})
 	if err != nil {
 		if apierrors.IsAlreadyExists(err) {
 			existing, getErr := resource.Get(ctx, object.GetName(), metav1.GetOptions{})
@@ -215,7 +215,7 @@ func (r *KubernetesRunner) genericUpdate(ctx context.Context, resource dynamicRe
 	if err := prepareGenericUpdate(object, before, task.Parameters, task.ExecutionID); err != nil {
 		return nil, lease, err
 	}
-	dryRun, err := resource.Update(ctx, object.DeepCopy(), metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "pam-control"})
+	dryRun, err := resource.Update(ctx, object.DeepCopy(), metav1.UpdateOptions{DryRun: []string{metav1.DryRunAll}, FieldManager: "warden-control"})
 	if err != nil {
 		return nil, lease, err
 	}
@@ -223,7 +223,7 @@ func (r *KubernetesRunner) genericUpdate(ctx context.Context, resource dynamicRe
 	if err := requireGenericPreviewHash(task.Parameters, preview); err != nil {
 		return nil, lease, err
 	}
-	updated, err := resource.Update(ctx, object, metav1.UpdateOptions{FieldManager: "pam-control"})
+	updated, err := resource.Update(ctx, object, metav1.UpdateOptions{FieldManager: "warden-control"})
 	if err != nil {
 		return nil, lease, err
 	}

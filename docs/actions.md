@@ -6,7 +6,7 @@
 ## 通用规则
 
 - 动作用 `name@vN` 标识，例如 `deployment.update_image@v2`。控制面用 `SupportsAction(capabilities, action, version)` 精确匹配；版本不匹配返回 `CONNECTOR_UPGRADE_REQUIRED`。
-- 参数按 `ActionDefinition.ParameterSchema` 校验，目标资源身份由所选 PAM 资源固定，不由调用方随意指定。
+- 参数按 `ActionDefinition.ParameterSchema` 校验，目标资源身份由所选 Warden 资源固定，不由调用方随意指定。
 - 内嵌 Rego 用**显式动作集合**判定，默认 `DENY`。策略服务异常同样 DENY。
 - **不开放任意 Shell、原始 SQL、任意 `kubectl`、任意 HTTP/API 透传**。
 - 生产环境的变更动作默认进入审批；`UNKNOWN` 结果只做只读状态重读，不自动重放。
@@ -16,10 +16,10 @@
 ```bash
 # API
 curl -H "Authorization: Bearer <agent-api-key>" \
-  "<pam-api-endpoint>/api/v1/resources/<resource_id>/actions"
+  "<warden-api-endpoint>/api/v1/resources/<resource_id>/actions"
 
 # 客户端脚本
-scripts/pam-agent.sh list-actions <resource_id>
+scripts/warden-agent.sh list-actions <resource_id>
 ```
 
 ## Kubernetes
@@ -57,7 +57,7 @@ scripts/pam-agent.sh list-actions <resource_id>
 | `systemd.service.start` / `stop` / `restart` | v1 | `systemd_service` | 已发现且在白名单内的服务 |
 | `docker.container.start` / `stop` / `restart` | v1 | `docker_container` | 按发现时的固定容器 ID 操作白名单容器 |
 
-主机查询与 systemd 只读动作由**非 root** Connector 用固定参数的 `exec.CommandContext` 执行；生命周期动作经 `root:pam-linux 0660` 的 Unix Socket 交给 root Helper。Docker Socket 不授予 `pam-linux` 用户。生命周期动作只接受固定枚举与已发现的稳定资源标识，执行前后实时读状态并写 `_pam_safety` 审计摘要。不提供任意命令、Shell、`docker run/exec/remove`、镜像拉取或参数透传。
+主机查询与 systemd 只读动作由**非 root** Connector 用固定参数的 `exec.CommandContext` 执行；生命周期动作经 `root:warden-linux 0660` 的 Unix Socket 交给 root Helper。Docker Socket 不授予 `warden-linux` 用户。生命周期动作只接受固定枚举与已发现的稳定资源标识，执行前后实时读状态并写 `_pam_safety` 审计摘要。不提供任意命令、Shell、`docker run/exec/remove`、镜像拉取或参数透传。
 
 > 已知限制：`docker.container.list` 当前只返回运行中容器，不等同于 `docker ps -a`；日志结果目前只有行数/大小限制，尚未做敏感信息检测。
 
@@ -89,7 +89,7 @@ Folder、Dashboard 的结构化查询与 CRUD，以及 Datasource 列表、查�
 - Connector 根据实时表结构校验标识符并参数化所有值；
 - **不接受原始 SQL、JOIN、跨表查询、DML、DDL 或 dump**；生产仍应使用数据库原生只读账号。
 
-该动作默认直接执行并完整审计，不进人工审批；原始行结果仅保留 10 分钟，PAM 长期保留的是身份、目标、参数、终态与审计，不作为业务数据副本。
+该动作默认直接执行并完整审计，不进人工审批；原始行结果仅保留 10 分钟，Warden 长期保留的是身份、目标、参数、终态与审计，不作为业务数据副本。
 
 ## 华为云 / 阿里云 SLS
 
@@ -100,13 +100,13 @@ Folder、Dashboard 的结构化查询与 CRUD，以及 Datasource 列表、查�
 
 ## H3C 网络设备
 
-`pam-network-connector` 提供设备、接口、VLAN 发现；设备健康、LLDP、链路聚合、STP、端口、MAC/ARP 查询。`network.device.audit` 支持按设备角色执行固定的 `standard` / `security` / `core` / `router` / `ac` / `aggregation` / `switch` / `poe` 只读审计 Profile，返回敏感行净化后的命令分段、风险提示与角色摘要。
+`warden-network-connector` 提供设备、接口、VLAN 发现；设备健康、LLDP、链路聚合、STP、端口、MAC/ARP 查询。`network.device.audit` 支持按设备角色执行固定的 `standard` / `security` / `core` / `router` / `ac` / `aggregation` / `switch` / `poe` 只读审计 Profile，返回敏感行净化后的命令分段、风险提示与角色摘要。
 
 交换机接口描述、Access VLAN、Trunk VLAN 变更**默认关闭**；开启后仍须经过实时预检、审批、固定命令执行与写后复核，不开放任意 CLI。凭据引用只能指向 `pam:` 托管凭据或 Connector 本地凭据目录中的文件名，并校验预登记的 Host Key SHA256 指纹。
 
 ## macOS / Windows 主机
 
-`pam-host-connector` 的 `host.command.run` 允许调用方提供 program + args，但：
+`warden-host-connector` 的 `host.command.run` 允许调用方提供 program + args，但：
 
 - program 必须落在 `allowedCommands` 白名单，路径与 Shell 元字符被拒绝；
 - 参数有数量与长度限制，环境变量裁剪为白名单；
@@ -155,4 +155,4 @@ Folder、Dashboard 的结构化查询与 CRUD，以及 Datasource 列表、查�
 - [api.md](api.md)：创建 Execution 的请求体与错误码
 - [onboarding.md](onboarding.md)：接入 Connector 与 Integration
 - [architecture.md](architecture.md)：策略决策在链路中的位置
-- [configuration.md](configuration.md)：`PAM_DECISION_MODE` 与远程 OPA 配置
+- [configuration.md](configuration.md)：`WARDEN_DECISION_MODE` 与远程 OPA 配置

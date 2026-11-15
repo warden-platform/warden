@@ -56,7 +56,7 @@ type PrincipalAPIKey struct {
 
 // ExternalExecutionContext identifies the caller's context in an external
 // orchestration platform. It is an attribution envelope, not an authorization
-// input: PAM always authorizes the authenticated Principal, tenant, project
+// input: Warden always authorizes the authenticated Principal, tenant, project
 // membership, and acting project independently.
 type ExternalExecutionContext struct {
 	Source              string `json:"source,omitempty"`
@@ -85,8 +85,8 @@ const (
 	ExternalBindingRevoked ExternalBindingStatus = "REVOKED"
 )
 
-// ExternalIdentityBinding maps a platform-owned identity to a PAM Principal.
-// Agent bindings may additionally pin one external project to one PAM project.
+// ExternalIdentityBinding maps a platform-owned identity to a Warden Principal.
+// Agent bindings may additionally pin one external project to one Warden project.
 type ExternalIdentityBinding struct {
 	ID                string                `json:"id"`
 	TenantID          string                `json:"tenant_id,omitempty"`
@@ -105,7 +105,7 @@ type ExternalIdentityBinding struct {
 }
 
 // ExternalTenantBinding links a trusted external enterprise/workspace pair to
-// one PAM tenant. The external identifiers are context keys only; PAM still
+// one Warden tenant. The external identifiers are context keys only; Warden still
 // performs all tenant and project authorization using its own records.
 type ExternalTenantBinding struct {
 	ID                   string     `json:"id"`
@@ -136,9 +136,9 @@ type FederatedIdentity struct {
 	UpdatedAt   time.Time  `json:"updatedAt"`
 }
 
-// ExternalProjectBinding maps one external project to an existing PAM
+// ExternalProjectBinding maps one external project to an existing Warden
 // project. Provisioning deliberately does not create this relationship
-// automatically; a PAM tenant administrator must choose the target project.
+// automatically; a Warden tenant administrator must choose the target project.
 type ExternalProjectBinding struct {
 	ID                  string     `json:"id"`
 	TenantID            string     `json:"tenantId"`
@@ -154,7 +154,7 @@ type ExternalProjectBinding struct {
 	RevokedAt           *time.Time `json:"revokedAt,omitempty"`
 }
 
-// DelegationToken is a short-lived opaque credential issued after PAM has
+// DelegationToken is a short-lived opaque credential issued after Warden has
 // verified an external Agent binding and any supplied external user bindings.
 // TokenHash is never returned by the API.
 type DelegationToken struct {
@@ -515,7 +515,7 @@ type PolicyMatchInput struct {
 }
 
 // NotificationChannel stores non-secret delivery preferences. Provider
-// credentials are supplied to pam-control through file-backed secrets and are
+// credentials are supplied to warden-control through file-backed secrets and are
 // never persisted in PostgreSQL or returned by the API.
 type NotificationChannel struct {
 	ID        string    `json:"id"`
@@ -529,7 +529,7 @@ type NotificationChannel struct {
 }
 
 // DingTalkPrincipalBinding is an explicit trust mapping used by interactive
-// approval callbacks. A DingTalk user can never approve as an arbitrary PAM
+// approval callbacks. A DingTalk user can never approve as an arbitrary Warden
 // principal without an administrator-created binding.
 type DingTalkPrincipalBinding struct {
 	UserID        string    `json:"user_id"`
@@ -610,7 +610,7 @@ type Execution struct {
 	UpdatedAt              time.Time       `json:"updated_at"`
 }
 
-// CredentialStatus tracks the lifecycle of a PAM-managed credential.
+// CredentialStatus tracks the lifecycle of a Warden-managed credential.
 type CredentialStatus string
 
 const (
@@ -619,7 +619,7 @@ const (
 	CredentialExpired CredentialStatus = "EXPIRED"
 )
 
-// CredentialBinding restricts a PAM credential to a specific target. Empty
+// CredentialBinding restricts a Warden credential to a specific target. Empty
 // bindings mean "allow all targets"; a non-empty list is enforced on pam:
 // reference resolution and on credential.get scope checks.
 type CredentialBinding struct {
@@ -627,7 +627,7 @@ type CredentialBinding struct {
 	TargetName string `json:"target_name"`
 }
 
-// Credential is a PAM-managed encrypted credential. The plaintext value never
+// Credential is a Warden-managed encrypted credential. The plaintext value never
 // leaves the control plane and is never returned by the API: only
 // ValuePreview (masked) and value_sha256 (see HashValue) are exposed.
 type Credential struct {
@@ -777,7 +777,7 @@ type ProjectNamespaceRule struct {
 }
 
 // QueryTemplate is an immutable, versioned governed query template (§5). The
-// canonical_ast is the PAM Query AST (JSON) fixed at publish time; bindings are
+// canonical_ast is the Warden Query AST (JSON) fixed at publish time; bindings are
 // the only runtime inputs an Agent may supply. Published templates are
 // pre-approved and pre-costed, so database.query_template.execute needs no
 // per-execution preview (the EXPLAIN gate still runs as a backstop).

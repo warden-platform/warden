@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 const huaweiMaxResponse = 4 << 20
@@ -48,7 +48,7 @@ var huaweiSWRInstancePattern = regexp.MustCompile(`^[a-zA-Z0-9][a-zA-Z0-9_.-]{0,
 var huaweiSWRNamespacePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9._-]{0,62}[a-z0-9])?$`)
 var huaweiSWRRepositoryPattern = regexp.MustCompile(`^[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,126}[a-zA-Z0-9])?(?:/[a-zA-Z0-9](?:[a-zA-Z0-9._-]{0,126}[a-zA-Z0-9])?)*$`)
 var huaweiSWRTagPattern = regexp.MustCompile(`^[a-zA-Z0-9_][a-zA-Z0-9_.-]{0,127}$`)
-var pamProjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
+var wardenProjectIDPattern = regexp.MustCompile(`^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$`)
 
 var HuaweiCloudResourceTypes = []string{
 	"huawei_cloud_account", "huawei_ecs_instance", "huawei_rds_instance", "huawei_elb_loadbalancer", "huawei_obs_bucket",
@@ -1416,11 +1416,11 @@ func (r *HuaweiCloudRunner) updateECSMetadata(ctx context.Context, serverID stri
 	}
 	contextValues, ok := parameters["_pamContext"].(map[string]any)
 	if !ok {
-		return nil, lease, fmt.Errorf("trusted PAM execution context is missing")
+		return nil, lease, fmt.Errorf("trusted Warden execution context is missing")
 	}
 	projectID := stringValue(contextValues["projectId"])
-	if !pamProjectIDPattern.MatchString(projectID) {
-		return nil, lease, fmt.Errorf("trusted PAM project is invalid")
+	if !wardenProjectIDPattern.MatchString(projectID) {
+		return nil, lease, fmt.Errorf("trusted Warden project is invalid")
 	}
 	tags, err := huaweiBusinessTags(parameters["tags"], 3)
 	if err != nil {
@@ -1537,7 +1537,7 @@ func (r *HuaweiCloudRunner) createECS(ctx context.Context, task domain.TaskEnvel
 	projectID, _ := parameters["projectId"].(string)
 	if !huaweiECSNamePattern.MatchString(name) || !huaweiCloudIDPattern.MatchString(flavor) ||
 		!huaweiCloudIDPattern.MatchString(imageID) || !huaweiCloudIDPattern.MatchString(vpcID) ||
-		!huaweiCloudIDPattern.MatchString(subnetID) || !pamProjectIDPattern.MatchString(projectID) {
+		!huaweiCloudIDPattern.MatchString(subnetID) || !wardenProjectIDPattern.MatchString(projectID) {
 		return nil, lease, fmt.Errorf("name, projectId, flavor, imageId, vpcId, and subnetId are required and must be valid")
 	}
 	diskSize := 40
@@ -1562,16 +1562,16 @@ func (r *HuaweiCloudRunner) createECS(ctx context.Context, task domain.TaskEnvel
 	}
 	contextValues, ok := parameters["_pamContext"].(map[string]any)
 	if !ok {
-		return nil, lease, fmt.Errorf("trusted PAM execution context is missing")
+		return nil, lease, fmt.Errorf("trusted Warden execution context is missing")
 	}
 	contextProjectID, _ := contextValues["projectId"].(string)
 	if contextProjectID != projectID {
-		return nil, lease, fmt.Errorf("projectId does not match the trusted PAM execution context")
+		return nil, lease, fmt.Errorf("projectId does not match the trusted Warden execution context")
 	}
 	tags := map[string]string{}
 	if raw, ok := parameters["tags"].(map[string]any); ok {
 		if len(raw) > 3 {
-			return nil, lease, fmt.Errorf("at most 3 custom tags are allowed because PAM reserves 7 governance tags")
+			return nil, lease, fmt.Errorf("at most 3 custom tags are allowed because Warden reserves 7 governance tags")
 		}
 		for key, value := range raw {
 			text, ok := value.(string)

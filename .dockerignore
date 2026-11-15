@@ -11,7 +11,7 @@ server/bin/*
 !server/bin/linux-amd64/**
 !server/bin/linux-arm64/
 !server/bin/linux-arm64/**
-server/pam-control
+server/warden-control
 *.log
 *.out
 *.tsbuildinfo

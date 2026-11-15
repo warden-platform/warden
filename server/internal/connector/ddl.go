@@ -74,7 +74,7 @@ type SchemaCreateSpec struct {
 var mysqlIdentifierPattern = regexp.MustCompile(`^[A-Za-z_][A-Za-z0-9_$]{0,63}$`)
 
 // validMySQLName rejects names that are not safe to use as an identifier even
-// when backtick-quoted, matching MySQL/PAM naming rules (§7).
+// when backtick-quoted, matching MySQL/Warden naming rules (§7).
 func validMySQLName(name string) bool {
 	return mysqlIdentifierPattern.MatchString(name)
 }

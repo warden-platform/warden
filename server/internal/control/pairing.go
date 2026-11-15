@@ -494,7 +494,7 @@ func (h *Handler) ConfirmClusterPairing(w http.ResponseWriter, r *http.Request) 
 	}
 	config := map[string]any{
 		"allowedNamespaces": req.AllowedNamespaces, "allowedImagePrefixes": imagePrefixes,
-		"tokenAudience": suggestedAudience, "executionServiceAccount": "pam-executor",
+		"tokenAudience": suggestedAudience, "executionServiceAccount": "warden-executor",
 		"connectorName": req.Name, "environment": req.Environment,
 	}
 	var connectorID string

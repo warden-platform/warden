@@ -1,6 +1,6 @@
 # 操作指南：日常运维
 
-> **面向**：负责运行 HighTower PAM 的运维 / 值班人员。
+> **面向**：负责运行 Warden Warden 的运维 / 值班人员。
 > **目标**：能安全地做备份、升级、迁移、密钥轮换与回滚。
 > 首次部署见 [installation.md](installation.md)，故障定位见 [troubleshooting.md](troubleshooting.md)，变量见 [configuration.md](configuration.md)。
 
@@ -25,12 +25,12 @@
 
 ```bash
 # 独立 PostgreSQL
-pg_dump "<dsn>" | gzip > pam-db-$(date +%Y%m%d-%H%M%S).sql.gz
-gzip -t pam-db-*.sql.gz    # 校验归档完整
+pg_dump "<dsn>" | gzip > warden-db-$(date +%Y%m%d-%H%M%S).sql.gz
+gzip -t warden-db-*.sql.gz    # 校验归档完整
 
 # 容器化 PostgreSQL（示意）
 docker exec <postgres-container> pg_dump -U <user> -d <db> \
-  | gzip > pam-db-$(date +%Y%m%d-%H%M%S).sql.gz
+  | gzip > warden-db-$(date +%Y%m%d-%H%M%S).sql.gz
 ```
 
 恢复前先停控制面，确认目标库可丢弃或已另行备份，再导入并重新跑迁移校验。备份文件含业务数据与审计，按敏感数据管理，加密存放并限制访问。
@@ -41,7 +41,7 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 
 | 规则 | 说明 |
 |---|---|
-| 启动不跑迁移 | `pam-control` 不会自动执行 SQL；必须显式执行 |
+| 启动不跑迁移 | `warden-control` 不会自动执行 SQL；必须显式执行 |
 | 全新库 | 按 `server/migrations/*.sql` 文件名顺序执行全部迁移 |
 | 已有库 | 只按 `deploy/release/migrations.txt` 顺序重放幂等迁移（编号 ≥ 035） |
 | 新增迁移 | 编号 ≥ 035 的文件**必须登记到 `migrations.txt`**，否则 `internal/control` 单测失败 |
@@ -56,7 +56,7 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 1. **备份**：数据库 `pg_dump`、记录当前镜像 ID、保存当前前端 `dist` 与编排文件。
 2. **本地验证**：`make verify`（Go 测试 + vet + 构建 + 前端构建），见 [CONTRIBUTING.md](../CONTRIBUTING.md)。
 3. **执行迁移**：按上表区分全新库 / 已有库。
-4. **构建镜像**：`docker build -f server/Dockerfile --build-arg TARGET=pam-control -t <registry>/pam-control:<new-tag> .`；确认镜像内含 `deploy/` 与 `server/migrations/`。
+4. **构建镜像**：`docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<new-tag> .`；确认镜像内含 `deploy/` 与 `server/migrations/`。
 5. **替换控制面**：滚动或短暂停机切换，等待 `/readyz` 200。
 6. **替换前端**：保留旧 `dist` 目录（例如 `dist.prev-<timestamp>`）后再覆盖。
 7. **验收**：健康检查 → 密码登录 → SSO 登录 → `/auth/me` 能力清单 → 一个只读 Execution → 审计可见。
@@ -69,18 +69,18 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 
 | 密钥 | 轮换影响 | 建议 |
 |---|---|---|
-| `PAM_ADMIN_PASSWORD_FILE` | 重启时同步内置 `admin` 的 bcrypt 哈希，旧密码立即失效 | 改文件 → 重启 → 用新密码验证 break-glass |
-| `PAM_ADMIN_API_KEY_FILE` | 静态超管 Key；所有使用旧 Key 的自动化脚本会 401 | 先更新调用方再切，或安排停机窗口；当前版本不支持在线轮换 |
-| `PAM_JWT_SIGNING_KEY_FILE` | 所有 Web 会话 JWT 失效，用户需重新登录 | 低峰期执行，提前通知 |
-| `PAM_CREDENTIAL_ENCRYPTION_KEY_FILE` | 已加密的 Connector 任务 Key 无法解密，Connector 会失联 | **不要单独轮换**，除非有完整的重新配对方案 |
-| `PAM_TASK_SIGNING_KEY_FILE` | 影响旧兼容 Connector 签名 | 完成每 Connector 独立 Key 迁移后再处理 |
-| OIDC client secret | IdP 侧与 PAM 侧必须同步更新 | 先在 IdP 生成新 secret，再更新 Secret 文件并重启 |
+| `WARDEN_ADMIN_PASSWORD_FILE` | 重启时同步内置 `admin` 的 bcrypt 哈希，旧密码立即失效 | 改文件 → 重启 → 用新密码验证 break-glass |
+| `WARDEN_ADMIN_API_KEY_FILE` | 静态超管 Key；所有使用旧 Key 的自动化脚本会 401 | 先更新调用方再切，或安排停机窗口；当前版本不支持在线轮换 |
+| `WARDEN_JWT_SIGNING_KEY_FILE` | 所有 Web 会话 JWT 失效，用户需重新登录 | 低峰期执行，提前通知 |
+| `WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE` | 已加密的 Connector 任务 Key 无法解密，Connector 会失联 | **不要单独轮换**，除非有完整的重新配对方案 |
+| `WARDEN_TASK_SIGNING_KEY_FILE` | 影响旧兼容 Connector 签名 | 完成每 Connector 独立 Key 迁移后再处理 |
+| OIDC client secret | IdP 侧与 Warden 侧必须同步更新 | 先在 IdP 生成新 secret，再更新 Secret 文件并重启 |
 
 四个必需 Secret 必须保持独立且互不相同，轮换后重新校验启动。
 
 ## 会话与权限
 
-- JWT 默认 8 小时（`PAM_JWT_TTL_HOURS`），权限冻结在签发的 `scopes` 里。
+- JWT 默认 8 小时（`WARDEN_JWT_TTL_HOURS`），权限冻结在签发的 `scopes` 里。
 - **改角色必须让目标重新登录**。通过「账号与权限」页变更时，系统会在同一事务里 `UPDATE admin_sessions SET revoked_at=now()` 并写审计，强制重新签发。
 - 直接改数据库不会触发会话撤销，旧权限最多残留 8 小时——**不要绕过页面改库**。
 - 应急时可在数据库层撤销某账号的全部活跃会话，但事后必须补审计记录。
@@ -89,7 +89,7 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 
 - 审计是 append-only；角色变更审计 `account.role_updated` 与角色变更在同一事务提交，写入失败则整体回滚。
 - 排查"审计页看不到登录事件"时，检查事件是否带 `tenant_id`：早期数据或部分链路可能为空。
-- `PAM_OUTBOX_ENABLED=true` 才会写 Outbox 事件；Publisher 后台循环尚未实现，开启前确认已有消费者。
+- `WARDEN_OUTBOX_ENABLED=true` 才会写 Outbox 事件；Publisher 后台循环尚未实现，开启前确认已有消费者。
 
 ## 定时与后台任务
 
@@ -104,8 +104,8 @@ make server-build-linux-amd64
 make web-build
 
 # 服务状态
-curl -sS https://<pam.example.com>/api/v1/health
-curl -sS https://<pam.example.com>/api/v1/auth/oidc/config
+curl -sS https://<warden.example.com>/api/v1/health
+curl -sS https://<warden.example.com>/api/v1/auth/oidc/config
 
 # 审计抽查（示例）
 psql "<dsn>" -c "select action, tenant_id, created_at from audit_events order by created_at desc limit 20;"

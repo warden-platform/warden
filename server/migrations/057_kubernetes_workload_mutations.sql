@@ -1,5 +1,5 @@
 -- Purpose-built Kubernetes workload mutations. Every action binds name and
--- namespace to the selected PAM resource and requires an optimistic
+-- namespace to the selected Warden resource and requires an optimistic
 -- expectedGeneration obtained from the corresponding read action. No raw YAML,
 -- arbitrary patch, Secret, or generic ConfigMap mutation is exposed.
 

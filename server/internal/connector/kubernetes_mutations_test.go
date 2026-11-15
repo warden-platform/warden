@@ -12,7 +12,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func mutationTask(resourceType, action, name, namespace, executionID string, parameters map[string]any) domain.TaskEnvelope {

@@ -18,7 +18,7 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 const aliyunSLSMaxResponse = 4 << 20

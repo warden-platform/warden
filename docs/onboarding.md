@@ -1,6 +1,6 @@
 # 操作指南：接入目标系统与 Agent
 
-> **面向**：要把 Kubernetes / Linux / 网络设备接入 PAM，或让外部 Agent 调用 PAM 的管理员。
+> **面向**：要把 Kubernetes / Linux / 网络设备接入 Warden，或让外部 Agent 调用 Warden 的管理员。
 > **目标**：Connector 状态变为 `ACTIVE`，资源目录出现目标资源，Agent 能创建只读 Execution。
 > 动作清单见 [actions.md](actions.md)，接口见 [api.md](api.md)，变量见 [configuration.md](configuration.md)。
 
@@ -18,22 +18,22 @@
 ### 1. 安装 Operator
 
 ```bash
-helm upgrade --install pam-operator ./deploy/helm/pam-operator \
-  --namespace pam-system \
+helm upgrade --install warden-operator ./deploy/helm/warden-operator \
+  --namespace warden-system \
   --create-namespace \
-  --set controlPlaneURL=https://<pam.example.com> \
-  --set image.repository=<registry>/pam-operator \
+  --set controlPlaneURL=https://<warden.example.com> \
+  --set image.repository=<registry>/warden-operator \
   --set image.tag=<tag> \
-  --set connectorImage=<registry>/pam-connector:<tag>
+  --set connectorImage=<registry>/warden-connector:<tag>
 ```
 
-`controlPlaneURL` 是 Chart 的必填值（模板会 `fail` 校验）。Operator 容器读取 `PAM_CONTROL_URL`、`PAM_CONNECTOR_IMAGE`、`PAM_OPERATOR_NAMESPACE`、`PAM_OPERATOR_ID` 等变量。
+`controlPlaneURL` 是 Chart 的必填值（模板会 `fail` 校验）。Operator 容器读取 `WARDEN_CONTROL_URL`、`WARDEN_CONNECTOR_IMAGE`、`WARDEN_OPERATOR_NAMESPACE`、`WARDEN_OPERATOR_ID` 等变量。
 
 ### 2. 取配对码并在 Web 确认
 
 ```bash
-kubectl logs -n pam-system deploy/pam-operator -f
-# PAM pairing code: ABCD-2345
+kubectl logs -n warden-system deploy/warden-operator -f
+# Warden pairing code: ABCD-2345
 ```
 
 进入 Admin Web `Connector → 接入集群`，输入配对码、集群名、环境、允许 Namespace 和镜像前缀。确认后 Operator 自动创建 Connector Secret、ServiceAccount、最小权限 RBAC 与 Deployment，Web 等待状态从 `DRAFT` 变为 `ACTIVE`。
@@ -44,7 +44,7 @@ kubectl logs -n pam-system deploy/pam-operator -f
 - 独立任务 Key 只通过带 bootstrap token 的配对通道交付，并写入目标集群 Secret。
 - Operator 会自动识别集群版本与 k3s Token Audience。
 - Executor / Discoverer 不拥有 `secrets:list`；平台不提供 `secret.list` 动作（K8s List Secret 会返回 Secret 数据）。
-- 应用 `deploy/kubernetes/` 里的测试基线清单前，必须修改 Namespace、镜像地址、`PAM_CONTROL_URL`、`PAM_ALLOWED_IMAGE_PREFIXES`、Token Audience 与签名 Key Secret。
+- 应用 `deploy/kubernetes/` 里的测试基线清单前，必须修改 Namespace、镜像地址、`WARDEN_CONTROL_URL`、`WARDEN_ALLOWED_IMAGE_PREFIXES`、Token Audience 与签名 Key Secret。
 
 ---
 
@@ -53,16 +53,16 @@ kubectl logs -n pam-system deploy/pam-operator -f
 ### 1. 安装（目标主机 root）
 
 ```bash
-curl -fsSL https://<pam.example.com>/downloads/install-linux.sh \
-  | bash -s -- --control-url https://<pam.example.com>
+curl -fsSL https://<warden.example.com>/downloads/install-linux.sh \
+  | bash -s -- --control-url https://<warden.example.com>
 ```
 
 生产必须 HTTPS；仅可信私网临时用 HTTP 时需显式追加 `--allow-insecure-http`。安装脚本会：
 
-1. 下载 `pam-linux-connector` 与 `pam-linux-helper`（自动识别 amd64/arm64）、卸载脚本和 `SHA256SUMS`，校验通过才安装；
-2. 创建 `pam-linux` 系统用户与 `/var/lib/pam-linux` 状态目录；
-3. 把 `pam-linux` 加入 `systemd-journal` 组以读 journal；
-4. 注册并启动 `pam-linux-helper.service` 与 `pam-linux-connector.service`（`ProtectSystem=strict`、`NoNewPrivileges`、`PrivateTmp`）；
+1. 下载 `warden-linux-connector` 与 `warden-linux-helper`（自动识别 amd64/arm64）、卸载脚本和 `SHA256SUMS`，校验通过才安装；
+2. 创建 `warden-linux` 系统用户与 `/var/lib/warden-linux` 状态目录；
+3. 把 `warden-linux` 加入 `systemd-journal` 组以读 journal；
+4. 注册并启动 `warden-linux-helper.service` 与 `warden-linux-connector.service`（`ProtectSystem=strict`、`NoNewPrivileges`、`PrivateTmp`）；
 5. 重复安装时先完整下载临时文件，再停服并原子替换，保留原配对状态。
 
 ### 2. 配对
@@ -71,13 +71,13 @@ curl -fsSL https://<pam.example.com>/downloads/install-linux.sh \
 2. 控制面生成 10 分钟配对码与独立任务 Key，Connector 日志输出配对码；
 3. 管理员在 Web `Connector → 接入 Linux 主机` 输入配对码，查看主机信息与可管理服务列表，确认名称、环境和允许的服务子集；
 4. `POST /api/v1/linux-pairings/confirm` 创建 `connector_type='linux'` 的记录（`DRAFT`）；
-5. Connector 轮询确认结果，取回任务 Key 写入 `/var/lib/pam-linux/state.json`，标记 `READY`，开始注册与资源同步；
+5. Connector 轮询确认结果，取回任务 Key 写入 `/var/lib/warden-linux/state.json`，标记 `READY`，开始注册与资源同步；
 6. 发现三类资源：`linux_host`、允许管理的 `systemd_service`、Helper 返回的运行中 `docker_container`。
 
 ### 3. 卸载
 
 ```bash
-sudo pam-linux-uninstall
+sudo warden-linux-uninstall
 ```
 
 ---
@@ -87,22 +87,22 @@ sudo pam-linux-uninstall
 先在控制面预置 Connector（`POST /api/v1/connectors/network`），把一次性 `taskSigningKey` 写入受保护文件，然后在能访问设备管理网的内网主机执行安装器：
 
 ```bash
-curl -fsSL https://<pam.example.com>/downloads/install-network.sh \
-  | bash -s -- --control-url https://<pam.example.com> \
+curl -fsSL https://<warden.example.com>/downloads/install-network.sh \
+  | bash -s -- --control-url https://<warden.example.com> \
              --name <connector-name> \
              --environment production \
-             --task-key-file /etc/pam-network/task-signing-key
+             --task-key-file /etc/warden-network/task-signing-key
 ```
 
-systemd 注入 `PAM_CONTROL_URL`、`PAM_CONNECTOR_NAME`、`PAM_CONNECTOR_ENVIRONMENT`、`PAM_TASK_SIGNING_KEY_FILE`、`PAM_NETWORK_CREDENTIAL_DIR`。凭据引用只能指向 `pam:` 托管凭据或本地凭据目录中的文件名，并校验预登记的 Host Key SHA256 指纹。设备发现与审计使用固定 SSH 只读命令，不开放任意 CLI。
+systemd 注入 `WARDEN_CONTROL_URL`、`WARDEN_CONNECTOR_NAME`、`WARDEN_CONNECTOR_ENVIRONMENT`、`WARDEN_TASK_SIGNING_KEY_FILE`、`WARDEN_NETWORK_CREDENTIAL_DIR`。凭据引用只能指向 `pam:` 托管凭据或本地凭据目录中的文件名，并校验预登记的 Host Key SHA256 指纹。设备发现与审计使用固定 SSH 只读命令，不开放任意 CLI。
 
 ## 路径 D：macOS / Windows 主机
 
-`deploy/host/install.sh` 强制 HTTPS，分别用 LaunchDaemon（macOS）与计划任务（Windows）注入 `PAM_CONTROL_URL` / `PAM_HOST_STATE_FILE`。二进制从 `/downloads/pam-host-connector/{platform}/{arch}` 获取。该 Connector 的 `host.command.run` 有严格白名单与强制审批，见 [actions.md](actions.md)。
+`deploy/host/install.sh` 强制 HTTPS，分别用 LaunchDaemon（macOS）与计划任务（Windows）注入 `WARDEN_CONTROL_URL` / `WARDEN_HOST_STATE_FILE`。二进制从 `/downloads/warden-host-connector/{platform}/{arch}` 获取。该 Connector 的 `host.command.run` 有严格白名单与强制审批，见 [actions.md](actions.md)。
 
 ## 旧版清单接入（仅迁移兼容）
 
-`POST /api/v1/connectors/onboard` 默认返回 `410 LEGACY_ONBOARDING_DISABLED`。只有显式设置 `PAM_ENABLE_LEGACY_CONNECTOR_KEY=true` 才启用共享签名 Key 的旧流程；**仅用于迁移已有部署**，完成后必须关闭并轮换全局任务 Key。新集群一律用 Operator 配对。
+`POST /api/v1/connectors/onboard` 默认返回 `410 LEGACY_ONBOARDING_DISABLED`。只有显式设置 `WARDEN_ENABLE_LEGACY_CONNECTOR_KEY=true` 才启用共享签名 Key 的旧流程；**仅用于迁移已有部署**，完成后必须关闭并轮换全局任务 Key。新集群一律用 Operator 配对。
 
 ---
 
@@ -111,16 +111,16 @@ systemd 注入 `PAM_CONTROL_URL`、`PAM_CONNECTOR_NAME`、`PAM_CONNECTOR_ENVIRON
 1. 先按上面任一路径接入 K8s 或 Linux Connector。
 2. 在 Connector 详情的 `Integrations` 区域填写 Jenkins Endpoint、服务账号、Credential Reference 与 Job Scope。
 3. 控制面以一等公民 `integrations` 表保存配置；Connector 每 10s 拉取并 diff、构建/移除 Runner，资源打上 `integration_id` 标签。
-4. Token 必须提前放在目标侧，不通过前端或 pam-control 数据库：
+4. Token 必须提前放在目标侧，不通过前端或 warden-control 数据库：
 
 ```bash
-# K8s Connector：Secret 与 pam-connector 同 Namespace，固定 key 为 token
-kubectl create secret generic jenkins-api-token -n pam-system \
+# K8s Connector：Secret 与 warden-connector 同 Namespace，固定 key 为 token
+kubectl create secret generic jenkins-api-token -n warden-system \
   --from-literal=token='<jenkins-api-token>'
 
 # Linux Connector：Credential Reference 对应固定凭据目录中的文件
-printf '%s' '<jenkins-api-token>' | sudo install -o root -g pam-linux -m 0640 \
-  /dev/stdin /etc/pam-linux/credentials/jenkins-api-token
+printf '%s' '<jenkins-api-token>' | sudo install -o root -g warden-linux -m 0640 \
+  /dev/stdin /etc/warden-linux/credentials/jenkins-api-token
 ```
 
 Grafana、数据库、华为云、阿里云 SLS 等同理：Integration 挂在已有 Connector 上，复用配对、身份、心跳、TaskEnvelope、审计与下线，不为每种服务重复创建 Connector。
@@ -148,38 +148,38 @@ POST /api/v1/principals
 POST /api/v1/principals/{id}/api-keys     # 明文只返回一次，DB 只存 SHA-256
 ```
 
-每个 Agent 用自己独立的 Key；`PAM_ADMIN_API_KEY` 只用于平台初始化与应急，**不要注入 Agent**。资源注册机器人使用 audience 绑定、可轮换撤销的 Registration Key（`pam_rgk_` 前缀），由「Agent 身份 → 新增注册机器人」创建。
+每个 Agent 用自己独立的 Key；`WARDEN_ADMIN_API_KEY` 只用于平台初始化与应急，**不要注入 Agent**。资源注册机器人使用 audience 绑定、可轮换撤销的 Registration Key（`pam_rgk_` 前缀），由「Agent 身份 → 新增注册机器人」创建。
 
 向 Multica 注入配置用 `scripts/configure-multica-agent-pam.sh`，脚本用 `****` 保留已有 `custom_env`，不会把 Key 放进命令参数或打印到终端。
 
 ### 2. 配置客户端
 
 ```text
-PAM_API_ENDPOINT=https://<pam.example.com>/api/v1
-PAM_AGENT_API_KEY=<该 Agent 的独立 Key>
+WARDEN_API_ENDPOINT=https://<warden.example.com>/api/v1
+WARDEN_AGENT_API_KEY=<该 Agent 的独立 Key>
 ```
 
-Registration Key 的 audience 必须与当前 PAM API Endpoint 一致，复制本地 Key 到线上会稳定返回 401；有效但 Scope 不足返回 403 并记审计。
+Registration Key 的 audience 必须与当前 Warden API Endpoint 一致，复制本地 Key 到线上会稳定返回 401；有效但 Scope 不足返回 403 并记审计。
 
-### 3. 常用调用（`scripts/pam-agent.sh`，依赖 `curl` + `jq`）
+### 3. 常用调用（`scripts/warden-agent.sh`，依赖 `curl` + `jq`）
 
 ```bash
 # 生成紧凑资源摘要
-scripts/pam-agent.sh resource-summary [project] [environment] [resource_type]
+scripts/warden-agent.sh resource-summary [project] [environment] [resource_type]
 
 # 按名称精确查找资源
-scripts/pam-agent.sh find-resources nginx [project] [environment] [resource_type]
+scripts/warden-agent.sh find-resources nginx [project] [environment] [resource_type]
 
 # 查某资源允许的动作与参数 Schema
-scripts/pam-agent.sh list-actions <resource_id>
+scripts/warden-agent.sh list-actions <resource_id>
 
 # 创建只读执行（客户端侧还有一层允许表保护）
-scripts/pam-agent.sh create-readonly-execution deployment.get <resource_id> \
+scripts/warden-agent.sh create-readonly-execution deployment.get <resource_id> \
   '{"name":"nginx","namespace":"default"}' "巡检"
 
 # 查询 / 轮询结果（意外进入审批会停止，不自动继续）
-scripts/pam-agent.sh get-execution <execution_id>
-scripts/pam-agent.sh wait-readonly-result <execution_id> 60
+scripts/warden-agent.sh get-execution <execution_id>
+scripts/warden-agent.sh wait-readonly-result <execution_id> 60
 ```
 
 Agent Key 默认只能读资源、创建 / 读取 / 取消自己的 Execution；审批、全局审计、Connector 与 Principal 管理需要管理员会话或管理 Key。`/api/v1/health` 不需要认证。

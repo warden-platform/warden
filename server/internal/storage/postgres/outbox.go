@@ -30,7 +30,7 @@ func (r *OutboxRepo) PublishTx(ctx context.Context, tx pgx.Tx, eventType, aggreg
 }
 
 func NewOutboxRepo(pool *pgxpool.Pool) *OutboxRepo {
-	return &OutboxRepo{pool: pool, enabled: strings.EqualFold(strings.TrimSpace(os.Getenv("PAM_OUTBOX_ENABLED")), "true")}
+	return &OutboxRepo{pool: pool, enabled: strings.EqualFold(strings.TrimSpace(os.Getenv("WARDEN_OUTBOX_ENABLED")), "true")}
 }
 
 func (r *OutboxRepo) Publish(ctx context.Context, eventType, aggregateType, aggregateID string, payload map[string]any) error {

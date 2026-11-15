@@ -1,4 +1,4 @@
-module gitee.com/pam-platform/pam/server
+module gitee.com/pam-platform/warden/server
 
 go 1.25.0
 

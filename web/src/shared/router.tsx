@@ -1,6 +1,15 @@
 import {
-  Children, createContext, isValidElement, useCallback, useContext, useEffect, useMemo, useState,
-  type AnchorHTMLAttributes, type ReactElement, type ReactNode,
+  Children,
+  createContext,
+  isValidElement,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type AnchorHTMLAttributes,
+  type ReactElement,
+  type ReactNode,
 } from 'react'
 
 type Location = { pathname: string; search: string }
@@ -52,11 +61,14 @@ export function useParams<T extends Record<string, string | undefined> = Record<
 export function useSearchParams(): [URLSearchParams, (next: URLSearchParams | Record<string, string>, options?: NavigateOptions) => void] {
   const { pathname, search, navigate } = useRouter()
   const params = useMemo(() => new URLSearchParams(search), [search])
-  const setParams = useCallback((next: URLSearchParams | Record<string, string>, options?: NavigateOptions) => {
-    const value = next instanceof URLSearchParams ? next : new URLSearchParams(next)
-    const query = value.toString()
-    navigate(pathname + (query ? `?${query}` : ''), options)
-  }, [navigate, pathname])
+  const setParams = useCallback(
+    (next: URLSearchParams | Record<string, string>, options?: NavigateOptions) => {
+      const value = next instanceof URLSearchParams ? next : new URLSearchParams(next)
+      const query = value.toString()
+      navigate(pathname + (query ? `?${query}` : ''), options)
+    },
+    [navigate, pathname],
+  )
   return [params, setParams]
 }
 
@@ -76,7 +88,11 @@ function matchPath(pattern: string, pathname: string): Record<string, string> | 
     const expected = patternParts[i]
     const actual = pathParts[i]
     if (expected.startsWith(':')) {
-      try { params[expected.slice(1)] = decodeURIComponent(actual) } catch { return null }
+      try {
+        params[expected.slice(1)] = decodeURIComponent(actual)
+      } catch {
+        return null
+      }
     } else if (expected !== actual) return null
   }
   return params
@@ -107,10 +123,17 @@ export function NavLink({ to, className, onClick, ...props }: NavLinkProps) {
   const { pathname, navigate } = useRouter()
   const active = pathname === to || (to !== '/' && pathname.startsWith(to + '/'))
   const resolvedClass = typeof className === 'function' ? className({ isActive: active }) : className
-  return <a {...props} href={to} className={resolvedClass} onClick={(event) => {
-    onClick?.(event)
-    if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
-    event.preventDefault()
-    navigate(to)
-  }} />
+  return (
+    <a
+      {...props}
+      href={to}
+      className={resolvedClass}
+      onClick={(event) => {
+        onClick?.(event)
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+        event.preventDefault()
+        navigate(to)
+      }}
+    />
+  )
 }

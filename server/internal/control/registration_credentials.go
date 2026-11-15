@@ -9,14 +9,14 @@ import (
 	"os"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func configuredRegistrationAudience() (string, error) {
-	explicit := strings.TrimSpace(os.Getenv("PAM_REGISTRATION_AUDIENCE"))
-	publicControlURL := strings.TrimSpace(os.Getenv("PAM_PUBLIC_CONTROL_URL"))
+	explicit := strings.TrimSpace(os.Getenv("WARDEN_REGISTRATION_AUDIENCE"))
+	publicControlURL := strings.TrimSpace(os.Getenv("WARDEN_PUBLIC_CONTROL_URL"))
 	if explicit == "" && publicControlURL == "" {
-		port := strings.TrimSpace(os.Getenv("PAM_PORT"))
+		port := strings.TrimSpace(os.Getenv("WARDEN_PORT"))
 		if port == "" {
 			port = "8080"
 		}
@@ -33,7 +33,7 @@ func configuredRegistrationAudience() (string, error) {
 	if explicit != "" && publicControlURL != "" {
 		publicAudience, publicErr := normalizeRegistrationAudience(publicControlURL)
 		if publicErr != nil || publicAudience != normalized {
-			return "", errors.New("PAM_REGISTRATION_AUDIENCE must match PAM_PUBLIC_CONTROL_URL")
+			return "", errors.New("WARDEN_REGISTRATION_AUDIENCE must match WARDEN_PUBLIC_CONTROL_URL")
 		}
 	}
 	return normalized, nil
@@ -42,7 +42,7 @@ func configuredRegistrationAudience() (string, error) {
 func normalizeRegistrationAudience(value string) (string, error) {
 	parsed, err := url.Parse(strings.TrimSpace(value))
 	if err != nil || parsed.Host == "" || (parsed.Scheme != "http" && parsed.Scheme != "https") || parsed.User != nil || parsed.RawQuery != "" || parsed.Fragment != "" {
-		return "", errors.New("registration audience must be an absolute HTTP(S) PAM API endpoint")
+		return "", errors.New("registration audience must be an absolute HTTP(S) Warden API endpoint")
 	}
 	path := strings.TrimRight(parsed.Path, "/")
 	if path == "" {

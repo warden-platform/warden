@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/config"
 )
 
 const dingTalkChannelType = "dingtalk"
@@ -55,11 +55,11 @@ type approvalNotification struct {
 }
 
 func loadDingTalkClient() (*dingTalkClient, error) {
-	webhook, err := config.Secret("PAM_DINGTALK_WEBHOOK")
+	webhook, err := config.Secret("WARDEN_DINGTALK_WEBHOOK")
 	if err != nil {
 		return nil, err
 	}
-	secret, err := config.Secret("PAM_DINGTALK_SECRET")
+	secret, err := config.Secret("WARDEN_DINGTALK_SECRET")
 	if err != nil {
 		return nil, err
 	}
@@ -67,16 +67,16 @@ func loadDingTalkClient() (*dingTalkClient, error) {
 		return nil, nil
 	}
 	if webhook == "" || secret == "" {
-		return nil, errors.New("PAM_DINGTALK_WEBHOOK and PAM_DINGTALK_SECRET must be configured together")
+		return nil, errors.New("WARDEN_DINGTALK_WEBHOOK and WARDEN_DINGTALK_SECRET must be configured together")
 	}
 	if len(secret) < 16 {
-		return nil, errors.New("PAM_DINGTALK_SECRET must contain at least 16 bytes")
+		return nil, errors.New("WARDEN_DINGTALK_SECRET must contain at least 16 bytes")
 	}
 	parsed, err := validateDingTalkWebhook(webhook)
 	if err != nil {
 		return nil, err
 	}
-	publicURL, err := validatePublicApprovalURL(os.Getenv("PAM_PUBLIC_CONTROL_URL"))
+	publicURL, err := validatePublicApprovalURL(os.Getenv("WARDEN_PUBLIC_CONTROL_URL"))
 	if err != nil {
 		return nil, err
 	}
@@ -91,17 +91,17 @@ func loadDingTalkClient() (*dingTalkClient, error) {
 func validateDingTalkWebhook(raw string) (*url.URL, error) {
 	parsed, err := url.Parse(strings.TrimSpace(raw))
 	if err != nil || parsed.Scheme != "https" || parsed.User != nil || parsed.Fragment != "" {
-		return nil, errors.New("PAM_DINGTALK_WEBHOOK must be a valid HTTPS DingTalk robot URL")
+		return nil, errors.New("WARDEN_DINGTALK_WEBHOOK must be a valid HTTPS DingTalk robot URL")
 	}
 	host := strings.ToLower(parsed.Hostname())
 	if host != "oapi.dingtalk.com" && host != "api.dingtalk.com" {
-		return nil, errors.New("PAM_DINGTALK_WEBHOOK host must be oapi.dingtalk.com or api.dingtalk.com")
+		return nil, errors.New("WARDEN_DINGTALK_WEBHOOK host must be oapi.dingtalk.com or api.dingtalk.com")
 	}
 	if parsed.Query().Get("access_token") == "" {
-		return nil, errors.New("PAM_DINGTALK_WEBHOOK must include access_token")
+		return nil, errors.New("WARDEN_DINGTALK_WEBHOOK must include access_token")
 	}
 	if parsed.EscapedPath() != "/robot/send" {
-		return nil, errors.New("PAM_DINGTALK_WEBHOOK path must be /robot/send")
+		return nil, errors.New("WARDEN_DINGTALK_WEBHOOK path must be /robot/send")
 	}
 	return parsed, nil
 }
@@ -113,7 +113,7 @@ func validatePublicApprovalURL(raw string) (string, error) {
 	}
 	parsed, err := url.Parse(raw)
 	if err != nil || (parsed.Scheme != "https" && parsed.Scheme != "http") || parsed.Host == "" || parsed.User != nil || parsed.Fragment != "" {
-		return "", errors.New("PAM_PUBLIC_CONTROL_URL must be an absolute HTTP(S) URL for DingTalk approval links")
+		return "", errors.New("WARDEN_PUBLIC_CONTROL_URL must be an absolute HTTP(S) URL for DingTalk approval links")
 	}
 	return raw, nil
 }
@@ -198,7 +198,7 @@ func (c *dingTalkClient) render(n approvalNotification) (string, string) {
 	if statusLabel == "" {
 		statusLabel = n.Status
 	}
-	title := "PAM 审批通知 · " + statusLabel
+	title := "Warden 审批通知 · " + statusLabel
 	lines := []string{"### " + title}
 	appendField := func(label, value string) {
 		if value != "" {
@@ -218,7 +218,7 @@ func (c *dingTalkClient) render(n approvalNotification) (string, string) {
 	}
 	appendField("处理人", n.ApproverName)
 	if c.publicURL != "" && n.RequestID != "" {
-		lines = append(lines, "", "[打开 PAM 审批详情]("+c.publicURL+"/approvals?request="+url.QueryEscape(n.RequestID)+")")
+		lines = append(lines, "", "[打开 Warden 审批详情]("+c.publicURL+"/approvals?request="+url.QueryEscape(n.RequestID)+")")
 	}
 	return title, strings.Join(lines, "  \n")
 }

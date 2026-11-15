@@ -9,16 +9,16 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/DATA-DOG/go-sqlmock"
 )
 
 func TestDatabaseRunnerPostgreSQLIntegration(t *testing.T) {
-	endpoint := os.Getenv("PAM_TEST_DATABASE_ENDPOINT")
-	username := os.Getenv("PAM_TEST_DATABASE_USERNAME")
-	password := os.Getenv("PAM_TEST_DATABASE_PASSWORD")
+	endpoint := os.Getenv("WARDEN_TEST_DATABASE_ENDPOINT")
+	username := os.Getenv("WARDEN_TEST_DATABASE_USERNAME")
+	password := os.Getenv("WARDEN_TEST_DATABASE_PASSWORD")
 	if endpoint == "" || username == "" || password == "" {
-		t.Skip("PAM_TEST_DATABASE_ENDPOINT, PAM_TEST_DATABASE_USERNAME and PAM_TEST_DATABASE_PASSWORD are required")
+		t.Skip("WARDEN_TEST_DATABASE_ENDPOINT, WARDEN_TEST_DATABASE_USERNAME and WARDEN_TEST_DATABASE_PASSWORD are required")
 	}
 	runner, err := NewDatabaseRunner(DatabaseConfig{Protocol: "postgresql", Endpoint: endpoint,
 		Username: username, Password: password, AllowedSchemas: []string{"public"}, IntegrationID: "integration-test"})
@@ -56,7 +56,7 @@ func TestDatabaseRunnerDiscoversScopedPostgreSQLMetadata(t *testing.T) {
 			AddRow("audit", "events", "BASE TABLE").AddRow("public", "orders", "BASE TABLE"))
 
 	runner, err := NewDatabaseRunner(DatabaseConfig{Protocol: "postgresql", Endpoint: "postgresql://db.example.test:5432/orders?sslmode=require",
-		Username: "pam_reader", Password: "secret-password", AllowedSchemas: []string{"public"}, IntegrationID: "integration-1", DB: db})
+		Username: "warden_reader", Password: "secret-password", AllowedSchemas: []string{"public"}, IntegrationID: "integration-1", DB: db})
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -53,8 +53,7 @@ export function LoginPage() {
         <div className="login-brand">
           <ShieldCheck size={32} />
           <div>
-            <h1>HighTower</h1>
-            <p>使用管理员账户登录</p>
+            <h1>Warden</h1>
           </div>
         </div>
         <label className="login-field">
@@ -108,7 +107,7 @@ export function LoginPage() {
             </div>
             <a className="secondary-button login-submit" href={oidcHref}>
               <LogIn size={18} />
-              使用企业账号登录（SSO）
+              使用 SSO 登录
             </a>
           </>
         )}

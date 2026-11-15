@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/config"
 )
 
 type RemoteProvider struct {
@@ -35,10 +35,10 @@ func NewRemoteProvider() (*RemoteProvider, error) {
 	if ip := net.ParseIP(parsed.Hostname()); ip != nil {
 		loopback = ip.IsLoopback()
 	}
-	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && loopback) && !strings.EqualFold(os.Getenv("PAM_ALLOW_INSECURE_OPA"), "true") {
-		return nil, fmt.Errorf("OPA_ENDPOINT must use HTTPS; set PAM_ALLOW_INSECURE_OPA=true only on a trusted private network")
+	if parsed.Scheme != "https" && !(parsed.Scheme == "http" && loopback) && !strings.EqualFold(os.Getenv("WARDEN_ALLOW_INSECURE_OPA"), "true") {
+		return nil, fmt.Errorf("OPA_ENDPOINT must use HTTPS; set WARDEN_ALLOW_INSECURE_OPA=true only on a trusted private network")
 	}
-	token, err := config.Secret("PAM_OPA_BEARER_TOKEN")
+	token, err := config.Secret("WARDEN_OPA_BEARER_TOKEN")
 	if err != nil {
 		return nil, err
 	}

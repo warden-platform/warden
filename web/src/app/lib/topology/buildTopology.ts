@@ -1,4 +1,4 @@
-// Build a topology graph (nodes + edges) from PAM API data.
+// Build a topology graph (nodes + edges) from Warden API data.
 // Layers: Connectors -> Integrations -> Resource Groups -> Actions
 // Resources are folded by (parent, resource_type) so a Jenkins integration
 // with 359 jobs renders as a single "359 Jenkins Jobs" node, not 359 nodes.
@@ -127,14 +127,30 @@ export function buildTopology(
   }
 
   // --- Layer 3: Resource groups (fold by parent + resource_type) ---
-  type Group = { parentId: string; integrationId?: string; connectorId: string; type: string; members: ApiResource[]; count: number; activeCount: number }
+  type Group = {
+    parentId: string
+    integrationId?: string
+    connectorId: string
+    type: string
+    members: ApiResource[]
+    count: number
+    activeCount: number
+  }
   const groupMap = new Map<string, Group>()
   for (const r of resources) {
     const parentId = r.integration_id ? `integration:${r.integration_id}` : `connector:${r.connector_id}`
     const key = `${parentId}:${r.resource_type}`
     let g = groupMap.get(key)
     if (!g) {
-      g = { parentId, integrationId: r.integration_id, connectorId: r.connector_id, type: r.resource_type, members: [], count: 0, activeCount: 0 }
+      g = {
+        parentId,
+        integrationId: r.integration_id,
+        connectorId: r.connector_id,
+        type: r.resource_type,
+        members: [],
+        count: 0,
+        activeCount: 0,
+      }
       groupMap.set(key, g)
     }
     g.members.push(r)

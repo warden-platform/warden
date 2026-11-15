@@ -1,4 +1,4 @@
-# PAM Platform Capabilities
+# Warden Platform Capabilities
 
 Use this reference to choose a resource type and understand domain-specific safety constraints. Always confirm the exact capability with `list-actions RESOURCE_ID` before execution.
 
@@ -47,8 +47,8 @@ Typical resources include database instance, Schema, and table.
 Typical resources include regional cloud account, ECS, RDS, ELB, OBS bucket, and LTS log resources.
 
 - Reads cover account capability, ECS detail/metrics, RDS/ELB detail, OBS metadata, and bounded LTS queries.
-- ECS creation targets an exact `huawei_cloud_account` Region and requires the live Schema's PAM project, Region, image, flavor, network, and security group fields.
-- ECS lifecycle and metadata actions target one discovered `huawei_ecs_instance`. Reserved `pam-*` tags come only from trusted PAM context.
+- ECS creation targets an exact `huawei_cloud_account` Region and requires the live Schema's Warden project, Region, image, flavor, network, and security group fields.
+- ECS lifecycle and metadata actions target one discovered `huawei_ecs_instance`. Reserved `pam-*` tags come only from trusted Warden context.
 - ECS deletion requires an exact `confirmServerName` match and explicit public-IP/volume choices. Submit once. `VERIFIED_ABSENT` confirms immediate absence; `ACCEPTED_ASYNC` requires read-only catalog observation and must never be replayed automatically.
 
 ## Alibaba Cloud
@@ -61,4 +61,4 @@ Typical resources include SLS regional account, Project, and Logstore.
 
 ## Inventory and project guide
 
-For “what resources does this project have?” requests, use `resource-summary` first and avoid creating Executions. Group by project, environment, and resource type; distinguish discovered infrastructure from inferred business purpose. Do not treat a node as a named cluster, a container/service as a server, or absence from PAM as proof that the real-world resource does not exist.
+For “what resources does this project have?” requests, use `resource-summary` first and avoid creating Executions. Group by project, environment, and resource type; distinguish discovered infrastructure from inferred business purpose. Do not treat a node as a named cluster, a container/service as a server, or absence from Warden as proof that the real-world resource does not exist.

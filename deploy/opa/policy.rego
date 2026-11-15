@@ -265,7 +265,7 @@ decision := object.union(base_decision, {
 	"decision": "ALLOW",
 	"reason_codes": ["CREDENTIAL_READ_ONLY_ALLOWED"],
 	"max_duration_seconds": 60,
-	"credential_mode": "PAM_MANAGED_CREDENTIAL",
+	"credential_mode": "WARDEN_MANAGED_CREDENTIAL",
 }) if {
 	input.principal.status == "ACTIVE"
 	input.action in credential_readonly_actions
@@ -275,7 +275,7 @@ decision := object.union(base_decision, {
 	"decision": "REQUIRE_APPROVAL",
 	"reason_codes": ["CREDENTIAL_CHANGE_REQUIRES_APPROVAL"],
 	"max_duration_seconds": 300,
-	"credential_mode": "PAM_MANAGED_CREDENTIAL",
+	"credential_mode": "WARDEN_MANAGED_CREDENTIAL",
 	"obligations": ["AUDIT_FULL", "NOTIFY_OWNER"],
 }) if {
 	input.principal.status == "ACTIVE"

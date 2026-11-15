@@ -12,13 +12,13 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	dingcard "github.com/open-dingtalk/dingtalk-stream-sdk-go/card"
 	streamclient "github.com/open-dingtalk/dingtalk-stream-sdk-go/client"
 )
 
-const dingTalkCardTrackPrefix = "pam-approval:"
+const dingTalkCardTrackPrefix = "warden-approval:"
 
 type dingTalkCardClient struct {
 	app                *dingTalkCoolAppClient
@@ -31,15 +31,15 @@ type dingTalkCardClient struct {
 }
 
 func loadDingTalkCardClient(app *dingTalkCoolAppClient) (*dingTalkCardClient, error) {
-	templateID, err := config.Secret("PAM_DINGTALK_CARD_TEMPLATE_ID")
+	templateID, err := config.Secret("WARDEN_DINGTALK_CARD_TEMPLATE_ID")
 	if err != nil {
 		return nil, err
 	}
-	conversationID, err := config.Secret("PAM_DINGTALK_OPEN_CONVERSATION_ID")
+	conversationID, err := config.Secret("WARDEN_DINGTALK_OPEN_CONVERSATION_ID")
 	if err != nil {
 		return nil, err
 	}
-	robotCode, err := config.Secret("PAM_DINGTALK_ROBOT_CODE")
+	robotCode, err := config.Secret("WARDEN_DINGTALK_ROBOT_CODE")
 	if err != nil {
 		return nil, err
 	}
@@ -47,10 +47,10 @@ func loadDingTalkCardClient(app *dingTalkCoolAppClient) (*dingTalkCardClient, er
 		return nil, nil
 	}
 	if app == nil {
-		return nil, errors.New("PAM_DINGTALK_APP_KEY and PAM_DINGTALK_APP_SECRET are required for interactive cards")
+		return nil, errors.New("WARDEN_DINGTALK_APP_KEY and WARDEN_DINGTALK_APP_SECRET are required for interactive cards")
 	}
 	if templateID == "" || conversationID == "" || robotCode == "" {
-		return nil, errors.New("PAM_DINGTALK_CARD_TEMPLATE_ID, PAM_DINGTALK_OPEN_CONVERSATION_ID and PAM_DINGTALK_ROBOT_CODE must be configured together")
+		return nil, errors.New("WARDEN_DINGTALK_CARD_TEMPLATE_ID, WARDEN_DINGTALK_OPEN_CONVERSATION_ID and WARDEN_DINGTALK_ROBOT_CODE must be configured together")
 	}
 	if len(templateID) > 256 || len(conversationID) > 512 || len(robotCode) > 256 || strings.ContainsAny(templateID, "\r\n") || strings.ContainsAny(conversationID, "\r\n") || strings.ContainsAny(robotCode, "\r\n") {
 		return nil, errors.New("invalid DingTalk interactive card configuration")
@@ -73,7 +73,7 @@ func (c *dingTalkCardClient) cardData(n approvalNotification) map[string]string 
 	statusText := map[string]string{"PENDING": "待审批", "APPROVED": "已通过", "REJECTED": "已拒绝", "EXPIRED": "已过期", "CANCELLED": "已取消", "TEST": "通道测试"}[n.Status]
 	resource := sanitizeDingTalkText(strings.Trim(strings.Join([]string{n.ResourceType, n.ResourceName}, " / "), " /"))
 	action := sanitizeDingTalkText(n.ActionName)
-	title := "PAM 特权访问申请"
+	title := "Warden 特权访问申请"
 	if action != "" && resource != "" {
 		title = action + " · " + resource
 	} else if action != "" {
@@ -88,7 +88,7 @@ func (c *dingTalkCardClient) cardData(n approvalNotification) map[string]string 
 		"action": action, "riskLevel": sanitizeDingTalkText(n.RiskLevel),
 		"reason": sanitizeDingTalkText(n.Reason), "expiresAt": expiresAt, "approver": sanitizeDingTalkText(n.ApproverName),
 		// Compatibility aliases used by DingTalk's exported approval example.
-		"type": action, "amount": resource, "createTime": time.Now().Local().Format("2006-01-02 15:04:05"), "lastMessage": "PAM 审批 · " + statusText,
+		"type": action, "amount": resource, "createTime": time.Now().Local().Format("2006-01-02 15:04:05"), "lastMessage": "Warden 审批 · " + statusText,
 	}
 }
 
@@ -111,7 +111,7 @@ func (c *dingTalkCardClient) send(ctx context.Context, n approvalNotification) e
 		"outTrackId":  dingTalkCardTrackID(n.RequestID),
 		"imGroupOpenSpaceModel": map[string]any{
 			"supportForward": false,
-			"notification":   map[string]any{"alertContent": "PAM 审批通知", "notificationOff": false},
+			"notification":   map[string]any{"alertContent": "Warden 审批通知", "notificationOff": false},
 		},
 		"imGroupOpenDeliverModel": map[string]any{"robotCode": c.robotCode},
 	}

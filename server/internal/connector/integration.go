@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 // rejectMetadataEndpoint prevents accidentally forwarding integration

@@ -1,6 +1,6 @@
 -- Structured attribution for calls brokered by an external orchestration
 -- platform. This data is audit context only;
--- authorization continues to use the authenticated PAM Principal and project
+-- authorization continues to use the authenticated Warden Principal and project
 -- scope checks.
 
 ALTER TABLE executions

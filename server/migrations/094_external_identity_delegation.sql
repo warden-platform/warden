@@ -1,5 +1,5 @@
 -- Trusted external identity bindings and short-lived delegation credentials.
--- Long-lived PAM API Keys remain server-side Broker credentials; Agents use
+-- Long-lived Warden API Keys remain server-side Broker credentials; Agents use
 -- delegation tokens issued only after these bindings are verified.
 
 CREATE TABLE IF NOT EXISTS external_identity_bindings (

@@ -3,7 +3,7 @@
 -- fixed at publish time, cost-verified, and immutable — a new release is a new
 -- version, never an in-place edit. DRAFT → PUBLISHED → DEPRECATED/DISABLED.
 --
--- The canonical_ast is the PAM Query AST (JSON, §4.3); the control plane
+-- The canonical_ast is the Warden Query AST (JSON, §4.3); the control plane
 -- injects it into database.query_template.execute dispatch so the Connector
 -- never resolves templates from Agent input. bindings are the runtime
 -- parameters an Agent may supply; identifiers, table/JOIN structure, SELECT

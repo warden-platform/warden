@@ -6,7 +6,7 @@ import (
 )
 
 func TestRemoteProviderRequiresSecureTransport(t *testing.T) {
-	for _, name := range []string{"PAM_OPA_BEARER_TOKEN", "PAM_OPA_BEARER_TOKEN_FILE"} {
+	for _, name := range []string{"WARDEN_OPA_BEARER_TOKEN", "WARDEN_OPA_BEARER_TOKEN_FILE"} {
 		value, existed := os.LookupEnv(name)
 		_ = os.Unsetenv(name)
 		t.Cleanup(func() {
@@ -17,7 +17,7 @@ func TestRemoteProviderRequiresSecureTransport(t *testing.T) {
 			}
 		})
 	}
-	t.Setenv("PAM_ALLOW_INSECURE_OPA", "")
+	t.Setenv("WARDEN_ALLOW_INSECURE_OPA", "")
 	t.Setenv("OPA_ENDPOINT", "http://opa.example.test:8181")
 	if _, err := NewRemoteProvider(); err == nil {
 		t.Fatal("remote OPA accepted insecure non-loopback HTTP")

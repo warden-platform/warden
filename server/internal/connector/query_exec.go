@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 // queryPlan is the DB-independent half of query preparation: a canonical plan,
@@ -37,7 +37,7 @@ func (e *queryApprovalRequiredError) Error() string {
 }
 
 // resolveQueryPlan decodes, canonicalizes and renders the query AST carried in
-// task parameters. resourceId values are PAM database_table external ids
+// task parameters. resourceId values are Warden database_table external ids
 // (table/<schema>/<table>); every source is scope-checked before it is allowed
 // into the rendered statement.
 func (r *DatabaseRunner) resolveQueryPlan(parameters map[string]any) (*queryPlan, error) {

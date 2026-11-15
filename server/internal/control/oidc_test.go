@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -25,16 +25,16 @@ import (
 // verified before any external integration is configured.
 
 const (
-	testOIDCClientID    = "pam-local"
+	testOIDCClientID    = "warden-local"
 	testOIDCSecret      = "test-client-secret"
 	testOIDCRedirectURL = "http://localhost:4173/api/v1/auth/oidc/callback"
 	testOIDCTenant      = "platform"
 )
 
 var oidcEnvKeys = []string{
-	"PAM_OIDC_ISSUER", "PAM_OIDC_CLIENT_ID", "PAM_OIDC_CLIENT_SECRET",
-	"PAM_OIDC_CLIENT_SECRET_FILE", "PAM_OIDC_REDIRECT_URL", "PAM_OIDC_DEFAULT_TENANT_ID",
-	"PAM_OIDC_DEFAULT_ROLE",
+	"WARDEN_OIDC_ISSUER", "WARDEN_OIDC_CLIENT_ID", "WARDEN_OIDC_CLIENT_SECRET",
+	"WARDEN_OIDC_CLIENT_SECRET_FILE", "WARDEN_OIDC_REDIRECT_URL", "WARDEN_OIDC_DEFAULT_TENANT_ID",
+	"WARDEN_OIDC_DEFAULT_ROLE",
 }
 
 // setOIDCEnv sets (or, with an empty value, unsets) an env var and restores the
@@ -70,11 +70,11 @@ func resetOIDCEnv(t *testing.T) {
 func fullOIDCEnv(t *testing.T, issuer string) {
 	t.Helper()
 	resetOIDCEnv(t)
-	setOIDCEnv(t, "PAM_OIDC_ISSUER", issuer)
-	setOIDCEnv(t, "PAM_OIDC_CLIENT_ID", testOIDCClientID)
-	setOIDCEnv(t, "PAM_OIDC_CLIENT_SECRET", testOIDCSecret)
-	setOIDCEnv(t, "PAM_OIDC_REDIRECT_URL", testOIDCRedirectURL)
-	setOIDCEnv(t, "PAM_OIDC_DEFAULT_TENANT_ID", testOIDCTenant)
+	setOIDCEnv(t, "WARDEN_OIDC_ISSUER", issuer)
+	setOIDCEnv(t, "WARDEN_OIDC_CLIENT_ID", testOIDCClientID)
+	setOIDCEnv(t, "WARDEN_OIDC_CLIENT_SECRET", testOIDCSecret)
+	setOIDCEnv(t, "WARDEN_OIDC_REDIRECT_URL", testOIDCRedirectURL)
+	setOIDCEnv(t, "WARDEN_OIDC_DEFAULT_TENANT_ID", testOIDCTenant)
 }
 
 // A role typo must fail startup instead of silently granting elevated scopes
@@ -94,7 +94,7 @@ func TestLoadOIDCConfigValidatesDefaultRole(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			fullOIDCEnv(t, "https://idp.example.com")
-			setOIDCEnv(t, "PAM_OIDC_DEFAULT_ROLE", tc.value)
+			setOIDCEnv(t, "WARDEN_OIDC_DEFAULT_ROLE", tc.value)
 			cfg, err := loadOIDCConfig()
 			if tc.wantErr {
 				if err == nil {
@@ -125,10 +125,10 @@ func TestLoadOIDCConfigDisabledWithoutIssuer(t *testing.T) {
 
 func TestLoadOIDCConfigRejectsIncompleteSettings(t *testing.T) {
 	cases := []struct{ name, missing string }{
-		{"client id", "PAM_OIDC_CLIENT_ID"},
-		{"client secret", "PAM_OIDC_CLIENT_SECRET"},
-		{"redirect url", "PAM_OIDC_REDIRECT_URL"},
-		{"tenant", "PAM_OIDC_DEFAULT_TENANT_ID"},
+		{"client id", "WARDEN_OIDC_CLIENT_ID"},
+		{"client secret", "WARDEN_OIDC_CLIENT_SECRET"},
+		{"redirect url", "WARDEN_OIDC_REDIRECT_URL"},
+		{"tenant", "WARDEN_OIDC_DEFAULT_TENANT_ID"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -143,12 +143,12 @@ func TestLoadOIDCConfigRejectsIncompleteSettings(t *testing.T) {
 
 func TestLoadOIDCConfigReadsSecretFile(t *testing.T) {
 	fullOIDCEnv(t, "https://idp.example.com")
-	setOIDCEnv(t, "PAM_OIDC_CLIENT_SECRET", "")
+	setOIDCEnv(t, "WARDEN_OIDC_CLIENT_SECRET", "")
 	secretPath := filepath.Join(t.TempDir(), "oidc_client_secret")
 	if err := os.WriteFile(secretPath, []byte("file-secret\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	setOIDCEnv(t, "PAM_OIDC_CLIENT_SECRET_FILE", secretPath)
+	setOIDCEnv(t, "WARDEN_OIDC_CLIENT_SECRET_FILE", secretPath)
 	cfg, err := loadOIDCConfig()
 	if err != nil {
 		t.Fatalf("loadOIDCConfig: %v", err)
@@ -167,7 +167,7 @@ func TestLoadOIDCConfigRejectsConflictingSecretSources(t *testing.T) {
 	if err := os.WriteFile(secretPath, []byte("file-secret"), 0o600); err != nil {
 		t.Fatal(err)
 	}
-	setOIDCEnv(t, "PAM_OIDC_CLIENT_SECRET_FILE", secretPath)
+	setOIDCEnv(t, "WARDEN_OIDC_CLIENT_SECRET_FILE", secretPath)
 	if _, err := loadOIDCConfig(); err == nil {
 		t.Fatal("expected an error when both secret and _FILE are set")
 	}
@@ -219,7 +219,7 @@ func TestOIDCConfigEndpointReportsEnabledState(t *testing.T) {
 func TestOIDCLoginOrigin(t *testing.T) {
 	cases := []struct{ in, want string }{
 		{"http://127.0.0.1:8081/api/v1/auth/oidc/callback", "http://127.0.0.1:8081"},
-		{"https://pam.example.com/api/v1/auth/oidc/callback?x=1", "https://pam.example.com"},
+		{"https://warden.example.com/api/v1/auth/oidc/callback?x=1", "https://warden.example.com"},
 		{"", ""},
 		{"://broken", ""},
 	}
@@ -230,7 +230,7 @@ func TestOIDCLoginOrigin(t *testing.T) {
 	}
 }
 
-// fakeOIDCProvider implements the subset of an OIDC provider that pam-control
+// fakeOIDCProvider implements the subset of an OIDC provider that warden-control
 // consumes: discovery, JWKS and the token endpoint. All keys and credentials
 // are generated in-process, so no external service is involved.
 type fakeOIDCProvider struct {
@@ -460,7 +460,7 @@ func TestOIDCLoginCallbackRejectsInvalidRequests(t *testing.T) {
 
 // An identity broker in front of Feishu may drop the nonce claim. This test
 // drives the full discovery -> exchange -> signature verification path and
-// confirms pam-control rejects such a token rather than minting a session.
+// confirms warden-control rejects such a token rather than minting a session.
 func TestOIDCLoginCallbackRejectsIdTokenWithoutNonce(t *testing.T) {
 	f := newFakeOIDCProvider(t) // f.nonce is empty: no nonce claim in id_token
 	h := newOIDCTestHandler(f)
@@ -502,7 +502,7 @@ func TestOIDCLoginCallbackRejectsInvalidSignature(t *testing.T) {
 }
 
 // A provider that omits sub would otherwise map every federated user onto the
-// same (issuer, subject) row. pam-control must fail closed before provisioning.
+// same (issuer, subject) row. warden-control must fail closed before provisioning.
 func TestOIDCLoginCallbackRejectsIdTokenWithoutSubject(t *testing.T) {
 	f := newFakeOIDCProvider(t)
 	f.omitSubject = true
@@ -523,7 +523,7 @@ func TestOIDCLoginCallbackRejectsIdTokenWithoutSubject(t *testing.T) {
 }
 
 // RP-initiated logout must forward to the IdP end_session endpoint and clear
-// both the PAM session and every flow cookie; otherwise the IdP silently
+// both the Warden session and every flow cookie; otherwise the IdP silently
 // signs the user straight back in on the next SSO click.
 func TestOIDCLogoutRedirectsToIdPEndSession(t *testing.T) {
 	f := newFakeOIDCProvider(t)

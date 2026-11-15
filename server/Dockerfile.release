@@ -6,6 +6,6 @@ COPY deploy/ /app-artifacts/deploy/
 COPY server/migrations/ /app-artifacts/server/migrations/
 COPY server/bin/linux-amd64/ /app-artifacts/server/bin/linux-amd64/
 COPY server/bin/linux-arm64/ /app-artifacts/server/bin/linux-arm64/
-ENV PAM_ARTIFACT_ROOT=/app-artifacts
+ENV WARDEN_ARTIFACT_ROOT=/app-artifacts
 USER 65532:65532
 ENTRYPOINT ["/app"]

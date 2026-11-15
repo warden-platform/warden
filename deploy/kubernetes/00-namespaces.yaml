@@ -1,11 +1,11 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: pam-system
+  name: warden-system
 ---
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: pam-demo
+  name: warden-demo
   labels:
-    pam.example.io/environment: testing
+    warden.example.io/environment: testing

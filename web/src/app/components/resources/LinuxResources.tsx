@@ -11,7 +11,11 @@ import { TypeFilterBar } from './TypeFilterBar'
 import { useToggleSet } from '../../lib/useToggleSet'
 
 export function LinuxResources({
-  resources, connectors, query, onAction, onProject,
+  resources,
+  connectors,
+  query,
+  onAction,
+  onProject,
 }: {
   resources: ApiResource[]
   connectors: ApiConnector[]
@@ -21,17 +25,33 @@ export function LinuxResources({
 }) {
   const connectorName = (id: string) => connectors.find((c) => c.id === id)?.name ?? ''
   const q = query.trim().toLowerCase()
-  const searched = useMemo(() => q
-    ? resources.filter((r) => (r.name + r.resource_type + connectorName(r.connector_id)).toLowerCase().includes(q))
-    : resources, [resources, q, connectorName])
+  const searched = useMemo(
+    () => (q ? resources.filter((r) => (r.name + r.resource_type + connectorName(r.connector_id)).toLowerCase().includes(q)) : resources),
+    [resources, q, connectorName],
+  )
 
   const [hiddenTypes, toggleType] = useToggleSet()
   const filtered = hiddenTypes.size === 0 ? searched : searched.filter((r) => !hiddenTypes.has(r.resource_type))
 
   const typeChips = [
-    { type: 'linux_host', label: '主机', icon: <HardDrive size={14} />, count: searched.filter((r) => r.resource_type === 'linux_host').length },
-    { type: 'systemd_service', label: 'systemd 服务', icon: <Server size={14} />, count: searched.filter((r) => r.resource_type === 'systemd_service').length },
-    { type: 'docker_container', label: 'Docker 容器', icon: <Container size={14} />, count: searched.filter((r) => r.resource_type === 'docker_container').length },
+    {
+      type: 'linux_host',
+      label: '主机',
+      icon: <HardDrive size={14} />,
+      count: searched.filter((r) => r.resource_type === 'linux_host').length,
+    },
+    {
+      type: 'systemd_service',
+      label: 'systemd 服务',
+      icon: <Server size={14} />,
+      count: searched.filter((r) => r.resource_type === 'systemd_service').length,
+    },
+    {
+      type: 'docker_container',
+      label: 'Docker 容器',
+      icon: <Container size={14} />,
+      count: searched.filter((r) => r.resource_type === 'docker_container').length,
+    },
   ]
 
   const [collapsedHosts, toggleHost] = useToggleSet(() => {
@@ -61,13 +81,27 @@ export function LinuxResources({
   }, [filtered, connectorName])
 
   if (resources.length === 0) {
-    return <EmptyState icon={HardDrive} title="暂无 Linux 主机资源" text="接入 Linux 执行通道后，主机、systemd 服务与 Docker 容器会在此按主机分组展示。" />
+    return (
+      <EmptyState
+        icon={HardDrive}
+        title="暂无 Linux 主机资源"
+        text="接入 Linux 执行通道后，主机、systemd 服务与 Docker 容器会在此按主机分组展示。"
+      />
+    )
   }
   if (searched.length === 0) {
     return <EmptyState icon={Search} title="没有匹配的资源" text="尝试调整搜索条件。" />
   }
 
-  const renderTypeSubgroup = (connId: string, type: string, label: string, icon: ReactNode, items: ApiResource[], cardIcon: ReactNode, meta?: (r: ApiResource) => ReactNode) => {
+  const renderTypeSubgroup = (
+    connId: string,
+    type: string,
+    label: string,
+    icon: ReactNode,
+    items: ApiResource[],
+    cardIcon: ReactNode,
+    meta?: (r: ApiResource) => ReactNode,
+  ) => {
     if (items.length === 0) return null
     const key = `${connId}:${type}`
     const collapsed = collapsedTypes.has(key)
@@ -81,7 +115,14 @@ export function LinuxResources({
         {!collapsed && (
           <div className="res-list">
             {items.map((r) => (
-              <ResourceCard key={r.id} resource={r} connectorName={connectorName(r.connector_id)} onAction={onAction} onProject={onProject} icon={cardIcon}>
+              <ResourceCard
+                key={r.id}
+                resource={r}
+                connectorName={connectorName(r.connector_id)}
+                onAction={onAction}
+                onProject={onProject}
+                icon={cardIcon}
+              >
                 {meta?.(r)}
               </ResourceCard>
             ))}
@@ -104,10 +145,17 @@ export function LinuxResources({
           const hosts = items.filter((r) => r.resource_type === 'linux_host')
           const services = items.filter((r) => r.resource_type === 'systemd_service')
           const containers = items.filter((r) => r.resource_type === 'docker_container')
-          const others = items.filter((r) => r.resource_type !== 'linux_host' && r.resource_type !== 'systemd_service' && r.resource_type !== 'docker_container')
+          const others = items.filter(
+            (r) => r.resource_type !== 'linux_host' && r.resource_type !== 'systemd_service' && r.resource_type !== 'docker_container',
+          )
           return (
             <section key={connId} className="group-section">
-              <button type="button" className="group-header group-header-button" onClick={() => toggleHost(connId)} aria-expanded={!collapsed}>
+              <button
+                type="button"
+                className="group-header group-header-button"
+                onClick={() => toggleHost(connId)}
+                aria-expanded={!collapsed}
+              >
                 <ChevronRight size={14} className={`chevron${collapsed ? '' : ' chevron-open'}`} />
                 <Server size={14} />
                 <span>{hostName}</span>
@@ -116,8 +164,34 @@ export function LinuxResources({
               {!collapsed && (
                 <>
                   {renderTypeSubgroup(connId, 'linux_host', '主机', <HardDrive size={12} />, hosts, <HardDrive size={20} />)}
-                  {renderTypeSubgroup(connId, 'systemd_service', 'systemd 服务', <Server size={12} />, services, <Server size={20} />, (r) => <div className="res-card-meta"><span>类型</span><strong>systemd 服务</strong></div>)}
-                  {renderTypeSubgroup(connId, 'docker_container', 'Docker 容器', <Container size={12} />, containers, <Container size={20} />, (r) => <div className="res-card-meta"><span>类型</span><strong>Docker 容器</strong></div>)}
+                  {renderTypeSubgroup(
+                    connId,
+                    'systemd_service',
+                    'systemd 服务',
+                    <Server size={12} />,
+                    services,
+                    <Server size={20} />,
+                    (r) => (
+                      <div className="res-card-meta">
+                        <span>类型</span>
+                        <strong>systemd 服务</strong>
+                      </div>
+                    ),
+                  )}
+                  {renderTypeSubgroup(
+                    connId,
+                    'docker_container',
+                    'Docker 容器',
+                    <Container size={12} />,
+                    containers,
+                    <Container size={20} />,
+                    (r) => (
+                      <div className="res-card-meta">
+                        <span>类型</span>
+                        <strong>Docker 容器</strong>
+                      </div>
+                    ),
+                  )}
                   {renderTypeSubgroup(connId, 'other', '其他', <HardDrive size={12} />, others, <HardDrive size={20} />)}
                 </>
               )}

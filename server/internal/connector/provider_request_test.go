@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func providerExecutorFixture(t *testing.T, handler http.HandlerFunc) (*ProviderExecutor, domain.ProviderRequest, domain.ProviderRequestBinding) {
@@ -60,11 +60,11 @@ func TestProviderExecutorInjectsCredentialAndSanitizesJSON(t *testing.T) {
 
 func TestProviderExecutorForwardsCorrelationHeaders(t *testing.T) {
 	executor, request, binding := providerExecutorFixture(t, func(w http.ResponseWriter, request *http.Request) {
-		if got := request.Header.Get("X-Pam-Trace-Id"); got != "trace-abc-123" {
-			t.Errorf("X-Pam-Trace-Id = %q, want trace-abc-123", got)
+		if got := request.Header.Get("X-Warden-Trace-Id"); got != "trace-abc-123" {
+			t.Errorf("X-Warden-Trace-Id = %q, want trace-abc-123", got)
 		}
-		if got := request.Header.Get("X-Pam-Session-Key"); got != "session-1" {
-			t.Errorf("X-Pam-Session-Key = %q, want session-1", got)
+		if got := request.Header.Get("X-Warden-Session-Key"); got != "session-1" {
+			t.Errorf("X-Warden-Session-Key = %q, want session-1", got)
 		}
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte(`{"ok":true}`))

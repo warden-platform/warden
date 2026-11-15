@@ -8,8 +8,8 @@ import (
 	"net/http"
 	"os"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -229,7 +229,7 @@ func (h *Handler) ChangeOwnPassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: "", Path: "/", HttpOnly: true,
-		Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
+		Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	jsonResp(w, http.StatusOK, map[string]any{"status": "password_changed", "revoked_sessions": revoked})
 }
 

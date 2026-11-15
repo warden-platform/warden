@@ -6,8 +6,8 @@ import (
 	"net/http"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 	"github.com/jackc/pgx/v5"
 )
 

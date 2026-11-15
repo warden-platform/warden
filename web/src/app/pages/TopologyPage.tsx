@@ -39,7 +39,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
         active
           ? 'border-brand bg-brand/10 text-brand dark:border-brand-dark dark:bg-brand-dark/15 dark:text-brand-dark'
-          : 'border-border bg-surface text-content-subtle hover:bg-surface-muted dark:border-border-dark dark:bg-surface-dark dark:text-content-dark-subtle dark:hover:bg-surface-dark-muted'
+          : 'border-white/60 bg-white/60 text-content-subtle backdrop-blur-md hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-content-dark-subtle dark:hover:bg-white/10'
       }`}
     >
       {children}
@@ -88,7 +88,7 @@ export function TopologyPage() {
     const nodes = full.nodes.filter((n) => {
       if (!typeOn.has(n.data.entity)) return false
       if (!statusOn.has(n.data.status)) return false
-      if (q && !(`${n.data.label} ${n.data.sublabel ?? ''} ${n.data.kind}`.toLowerCase().includes(q))) return false
+      if (q && !`${n.data.label} ${n.data.sublabel ?? ''} ${n.data.kind}`.toLowerCase().includes(q)) return false
       return true
     })
     const keep = new Set(nodes.map((n) => n.id))
@@ -109,7 +109,8 @@ export function TopologyPage() {
 
   const toggle = <T,>(set: Set<T>, key: T, fn: (s: Set<T>) => void) => {
     const next = new Set(set)
-    if (next.has(key)) next.delete(key); else next.add(key)
+    if (next.has(key)) next.delete(key)
+    else next.add(key)
     fn(next)
   }
 
@@ -122,7 +123,7 @@ export function TopologyPage() {
 
   return (
     <div className="view-stack">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-border bg-surface p-3 dark:border-border-dark dark:bg-surface-dark">
+      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/60 bg-white/70 p-3 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-surface-dark/70 dark:shadow-glass-dark">
         <div className="search-box">
           <Search size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索节点..." />
@@ -130,14 +131,17 @@ export function TopologyPage() {
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle dark:text-content-dark-subtle">类型</span>
           {TYPE_FILTERS.map((t) => (
-            <FilterChip key={t.key} active={typeOn.has(t.key)} onClick={() => toggle(typeOn, t.key, setTypeOn)}>{t.label}</FilterChip>
+            <FilterChip key={t.key} active={typeOn.has(t.key)} onClick={() => toggle(typeOn, t.key, setTypeOn)}>
+              {t.label}
+            </FilterChip>
           ))}
         </div>
         <div className="flex items-center gap-1.5">
           <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle dark:text-content-dark-subtle">状态</span>
           {STATUS_FILTERS.map((s) => (
             <FilterChip key={s.key} active={statusOn.has(s.key)} onClick={() => toggle(statusOn, s.key, setStatusOn)}>
-              <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${s.dot}`} />{s.label}
+              <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${s.dot}`} />
+              {s.label}
             </FilterChip>
           ))}
         </div>
@@ -145,12 +149,18 @@ export function TopologyPage() {
           <div className="hidden items-center gap-2 xl:flex" aria-label="生态图例">
             {DOMAIN_LEGEND.map((d) => (
               <span key={d.label} className="flex items-center gap-1 text-[10px] text-content-subtle dark:text-content-dark-subtle">
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${d.dot}`} />{d.label}
+                <span className={`inline-block h-1.5 w-1.5 rounded-full ${d.dot}`} />
+                {d.label}
               </span>
             ))}
           </div>
-          <span className="text-xs text-content-subtle dark:text-content-dark-subtle">{filtered.nodes.length} 节点 · {filtered.edges.length} 连线</span>
-          <button className="quiet-button" onClick={load}><RefreshCw size={15} />刷新</button>
+          <span className="text-xs text-content-subtle dark:text-content-dark-subtle">
+            {filtered.nodes.length} 节点 · {filtered.edges.length} 连线
+          </span>
+          <button className="quiet-button" onClick={load}>
+            <RefreshCw size={15} />
+            刷新
+          </button>
           <TopologyExport text={exportText} />
         </div>
       </div>

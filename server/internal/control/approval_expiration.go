@@ -5,7 +5,7 @@ import (
 	"log"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 // StartBackground starts bounded maintenance loops owned by the control-plane

@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func TestResourceActionAvailabilityRequiresCapabilityUpgrade(t *testing.T) {
@@ -141,7 +141,7 @@ func TestResourceSupportsProviderRequest(t *testing.T) {
 }
 
 func TestValidateGenericKubernetesParametersRejectsUnsafeInput(t *testing.T) {
-	resource := &domain.Resource{ResourceType: "namespace", Name: "pam-e2e-7213-test"}
+	resource := &domain.Resource{ResourceType: "namespace", Name: "warden-e2e-7213-test"}
 	safe := map[string]any{"apiVersion": "v1", "kind": "ConfigMap", "manifest": map[string]any{"data": map[string]any{"mode": "test"}}}
 	if err := validateGenericKubernetesParameters(safe, resource); err != nil {
 		t.Fatalf("safe parameters rejected: %v", err)

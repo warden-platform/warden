@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	"gitee.com/pam-platform/pam/server/internal/connector"
+	"gitee.com/pam-platform/warden/server/internal/connector"
 )
 
 func TestBindImportedTablesBareTable(t *testing.T) {

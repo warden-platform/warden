@@ -12,8 +12,8 @@ import (
 	"strconv"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/connector"
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/connector"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 // resolveQueryTemplate turns an Agent's templateId/templateVersion/bindings into
@@ -252,7 +252,7 @@ type importQueryTemplateRequest struct {
 
 // ImportQueryTemplate parses an administrator's MySQL SELECT into a draft
 // governed query template (§6). The SQL is converted to the bounded Query AST,
-// every referenced table is bound to a PAM database_table resource under the
+// every referenced table is bound to a Warden database_table resource under the
 // integration, and the result is stored as a DRAFT for human review and publish
 // — raw SQL is never stored or executed.
 func (h *Handler) ImportQueryTemplate(w http.ResponseWriter, r *http.Request) {
@@ -298,7 +298,7 @@ func (h *Handler) ImportQueryTemplate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !exists {
-			jsonError(w, http.StatusBadRequest, "UNBOUND_TABLE", "表资源未在 PAM 中注册或未激活："+resourceID)
+			jsonError(w, http.StatusBadRequest, "UNBOUND_TABLE", "表资源未在 Warden 中注册或未激活："+resourceID)
 			return
 		}
 	}
@@ -356,7 +356,7 @@ func (h *Handler) ImportQueryTemplate(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusCreated, tmpl)
 }
 
-// bindImportedTables assigns each table reference a bound PAM resource id
+// bindImportedTables assigns each table reference a bound Warden resource id
 // (table/<schema>/<table>). Schema-qualified tables keep their own schema; bare
 // tables inherit the template's schema resource. It returns the deduplicated
 // resource ids for existence verification and template resource_bindings.

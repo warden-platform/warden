@@ -24,7 +24,7 @@ flowchart TB
         WEB["Admin Web · React/Vite"]
     end
 
-    subgraph CONTROL["pam-control · 控制面（Go）"]
+    subgraph CONTROL["warden-control · 控制面（Go）"]
         API["REST API · AuthN · 多租户"]
         CATALOG["Resource / Action Catalog"]
         POLICY["Policy · Embedded Rego / Remote OPA"]
@@ -41,12 +41,12 @@ flowchart TB
     end
 
     subgraph EDGE["执行面 · Connector（客户侧）"]
-        OP["pam-operator"]
-        KC["pam-connector（Kubernetes）"]
-        LC["pam-linux-connector（非 root）"]
-        LH["pam-linux-helper（root，白名单）"]
-        HC["pam-host-connector（macOS/Windows）"]
-        NC["pam-network-connector（内网主机）"]
+        OP["warden-operator"]
+        KC["warden-connector（Kubernetes）"]
+        LC["warden-linux-connector（非 root）"]
+        LH["warden-linux-helper（root，白名单）"]
+        HC["warden-host-connector（macOS/Windows）"]
+        NC["warden-network-connector（内网主机）"]
     end
 
     subgraph TARGET["目标系统"]
@@ -85,13 +85,13 @@ flowchart TB
 
 | 组件 | 形态 | 职责 | 是否必需 |
 |---|---|---|---|
-| `pam-control` | Go 进程，REST API（默认 `:8080`） | 认证授权、策略决策、审批、Grant、Execution 编排、审计、凭据加密、配对 | 是 |
-| `pam-connector` | Go 进程，目标 K8s 集群内 | 领取任务、验签、TokenRequest、结构化 K8s 动作、资源发现 | K8s 闭环必需 |
-| `pam-operator` | Go 进程，目标 K8s 集群内 | 集群配对、Connector 生命周期调谐（SA/RBAC/Secret/Deployment）、安全下线 | Operator 接入必需 |
-| `pam-linux-connector` | Go 进程，目标主机，非 root | Linux 配对、systemd 服务发现、主机/进程/磁盘/日志结构化动作 | Linux 接入必需 |
-| `pam-linux-helper` | Go 进程，root | 通过 Unix Socket 提供固定 Docker / systemd 动作，不接受 Shell 或任意参数 | Docker 受控接入必需 |
-| `pam-network-connector` | Go 进程，内网主机 | H3C 设备只读发现与审计，主动出站，校验 SSH Host Key 指纹 | 网络设备接入必需 |
-| `pam-host-connector` | Go 进程，macOS/Windows | 通用主机接入、固定命令白名单、心跳与配对 | 主机接入必需 |
+| `warden-control` | Go 进程，REST API（默认 `:8080`） | 认证授权、策略决策、审批、Grant、Execution 编排、审计、凭据加密、配对 | 是 |
+| `warden-connector` | Go 进程，目标 K8s 集群内 | 领取任务、验签、TokenRequest、结构化 K8s 动作、资源发现 | K8s 闭环必需 |
+| `warden-operator` | Go 进程，目标 K8s 集群内 | 集群配对、Connector 生命周期调谐（SA/RBAC/Secret/Deployment）、安全下线 | Operator 接入必需 |
+| `warden-linux-connector` | Go 进程，目标主机，非 root | Linux 配对、systemd 服务发现、主机/进程/磁盘/日志结构化动作 | Linux 接入必需 |
+| `warden-linux-helper` | Go 进程，root | 通过 Unix Socket 提供固定 Docker / systemd 动作，不接受 Shell 或任意参数 | Docker 受控接入必需 |
+| `warden-network-connector` | Go 进程，内网主机 | H3C 设备只读发现与审计，主动出站，校验 SSH Host Key 指纹 | 网络设备接入必需 |
+| `warden-host-connector` | Go 进程，macOS/Windows | 通用主机接入、固定命令白名单、心跳与配对 | 主机接入必需 |
 | PostgreSQL | 独立服务 | 业务主数据、审计、Outbox | 是 |
 | Admin Web | React/Vite + Tailwind | 管理界面，全部数据来自真实 API，无 Mock | 可选 |
 | 独立 OPA | 可选服务 | 远程 Rego 决策 | 否，默认内嵌 |
@@ -128,7 +128,7 @@ web/src/
 ```mermaid
 sequenceDiagram
     participant A as External Agent
-    participant C as pam-control
+    participant C as warden-control
     participant R as PostgreSQL
     participant P as Embedded Rego
 
@@ -152,8 +152,8 @@ sequenceDiagram
 
 ```mermaid
 sequenceDiagram
-    participant C as pam-connector
-    participant A as pam-control
+    participant C as warden-connector
+    participant A as warden-control
     participant D as PostgreSQL
     participant K as Kubernetes API
 
@@ -164,7 +164,7 @@ sequenceDiagram
     A->>A: 用该 Connector 独立任务 Key 做 HMAC-SHA256 签名
     A-->>C: TaskEnvelope
     C->>C: 验签、时间窗、Grant、参数 Hash、Connector ID
-    C->>K: TokenRequest for pam-executor（短期身份）
+    C->>K: TokenRequest for warden-executor（短期身份）
     K-->>C: short-lived token
     C->>K: 结构化动作（如 deployment.get）
     K-->>C: target result
@@ -218,9 +218,9 @@ stateDiagram-v2
 
 - `server/migrations/` 是按编号排序的 SQL（001–097，其中 068–071 无文件），编号唯一性有单测保障。
 - **启动不跑迁移**：全新库按文件名顺序手工执行；发布流水线按 `deploy/release/migrations.txt` 重放编号 ≥ 035 的幂等迁移。新增此类迁移必须登记清单，否则单测失败。
-- 内置 `admin` 由 `002_seed.sql` 写入固定 ID；运行时 `EnsureAdminPassword` 只把密码哈希与 `PAM_ADMIN_PASSWORD_FILE` 同步。
+- 内置 `admin` 由 `002_seed.sql` 写入固定 ID；运行时 `EnsureAdminPassword` 只把密码哈希与 `WARDEN_ADMIN_PASSWORD_FILE` 同步。
 - `audit_events.action` 是 PostgreSQL 枚举，新增动作名必须补 `ALTER TYPE audit_action ADD VALUE` 迁移。
-- Outbox 写入可开关（`PAM_OUTBOX_ENABLED`），Publisher 后台循环尚未实现。
+- Outbox 写入可开关（`WARDEN_OUTBOX_ENABLED`），Publisher 后台循环尚未实现。
 
 ## 安全设计要点
 

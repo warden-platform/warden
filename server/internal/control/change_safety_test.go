@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func TestConnectorExecutionErrorKeepsKnownJenkinsCodes(t *testing.T) {

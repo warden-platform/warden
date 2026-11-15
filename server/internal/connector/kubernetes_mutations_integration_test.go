@@ -15,16 +15,16 @@ import (
 	"k8s.io/client-go/kubernetes/fake"
 	"k8s.io/client-go/tools/clientcmd"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func TestLocalKubernetesFixtureConnector(t *testing.T) {
-	if os.Getenv("PAM_LOCAL_FIXTURE_CONNECTOR") != "1" {
-		t.Skip("set PAM_LOCAL_FIXTURE_CONNECTOR=1 to expose a temporary local UI fixture")
+	if os.Getenv("WARDEN_LOCAL_FIXTURE_CONNECTOR") != "1" {
+		t.Skip("set WARDEN_LOCAL_FIXTURE_CONNECTOR=1 to expose a temporary local UI fixture")
 	}
-	keyFile := os.Getenv("PAM_TEST_TASK_SIGNING_KEY_FILE")
+	keyFile := os.Getenv("WARDEN_TEST_TASK_SIGNING_KEY_FILE")
 	if keyFile == "" {
-		t.Fatal("PAM_TEST_TASK_SIGNING_KEY_FILE is required")
+		t.Fatal("WARDEN_TEST_TASK_SIGNING_KEY_FILE is required")
 	}
 	signingKey, err := os.ReadFile(keyFile)
 	if err != nil {
@@ -46,7 +46,7 @@ func TestLocalKubernetesFixtureConnector(t *testing.T) {
 	}
 	runtime := NewRuntime("http://localhost:8080", "ope7209-ui-fixture", "testing", "dev-ope7209", signingKey, runner)
 	duration := 10 * time.Minute
-	if value := os.Getenv("PAM_LOCAL_FIXTURE_DURATION"); value != "" {
+	if value := os.Getenv("WARDEN_LOCAL_FIXTURE_DURATION"); value != "" {
 		if parsed, parseErr := time.ParseDuration(value); parseErr == nil {
 			duration = parsed
 		}
@@ -59,9 +59,9 @@ func TestLocalKubernetesFixtureConnector(t *testing.T) {
 }
 
 func TestKubernetesWorkloadMutationsOnRealCluster(t *testing.T) {
-	kubeconfig := os.Getenv("PAM_KUBERNETES_TEST_KUBECONFIG")
+	kubeconfig := os.Getenv("WARDEN_KUBERNETES_TEST_KUBECONFIG")
 	if kubeconfig == "" {
-		t.Skip("set PAM_KUBERNETES_TEST_KUBECONFIG to run the real-cluster mutation test")
+		t.Skip("set WARDEN_KUBERNETES_TEST_KUBECONFIG to run the real-cluster mutation test")
 	}
 	config, err := clientcmd.BuildConfigFromFlags("", kubeconfig)
 	if err != nil {
@@ -73,7 +73,7 @@ func TestKubernetesWorkloadMutationsOnRealCluster(t *testing.T) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	namespace := "pam-ope7209-" + time.Now().UTC().Format("150405")
+	namespace := "warden-ope7209-" + time.Now().UTC().Format("150405")
 	if _, err := client.CoreV1().Namespaces().Create(ctx, &corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: namespace}}, metav1.CreateOptions{}); err != nil {
 		t.Fatal(err)
 	}

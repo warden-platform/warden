@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -105,7 +105,7 @@ func (r *QueryTemplateRepo) ListColumnClassifications(ctx context.Context, integ
 
 // TableResourceExists reports whether an ACTIVE database_table resource with the
 // given external id (table/<schema>/<table>) exists under the integration. Used
-// by SQL import to reject queries referencing tables PAM does not govern.
+// by SQL import to reject queries referencing tables Warden does not govern.
 func (r *QueryTemplateRepo) TableResourceExists(ctx context.Context, integrationID, externalID string) (bool, error) {
 	tenantID := repositoryTenant(ctx)
 	var exists bool

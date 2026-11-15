@@ -9,8 +9,8 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
-	"gitee.com/pam-platform/pam/server/internal/storage/postgres"
+	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 )
 
 func TestValidateProjectMemberInput(t *testing.T) {

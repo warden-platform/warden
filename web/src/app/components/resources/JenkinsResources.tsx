@@ -22,11 +22,19 @@ const DISPLAY_TYPES = new Set(['jenkins_controller', 'jenkins_node', 'jenkins_jo
 const groupKey = (r: ApiResource) => r.integration_id || r.connector_id
 
 const hostnameFromEndpoint = (endpoint: string): string => {
-  try { return new URL(endpoint).hostname } catch { return endpoint }
+  try {
+    return new URL(endpoint).hostname
+  } catch {
+    return endpoint
+  }
 }
 
 export function JenkinsResources({
-  resources, connectorName, query, onAction, onProject,
+  resources,
+  connectorName,
+  query,
+  onAction,
+  onProject,
 }: {
   resources: ApiResource[]
   connectorName: (id: string) => string
@@ -49,23 +57,40 @@ export function JenkinsResources({
   }, [resources])
 
   const q = query.trim().toLowerCase()
-  const searched = useMemo(() => q
-    ? resources.filter((r) => {
-        const ep = endpointByGroup.get(groupKey(r)) ?? ''
-        return (r.name + r.resource_type + connectorName(r.connector_id) + ep).toLowerCase().includes(q)
-      })
-    : resources, [resources, q, connectorName, endpointByGroup])
+  const searched = useMemo(
+    () =>
+      q
+        ? resources.filter((r) => {
+            const ep = endpointByGroup.get(groupKey(r)) ?? ''
+            return (r.name + r.resource_type + connectorName(r.connector_id) + ep).toLowerCase().includes(q)
+          })
+        : resources,
+    [resources, q, connectorName, endpointByGroup],
+  )
 
   const [hiddenTypes, toggleType] = useToggleSet()
-  const filtered = hiddenTypes.size === 0
-    ? searched
-    : searched.filter((r) => !hiddenTypes.has(r.resource_type))
+  const filtered = hiddenTypes.size === 0 ? searched : searched.filter((r) => !hiddenTypes.has(r.resource_type))
   const displayFiltered = filtered.filter((r) => DISPLAY_TYPES.has(r.resource_type))
 
   const typeChips = [
-    { type: 'jenkins_controller', label: 'Controller', icon: <ServerCog size={14} />, count: searched.filter((r) => r.resource_type === 'jenkins_controller').length },
-    { type: 'jenkins_node', label: 'Node', icon: <Network size={14} />, count: searched.filter((r) => r.resource_type === 'jenkins_node').length },
-    { type: 'jenkins_job', label: 'Job', icon: <ServerCog size={14} />, count: searched.filter((r) => r.resource_type === 'jenkins_job').length },
+    {
+      type: 'jenkins_controller',
+      label: 'Controller',
+      icon: <ServerCog size={14} />,
+      count: searched.filter((r) => r.resource_type === 'jenkins_controller').length,
+    },
+    {
+      type: 'jenkins_node',
+      label: 'Node',
+      icon: <Network size={14} />,
+      count: searched.filter((r) => r.resource_type === 'jenkins_node').length,
+    },
+    {
+      type: 'jenkins_job',
+      label: 'Job',
+      icon: <ServerCog size={14} />,
+      count: searched.filter((r) => r.resource_type === 'jenkins_job').length,
+    },
   ]
 
   const [collapsedGroups, toggleGroup] = useToggleSet(() => {
@@ -94,11 +119,21 @@ export function JenkinsResources({
     setExpandedJob(key)
     if (buildsByJob.has(key) || loadingBuilds.has(key)) return
     setLoadingBuilds((current) => new Set(current).add(key))
-    setBuildErrors((current) => { const next = new Map(current); next.delete(key); return next })
+    setBuildErrors((current) => {
+      const next = new Map(current)
+      next.delete(key)
+      return next
+    })
     listResources({ type: 'jenkins_build', namespace: job.name, integrationId: job.integration_id, limit: RECENT_BUILDS })
       .then((items) => setBuildsByJob((current) => new Map(current).set(key, items ?? [])))
       .catch((error: Error) => setBuildErrors((current) => new Map(current).set(key, error.message || '加载构建记录失败')))
-      .finally(() => setLoadingBuilds((current) => { const next = new Set(current); next.delete(key); return next }))
+      .finally(() =>
+        setLoadingBuilds((current) => {
+          const next = new Set(current)
+          next.delete(key)
+          return next
+        }),
+      )
   }
 
   const renderControllerSection = (gk: string, controllers: ApiResource[]) => {
@@ -107,17 +142,37 @@ export function JenkinsResources({
     const collapsed = collapsedSections.has(sectionKey)
     return (
       <section key={sectionKey} className="group-section">
-        <button type="button" className="group-header group-header-button" onClick={() => toggleSection(sectionKey)} aria-expanded={!collapsed}>
+        <button
+          type="button"
+          className="group-header group-header-button"
+          onClick={() => toggleSection(sectionKey)}
+          aria-expanded={!collapsed}
+        >
           <ChevronRight size={14} className={`chevron${collapsed ? '' : ' chevron-open'}`} />
           <ServerCog size={14} />
           <span>Controllers</span>
           <small className="group-count">{controllers.length}</small>
         </button>
-        {!collapsed && <div className="res-list">{controllers.map((controller) => (
-          <ResourceCard key={controller.id} resource={controller} connectorName={connectorName(controller.connector_id)} onAction={(resource) => onAction(resource, 'jenkins.job.create')} onProject={onProject} icon={<ServerCog size={20} />} actionLabel="创建 Job">
-            <div className="res-card-meta"><span>Endpoint</span><strong>{String(controller.metadata?.endpoint ?? controller.name)}</strong></div>
-          </ResourceCard>
-        ))}</div>}
+        {!collapsed && (
+          <div className="res-list">
+            {controllers.map((controller) => (
+              <ResourceCard
+                key={controller.id}
+                resource={controller}
+                connectorName={connectorName(controller.connector_id)}
+                onAction={(resource) => onAction(resource, 'jenkins.job.create')}
+                onProject={onProject}
+                icon={<ServerCog size={20} />}
+                actionLabel="创建 Job"
+              >
+                <div className="res-card-meta">
+                  <span>Endpoint</span>
+                  <strong>{String(controller.metadata?.endpoint ?? controller.name)}</strong>
+                </div>
+              </ResourceCard>
+            ))}
+          </div>
+        )}
       </section>
     )
   }
@@ -129,17 +184,19 @@ export function JenkinsResources({
       const key = groupKey(r)
       ;(m.get(key) ?? m.set(key, []).get(key)!).push(r)
     }
-    return [...m.entries()].map(([key, items]) => {
-      const ep = endpointByGroup.get(key)
-      const label = ep
-        ? hostnameFromEndpoint(ep)
-        : (connectorName(items[0]?.connector_id) || key.slice(0, 8))
-      return { key, items, label }
-    }).sort((a, b) => a.label.localeCompare(b.label))
+    return [...m.entries()]
+      .map(([key, items]) => {
+        const ep = endpointByGroup.get(key)
+        const label = ep ? hostnameFromEndpoint(ep) : connectorName(items[0]?.connector_id) || key.slice(0, 8)
+        return { key, items, label }
+      })
+      .sort((a, b) => a.label.localeCompare(b.label))
   }, [displayFiltered, endpointByGroup, connectorName])
 
   if (resources.length === 0) {
-    return <EmptyState icon={ServerCog} title="暂无 Jenkins 资源" text="接入 Jenkins 中间件后，Controller、节点与 Job 会在此按域名分组展示。" />
+    return (
+      <EmptyState icon={ServerCog} title="暂无 Jenkins 资源" text="接入 Jenkins 中间件后，Controller、节点与 Job 会在此按域名分组展示。" />
+    )
   }
   if (searched.length === 0) {
     return <EmptyState icon={Search} title="没有匹配的资源" text="尝试调整搜索条件。" />
@@ -151,7 +208,12 @@ export function JenkinsResources({
     const collapsed = collapsedSections.has(sectionKey)
     return (
       <section key={sectionKey} className="group-section">
-        <button type="button" className="group-header group-header-button" onClick={() => toggleSection(sectionKey)} aria-expanded={!collapsed}>
+        <button
+          type="button"
+          className="group-header group-header-button"
+          onClick={() => toggleSection(sectionKey)}
+          aria-expanded={!collapsed}
+        >
           <ChevronRight size={14} className={`chevron${collapsed ? '' : ' chevron-open'}`} />
           <Network size={14} />
           <span>Nodes</span>
@@ -160,9 +222,22 @@ export function JenkinsResources({
         {!collapsed && (
           <div className="res-list">
             {nodes.map((r) => (
-              <ResourceCard key={r.id} resource={r} connectorName={connectorName(r.connector_id)} onAction={onAction} onProject={onProject} icon={<Network size={20} />}>
-                <div className="res-card-meta"><span>状态</span><strong>{r.metadata?.temporarilyOffline ? '离线' : '在线'}</strong></div>
-                <div className="res-card-meta"><span>执行器</span><strong>{String(r.metadata?.numExecutors ?? '-')}</strong></div>
+              <ResourceCard
+                key={r.id}
+                resource={r}
+                connectorName={connectorName(r.connector_id)}
+                onAction={onAction}
+                onProject={onProject}
+                icon={<Network size={20} />}
+              >
+                <div className="res-card-meta">
+                  <span>状态</span>
+                  <strong>{r.metadata?.temporarilyOffline ? '离线' : '在线'}</strong>
+                </div>
+                <div className="res-card-meta">
+                  <span>执行器</span>
+                  <strong>{String(r.metadata?.numExecutors ?? '-')}</strong>
+                </div>
               </ResourceCard>
             ))}
           </div>
@@ -178,7 +253,12 @@ export function JenkinsResources({
     const sortedJobs = [...jobs].sort((a, b) => a.name.localeCompare(b.name))
     return (
       <section key={sectionKey} className="group-section">
-        <button type="button" className="group-header group-header-button" onClick={() => toggleSection(sectionKey)} aria-expanded={!collapsed}>
+        <button
+          type="button"
+          className="group-header group-header-button"
+          onClick={() => toggleSection(sectionKey)}
+          aria-expanded={!collapsed}
+        >
           <ChevronRight size={14} className={`chevron${collapsed ? '' : ' chevron-open'}`} />
           <ServerCog size={14} />
           <span>Jobs</span>
@@ -199,17 +279,34 @@ export function JenkinsResources({
                     onClick={() => toggleJob(job, gk)}
                     role="button"
                   >
-                    <div className="resource-icon jenkins"><ServerCog size={20} /></div>
+                    <div className="resource-icon jenkins">
+                      <ServerCog size={20} />
+                    </div>
                     <div className="res-card-main">
                       <strong>{job.name}</strong>
                       <span>Jenkins Job</span>
                     </div>
-                    <div className="res-card-meta"><span>状态</span><strong>{jobBuildable(job) ? '可构建' : '已禁用'}</strong></div>
-                    <div className="res-card-meta"><span>构建记录</span><strong>{jobBuilds ? jobBuilds.length : '按需加载'}</strong></div>
+                    <div className="res-card-meta">
+                      <span>状态</span>
+                      <strong>{jobBuildable(job) ? '可构建' : '已禁用'}</strong>
+                    </div>
+                    <div className="res-card-meta">
+                      <span>构建记录</span>
+                      <strong>{jobBuilds ? jobBuilds.length : '按需加载'}</strong>
+                    </div>
                     <ResourceOwnershipButton resource={job} onProject={onProject} />
                     <div className="res-card-actions">
                       <ChevronRight size={16} className={`chevron ${expanded ? 'chevron-open' : ''}`} />
-                      <button className="secondary-button" onClick={(e) => { e.stopPropagation(); onAction(job) }}><Play size={15} />请求动作</button>
+                      <button
+                        className="secondary-button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          onAction(job)
+                        }}
+                      >
+                        <Play size={15} />
+                        请求动作
+                      </button>
                     </div>
                   </div>
                   {expanded && (
@@ -226,12 +323,17 @@ export function JenkinsResources({
                             <Hash size={13} />
                             <strong>#{buildNumber(b) ?? b.name}</strong>
                             <span className="build-time">{formatBuildTime(buildTimestamp(b))}</span>
-                            <button className="quiet-button" onClick={() => onAction(b)}><Play size={13} />请求动作</button>
+                            <button className="quiet-button" onClick={() => onAction(b)}>
+                              <Play size={13} />
+                              请求动作
+                            </button>
                           </div>
                         ))
                       )}
                       {loadedBuilds.length > RECENT_BUILDS && (
-                        <div className="build-more">仅显示最近 {RECENT_BUILDS} 次，共 {loadedBuilds.length} 次构建</div>
+                        <div className="build-more">
+                          仅显示最近 {RECENT_BUILDS} 次，共 {loadedBuilds.length} 次构建
+                        </div>
                       )}
                     </div>
                   )}
@@ -259,10 +361,17 @@ export function JenkinsResources({
             controllers.length > 0 ? `${controllers.length} Controller` : '',
             nodes.length > 0 ? `${nodes.length} Node` : '',
             jobs.length > 0 ? `${jobs.length} Job` : '',
-          ].filter(Boolean).join(' · ')
+          ]
+            .filter(Boolean)
+            .join(' · ')
           return (
             <section key={key} className="group-section cluster-section">
-              <button type="button" className="group-header group-header-button cluster-header" onClick={() => toggleGroup(key)} aria-expanded={!collapsed}>
+              <button
+                type="button"
+                className="group-header group-header-button cluster-header"
+                onClick={() => toggleGroup(key)}
+                aria-expanded={!collapsed}
+              >
                 <ChevronRight size={14} className={`chevron${collapsed ? '' : ' chevron-open'}`} />
                 <ServerCog size={14} />
                 <span>{label}</span>

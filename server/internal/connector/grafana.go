@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 const (
@@ -62,10 +62,10 @@ type GrafanaRunner struct {
 func NewGrafanaRunner(config GrafanaConfig) (*GrafanaRunner, error) {
 	endpoint, err := url.Parse(strings.TrimSpace(config.BaseURL))
 	if err != nil || endpoint.Scheme == "" || endpoint.Host == "" || (endpoint.Scheme != "http" && endpoint.Scheme != "https") {
-		return nil, fmt.Errorf("PAM_GRAFANA_URL must be an absolute http(s) URL")
+		return nil, fmt.Errorf("WARDEN_GRAFANA_URL must be an absolute http(s) URL")
 	}
 	if endpoint.RawQuery != "" || endpoint.Fragment != "" || endpoint.User != nil {
-		return nil, fmt.Errorf("PAM_GRAFANA_URL must not contain credentials, query, or fragment")
+		return nil, fmt.Errorf("WARDEN_GRAFANA_URL must not contain credentials, query, or fragment")
 	}
 	if err := rejectMetadataEndpoint(endpoint); err != nil {
 		return nil, err

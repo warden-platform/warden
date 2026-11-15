@@ -38,7 +38,7 @@ func TestPackageChartContainsPublishedFiles(t *testing.T) {
 		}
 		seen[header.Name] = true
 	}
-	for _, name := range []string{"pam-operator/Chart.yaml", "pam-operator/values.yaml", "pam-operator/templates/operator.yaml"} {
+	for _, name := range []string{"warden-operator/Chart.yaml", "warden-operator/values.yaml", "warden-operator/templates/operator.yaml"} {
 		if !seen[name] {
 			t.Fatalf("packaged Chart is missing %s", name)
 		}
@@ -49,9 +49,9 @@ func TestDownloadChecksumsIncludesAllLinuxArtifacts(t *testing.T) {
 	root := t.TempDir()
 	files := []string{
 		"deploy/linux/install.sh", "deploy/linux/uninstall.sh", "deploy/network/install.sh",
-		"server/bin/linux-amd64/pam-linux-connector", "server/bin/linux-amd64/pam-linux-helper",
-		"server/bin/linux-arm64/pam-linux-connector", "server/bin/linux-arm64/pam-linux-helper",
-		"server/bin/linux-amd64/pam-network-connector", "server/bin/linux-arm64/pam-network-connector",
+		"server/bin/linux-amd64/warden-linux-connector", "server/bin/linux-amd64/warden-linux-helper",
+		"server/bin/linux-arm64/warden-linux-connector", "server/bin/linux-arm64/warden-linux-helper",
+		"server/bin/linux-amd64/warden-network-connector", "server/bin/linux-arm64/warden-network-connector",
 	}
 	for _, name := range files {
 		path := filepath.Join(root, name)
@@ -62,13 +62,13 @@ func TestDownloadChecksumsIncludesAllLinuxArtifacts(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	t.Setenv("PAM_ARTIFACT_ROOT", root)
+	t.Setenv("WARDEN_ARTIFACT_ROOT", root)
 	response := httptest.NewRecorder()
 	(&Handler{}).DownloadChecksums(response, httptest.NewRequest("GET", "/downloads/SHA256SUMS", nil))
 	if response.Code != 200 {
 		t.Fatalf("checksum endpoint returned %d: %s", response.Code, response.Body.String())
 	}
-	for _, name := range []string{"install-linux.sh", "install-network.sh", "uninstall-linux.sh", "pam-linux-connector-linux-amd64", "pam-linux-helper-linux-arm64", "pam-network-connector-linux-amd64"} {
+	for _, name := range []string{"install-linux.sh", "install-network.sh", "uninstall-linux.sh", "warden-linux-connector-linux-amd64", "warden-linux-helper-linux-arm64", "warden-network-connector-linux-amd64"} {
 		if !strings.Contains(response.Body.String(), "  "+name+"\n") {
 			t.Fatalf("checksum manifest is missing %s: %s", name, response.Body.String())
 		}

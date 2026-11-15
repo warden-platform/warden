@@ -15,8 +15,8 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -25,8 +25,8 @@ import (
 const adminPrincipalID = "00000000-0000-0000-0000-000000000003"
 
 const (
-	jwtIssuer   = "hightower-control"
-	jwtAudience = "hightower-admin"
+	jwtIssuer   = "warden-control"
+	jwtAudience = "warden-admin"
 )
 
 // PrincipalStore abstracts principal persistence so auth-related handlers
@@ -57,7 +57,7 @@ func verifyPassword(password, hash string) bool {
 
 // --- JWT (HMAC-SHA256) ---
 
-type pamClaims struct {
+type wardenClaims struct {
 	Name   string   `json:"name"`
 	Tenant string   `json:"tenant"`
 	Scope  []string `json:"scope"`
@@ -65,9 +65,9 @@ type pamClaims struct {
 }
 
 // jwtTTL returns the JWT lifetime. Defaults to 8 hours; overridable via
-// PAM_JWT_TTL_HOURS (must parse as a positive integer).
+// WARDEN_JWT_TTL_HOURS (must parse as a positive integer).
 func jwtTTL() time.Duration {
-	if raw := os.Getenv("PAM_JWT_TTL_HOURS"); raw != "" {
+	if raw := os.Getenv("WARDEN_JWT_TTL_HOURS"); raw != "" {
 		if hours, err := strconv.Atoi(raw); err == nil && hours > 0 {
 			return time.Duration(hours) * time.Hour
 		}
@@ -108,7 +108,7 @@ func (h *Handler) issueJWTWithTTL(principal *domain.Principal, ttl time.Duration
 			scopes = tenantAdminScopes()
 		}
 	}
-	claims := pamClaims{
+	claims := wardenClaims{
 		Name:   principal.Name,
 		Tenant: principal.TenantID,
 		Scope:  scopes,
@@ -129,8 +129,8 @@ func (h *Handler) issueJWTWithTTL(principal *domain.Principal, ttl time.Duration
 	return signed, expiresAt, nil
 }
 
-func (h *Handler) parseJWT(raw string) (*pamClaims, error) {
-	claims := &pamClaims{}
+func (h *Handler) parseJWT(raw string) (*wardenClaims, error) {
+	claims := &wardenClaims{}
 	_, err := jwt.ParseWithClaims(raw, claims, func(t *jwt.Token) (any, error) {
 		if t.Method != jwt.SigningMethodHS256 {
 			return nil, errors.New("unexpected signing method")
@@ -150,16 +150,16 @@ func (h *Handler) parseJWT(raw string) (*pamClaims, error) {
 // --- Admin password seeding ---
 
 // EnsureAdminPassword synchronizes the admin principal's password_hash from
-// PAM_ADMIN_PASSWORD. This makes the configured Secret the source of truth and
-// allows password rotation by updating the Secret and restarting pam-control.
+// WARDEN_ADMIN_PASSWORD. This makes the configured Secret the source of truth and
+// allows password rotation by updating the Secret and restarting warden-control.
 // If the setting is absent, an existing database password remains unchanged.
 func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
 	if h.principals == nil {
 		return nil
 	}
-	password, err := config.Secret("PAM_ADMIN_PASSWORD")
+	password, err := config.Secret("WARDEN_ADMIN_PASSWORD")
 	if err != nil {
-		return fmt.Errorf("read PAM_ADMIN_PASSWORD: %w", err)
+		return fmt.Errorf("read WARDEN_ADMIN_PASSWORD: %w", err)
 	}
 	if password == "" {
 		password, err = localDevelopmentAdminPassword()
@@ -167,12 +167,12 @@ func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
 			return fmt.Errorf("read local admin password: %w", err)
 		}
 		if password == "" {
-			log.Println("警告: PAM_ADMIN_PASSWORD 未设置，Web 登录不可用")
+			log.Println("警告: WARDEN_ADMIN_PASSWORD 未设置，Web 登录不可用")
 			return nil
 		}
 	}
 	if len(password) < 8 || len(password) > 72 {
-		return fmt.Errorf("PAM_ADMIN_PASSWORD must contain 8-72 bytes")
+		return fmt.Errorf("WARDEN_ADMIN_PASSWORD must contain 8-72 bytes")
 	}
 	// The platform administrator is the bootstrap identity. Its tenant is
 	// deliberately fixed to the migrated platform tenant for this lookup; normal
@@ -199,7 +199,7 @@ func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
 }
 
 // localDevelopmentAdminPassword supports the repository-local launchd setup.
-// Packaged deployments should continue to configure PAM_ADMIN_PASSWORD_FILE;
+// Packaged deployments should continue to configure WARDEN_ADMIN_PASSWORD_FILE;
 // the fallback is only active when .secrets/admin_password exists next to the
 // source tree containing the running binary.
 func localDevelopmentAdminPassword() (string, error) {
@@ -208,7 +208,7 @@ func localDevelopmentAdminPassword() (string, error) {
 		return "", nil
 	}
 	candidates := []string{filepath.Join(filepath.Dir(executable), "..", "..", ".secrets", "admin_password")}
-	if root := strings.TrimSpace(os.Getenv("PAM_ARTIFACT_ROOT")); root != "" {
+	if root := strings.TrimSpace(os.Getenv("WARDEN_ARTIFACT_ROOT")); root != "" {
 		candidates = append([]string{filepath.Join(root, ".secrets", "admin_password")}, candidates...)
 	}
 	for _, candidate := range candidates {
@@ -280,7 +280,7 @@ func allowLoginAttempt(remoteAddr, username string, now time.Time) bool {
 }
 
 func requestClientAddress(r *http.Request) string {
-	if strings.EqualFold(strings.TrimSpace(os.Getenv("PAM_TRUST_PROXY_HEADERS")), "true") && requestFromTrustedProxy(r.RemoteAddr) {
+	if strings.EqualFold(strings.TrimSpace(os.Getenv("WARDEN_TRUST_PROXY_HEADERS")), "true") && requestFromTrustedProxy(r.RemoteAddr) {
 		if forwarded := strings.TrimSpace(strings.Split(r.Header.Get("X-Forwarded-For"), ",")[0]); net.ParseIP(forwarded) != nil {
 			return forwarded
 		}
@@ -300,7 +300,7 @@ func requestFromTrustedProxy(remoteAddr string) bool {
 	if ip == nil {
 		return false
 	}
-	for _, raw := range strings.Split(os.Getenv("PAM_TRUSTED_PROXY_CIDRS"), ",") {
+	for _, raw := range strings.Split(os.Getenv("WARDEN_TRUSTED_PROXY_CIDRS"), ",") {
 		_, network, parseErr := net.ParseCIDR(strings.TrimSpace(raw))
 		if parseErr == nil && network.Contains(ip) {
 			return true
@@ -390,7 +390,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusOK, resp)
 }
 
-// establishSession issues a PAM JWT, records the session, and sets the
+// establishSession issues a Warden JWT, records the session, and sets the
 // pam_session cookie. It is shared by the password login and OIDC login paths
 // so both produce an identical session contract.
 func (h *Handler) establishSession(w http.ResponseWriter, r *http.Request, principal *domain.Principal) (time.Time, error) {
@@ -410,7 +410,7 @@ func (h *Handler) establishSession(w http.ResponseWriter, r *http.Request, princ
 	}
 	h.writeIdentityAudit(r.Context(), "user.login", principal.ID, "")
 	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: token, Path: "/", HttpOnly: true,
-		Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, Expires: expiresAt})
+		Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, Expires: expiresAt})
 	return expiresAt, nil
 }
 
@@ -419,7 +419,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		_, _ = h.pool.Exec(r.Context(), `UPDATE admin_sessions SET revoked_at=now() WHERE jti=$1 AND revoked_at IS NULL`, identity.SessionID)
 	}
 	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: "", Path: "/", HttpOnly: true,
-		Secure: os.Getenv("PAM_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
+		Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	jsonResp(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }
 

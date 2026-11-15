@@ -7,11 +7,11 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// --- DB-gated integration tests (PAM_TEST_DATABASE_URL) ---
+// --- DB-gated integration tests (WARDEN_TEST_DATABASE_URL) ---
 
 func TestProviderCapabilityCatalogCRUD(t *testing.T) {
 	pool := newTestDatabasePool(t)

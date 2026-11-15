@@ -1,4 +1,4 @@
-# HighTower Web
+# Warden Web
 
 > **面向**：要改管理端代码的开发者。本文是前端目录与命令速查。
 > 完整上手见 [`../docs/quickstart.md`](../docs/quickstart.md)，权限门控规则见 [`../docs/authorization.md`](../docs/authorization.md)，接口见 [`../docs/api.md`](../docs/api.md)，文档地图见 [`../docs/README.md`](../docs/README.md)。
@@ -14,7 +14,7 @@ src/
 └── main.tsx          浏览器入口
 ```
 
-全部管理页面均通过 `src/shared/api.ts` 连接 `pam-control`，不使用演示或 Mock 数据。认证使用 HttpOnly 会话 Cookie，浏览器存储不保存 JWT。
+全部管理页面均通过 `src/shared/api.ts` 连接 `warden-control`，不使用演示或 Mock 数据。认证使用 HttpOnly 会话 Cookie，浏览器存储不保存 JWT。
 
 **权限门控**：`/auth/me` 下发 `capabilities`；`src/shared/api.ts` 的 `canUser(user, scope)` 是唯一判断入口（旧会话回退到 `scopes`）。`AppSidebar.tsx` 的每个菜单项用 `requires` 声明所需 scope，`App.tsx` 的路由守卫与顶栏也一律通过 `canUser()` 判断，**不要按 `role` 或 `is_platform_admin` 字符串硬编码**。名单与后端 `RequireScope` 守卫共用同一批字符串，定义在 `server/internal/control/authorization.go`。
 

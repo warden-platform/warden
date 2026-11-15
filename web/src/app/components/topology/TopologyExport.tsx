@@ -28,7 +28,7 @@ export function TopologyExport({ text }: { text: string }) {
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = `pam-topology-${new Date().toISOString().slice(0, 10)}.txt`
+    a.download = `warden-topology-${new Date().toISOString().slice(0, 10)}.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -38,22 +38,38 @@ export function TopologyExport({ text }: { text: string }) {
   return (
     <div className="relative">
       <button className="secondary-button" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
-        <FileText size={16} />导出拓扑
+        <FileText size={16} />
+        导出拓扑
       </button>
       {open && (
         <>
           <button className="fixed inset-0 z-10 border-0 bg-transparent" aria-label="关闭导出" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 z-20 mt-2 w-[420px] max-w-[calc(100vw-2rem)] rounded-lg border border-border bg-surface p-3 shadow-lg dark:border-border-dark dark:bg-surface-dark">
+          <div className="absolute right-0 z-20 mt-2 w-[420px] max-w-[calc(100vw-2rem)] rounded-lg border border-white/70 bg-white/90 p-3 shadow-glass-strong backdrop-blur-2xl dark:border-white/15 dark:bg-surface-dark/90 dark:shadow-glass-dark-strong">
             <div className="mb-2 flex items-center justify-between">
               <p className="text-xs font-semibold text-content dark:text-content-dark">AI 可读拓扑文本</p>
               <div className="flex gap-1.5">
                 <button className="quiet-button" onClick={copy}>
-                  {copied ? <><Check size={14} />已复制</> : <><ClipboardCopy size={14} />复制</>}
+                  {copied ? (
+                    <>
+                      <Check size={14} />
+                      已复制
+                    </>
+                  ) : (
+                    <>
+                      <ClipboardCopy size={14} />
+                      复制
+                    </>
+                  )}
                 </button>
-                <button className="quiet-button" onClick={download}><Download size={14} />下载</button>
+                <button className="quiet-button" onClick={download}>
+                  <Download size={14} />
+                  下载
+                </button>
               </div>
             </div>
-            <pre className="max-h-[320px] overflow-auto rounded-md bg-surface-muted p-2.5 font-mono text-[10px] leading-relaxed text-content-subtle dark:bg-surface-dark-muted dark:text-content-dark-subtle">{text}</pre>
+            <pre className="max-h-[320px] overflow-auto rounded-md bg-surface-muted p-2.5 font-mono text-[10px] leading-relaxed text-content-subtle dark:bg-surface-dark-muted dark:text-content-dark-subtle">
+              {text}
+            </pre>
           </div>
         </>
       )}

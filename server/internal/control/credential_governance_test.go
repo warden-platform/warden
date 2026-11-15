@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -127,15 +127,15 @@ func TestPendingSecretCipherRoundTrip(t *testing.T) {
 	}
 }
 
-// --- DB-gated test helpers (PAM_TEST_DATABASE_URL) ---
+// --- DB-gated test helpers (WARDEN_TEST_DATABASE_URL) ---
 
 // newTestDatabasePool resets a fresh schema and applies every migration. Each
 // caller gets an isolated database so tests never share credential state.
 func newTestDatabasePool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	dsn := os.Getenv("PAM_TEST_DATABASE_URL")
+	dsn := os.Getenv("WARDEN_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Skip("PAM_TEST_DATABASE_URL is not set; skipping DB-gated credential governance tests")
+		t.Skip("WARDEN_TEST_DATABASE_URL is not set; skipping DB-gated credential governance tests")
 	}
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
@@ -182,11 +182,11 @@ func applyTestMigrations(t *testing.T, conn *pgxpool.Conn) {
 
 func newTestDatabaseHandler(t *testing.T, pool *pgxpool.Pool) (*Handler, *http.ServeMux) {
 	t.Helper()
-	t.Setenv("PAM_TASK_SIGNING_KEY", "task-signing-key-0123456789abcdef01234567")
-	t.Setenv("PAM_JWT_SIGNING_KEY", "jwt-signing-key--0123456789abcdef012345678")
-	t.Setenv("PAM_CREDENTIAL_ENCRYPTION_KEY", "cred-encryption-key--0123456789abcdef0123456")
-	t.Setenv("PAM_ADMIN_API_KEY", testAdminAPIKey)
-	t.Setenv("PAM_ADMIN_PASSWORD", "test-admin-password-123")
+	t.Setenv("WARDEN_TASK_SIGNING_KEY", "task-signing-key-0123456789abcdef01234567")
+	t.Setenv("WARDEN_JWT_SIGNING_KEY", "jwt-signing-key--0123456789abcdef012345678")
+	t.Setenv("WARDEN_CREDENTIAL_ENCRYPTION_KEY", "cred-encryption-key--0123456789abcdef0123456")
+	t.Setenv("WARDEN_ADMIN_API_KEY", testAdminAPIKey)
+	t.Setenv("WARDEN_ADMIN_PASSWORD", "test-admin-password-123")
 	h, err := NewHandler(pool)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)

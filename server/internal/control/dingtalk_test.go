@@ -38,12 +38,12 @@ func TestValidateDingTalkWebhook(t *testing.T) {
 }
 
 func TestValidatePublicApprovalURL(t *testing.T) {
-	for _, candidate := range []string{"https://pam.example.test", "http://127.0.0.1:8080"} {
+	for _, candidate := range []string{"https://warden.example.test", "http://127.0.0.1:8080"} {
 		if _, err := validatePublicApprovalURL(candidate); err != nil {
 			t.Fatalf("valid public URL rejected: %v", err)
 		}
 	}
-	for _, candidate := range []string{"javascript:alert(1)", "https://user@pam.example.test", "/relative"} {
+	for _, candidate := range []string{"javascript:alert(1)", "https://user@warden.example.test", "/relative"} {
 		if _, err := validatePublicApprovalURL(candidate); err == nil {
 			t.Fatalf("unsafe public URL accepted: %s", candidate)
 		}
@@ -57,7 +57,7 @@ func TestDingTalkSendSignsAndRedactsCredentialsFromBody(t *testing.T) {
 	var captured *http.Request
 	var body []byte
 	client := &dingTalkClient{
-		webhook: webhook, secret: secret, publicURL: "https://pam.example.test",
+		webhook: webhook, secret: secret, publicURL: "https://warden.example.test",
 		now: func() time.Time { return now },
 		http: &http.Client{Transport: roundTripFunc(func(request *http.Request) (*http.Response, error) {
 			captured = request

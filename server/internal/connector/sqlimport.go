@@ -22,7 +22,7 @@ import (
 // then the AST flows into a query template for human review and publish.
 
 // ImportedTable is a table reference an administrator named in FROM/JOIN, to be
-// bound to a PAM database_table resource by the control plane.
+// bound to a Warden database_table resource by the control plane.
 type ImportedTable struct {
 	Schema string `json:"schema,omitempty"`
 	Table  string `json:"table"`

@@ -4,7 +4,7 @@
 web/vite.config.js
 web/vite.config.d.ts
 server/bin/
-server/pam-control
+server/warden-control
 .cache/
 .secrets/
 # Local workbench data (session memory, work logs). Never commit.

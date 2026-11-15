@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 const principalProjectIDsMetadataKey = "project_ids"
@@ -18,7 +18,7 @@ const (
 	resourceProjectAccessPrimary
 )
 
-// principalProjectScope returns the PAM projects explicitly granted to an
+// principalProjectScope returns the Warden projects explicitly granted to an
 // identity. An absent project_ids field keeps existing principals unrestricted;
 // an explicitly empty field grants no resource access.
 func principalProjectScope(identity *AuthenticatedIdentity) (map[string]struct{}, bool, error) {

@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -117,13 +117,13 @@ func (r *FederatedRepo) ConsumeAssertion(ctx context.Context, issuer, assertionI
 	return err
 }
 
-// ProvisionIdentity creates a passwordless PAM user on first login and
+// ProvisionIdentity creates a passwordless Warden user on first login and
 // refreshes its display attributes on subsequent logins. No project
-// membership is created here; a PAM tenant/project administrator must assign
+// membership is created here; a Warden tenant/project administrator must assign
 // it explicitly.
 //
 // defaultRole is applied whenever the principal has no role yet. An existing
-// role always wins, so a later role change made by an administrator in PAM is
+// role always wins, so a later role change made by an administrator in Warden is
 // never silently overwritten by the next IdP login.
 func (r *FederatedRepo) ProvisionIdentity(ctx context.Context, issuer, subject, email, displayName, tenantID, defaultRole string, metadata map[string]any) (*domain.Principal, error) {
 	tx, err := r.pool.Begin(ctx)

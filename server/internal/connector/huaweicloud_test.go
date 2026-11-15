@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func newHuaweiTestServer(t *testing.T, rdsStatus int) *httptest.Server {
@@ -789,7 +789,7 @@ func TestHuaweiCloudRunnerDeletesOnlyConfirmedECSAndVerifiesRemoval(t *testing.T
 	defer server.Close()
 	runner := newHuaweiTestRunner(t, server, HuaweiCloudConfig{AllowedServices: []string{"ecs"}})
 	task := domain.TaskEnvelope{
-		Resource: domain.TaskResource{Type: "huawei_ecs_instance", ExternalID: "ecs/ecs-1", Name: "pam-e2e-7211"},
+		Resource: domain.TaskResource{Type: "huawei_ecs_instance", ExternalID: "ecs/ecs-1", Name: "warden-e2e-7211"},
 		Action:   domain.TaskAction{Name: "huawei.ecs.delete"},
 		Parameters: map[string]any{
 			"confirmServerName": "wrong-name", "deletePublicIP": true, "deleteVolumes": true,

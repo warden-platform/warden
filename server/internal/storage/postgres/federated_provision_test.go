@@ -13,11 +13,11 @@ import (
 // TestProvisionIdentityIntegration covers the branch that unit tests cannot
 // reach without a real database: first-time federated provisioning and the
 // role-preservation rule on subsequent logins. It is opt-in because it writes
-// to a live PostgreSQL instance; set PAM_TEST_DATABASE_URL to enable it.
+// to a live PostgreSQL instance; set WARDEN_TEST_DATABASE_URL to enable it.
 func TestProvisionIdentityIntegration(t *testing.T) {
-	dsn := os.Getenv("PAM_TEST_DATABASE_URL")
+	dsn := os.Getenv("WARDEN_TEST_DATABASE_URL")
 	if dsn == "" {
-		t.Skip("set PAM_TEST_DATABASE_URL to run the federated provisioning integration test")
+		t.Skip("set WARDEN_TEST_DATABASE_URL to run the federated provisioning integration test")
 	}
 	ctx := context.Background()
 	pool, err := pgxpool.New(ctx, dsn)
@@ -70,7 +70,7 @@ func TestProvisionIdentityIntegration(t *testing.T) {
 		t.Fatalf("federated profile = %q / %q", storedEmail, storedName)
 	}
 
-	// An administrator changes the role inside PAM; the next IdP login must
+	// An administrator changes the role inside Warden; the next IdP login must
 	// not silently overwrite it with the configured default.
 	if _, err := pool.Exec(ctx,
 		`UPDATE principals SET metadata = metadata || '{"role":"user"}'::jsonb WHERE id=$1::uuid`,

@@ -4,12 +4,12 @@ import (
 	"context"
 	"fmt"
 
-	"gitee.com/pam-platform/pam/server/internal/config"
+	"gitee.com/pam-platform/warden/server/internal/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func ConnectPool(ctx context.Context) (*pgxpool.Pool, error) {
-	dsn, err := config.RequiredSecret("PAM_DATABASE_URL", 1)
+	dsn, err := config.RequiredSecret("WARDEN_DATABASE_URL", 1)
 	if err != nil {
 		return nil, err
 	}

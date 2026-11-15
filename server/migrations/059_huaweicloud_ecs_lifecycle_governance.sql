@@ -1,6 +1,6 @@
 -- Low-destructive ECS lifecycle and governance metadata operations. The
 -- Connector fixes the target to the authorized resource and Region; metadata
--- updates receive trusted PAM ownership context from pam-control.
+-- updates receive trusted Warden ownership context from warden-control.
 INSERT INTO action_definitions
     (name, version, display_name, description, resource_type, risk_level, execution_mode, parameter_schema, timeout_seconds)
 VALUES

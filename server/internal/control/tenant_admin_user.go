@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"strings"
 
-	"gitee.com/pam-platform/pam/server/internal/domain"
+	"gitee.com/pam-platform/warden/server/internal/domain"
 )
 
 func (h *Handler) CreateTenantAdmin(w http.ResponseWriter, r *http.Request) {

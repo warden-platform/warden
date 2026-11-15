@@ -11,7 +11,11 @@ export interface TypeChip {
   count: number
 }
 
-export function TypeFilterBar({ chips, hiddenTypes, onToggle }: {
+export function TypeFilterBar({
+  chips,
+  hiddenTypes,
+  onToggle,
+}: {
   chips: TypeChip[]
   hiddenTypes: Set<string>
   onToggle: (type: string) => void

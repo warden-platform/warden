@@ -1,6 +1,0 @@
-apiVersion: v2
-name: pam-operator
-description: Pair and manage a Kubernetes cluster with HighTower
-type: application
-version: 0.6.98
-appVersion: "0.3.128-cloud-20260917"

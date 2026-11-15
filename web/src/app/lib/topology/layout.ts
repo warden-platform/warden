@@ -6,10 +6,7 @@ import type { TopoNode, TopoEdge } from './buildTopology'
 const NODE_WIDTH = 220
 const NODE_HEIGHT = 72
 
-export function layoutTopology(
-  nodes: TopoNode[],
-  edges: TopoEdge[],
-): { nodes: Node[]; edges: Edge[] } {
+export function layoutTopology(nodes: TopoNode[], edges: TopoEdge[]): { nodes: Node[]; edges: Edge[] } {
   const g = new dagre.graphlib.Graph()
   g.setGraph({ rankdir: 'LR', nodesep: 36, ranksep: 96, marginx: 24, marginy: 24 })
   g.setDefaultEdgeLabel(() => ({}))

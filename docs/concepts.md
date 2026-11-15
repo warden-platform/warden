@@ -6,7 +6,7 @@
 
 ## 先建立一句话模型
 
-**HighTower 把「谁能对哪个东西做什么」拆成一串可审计的对象**：身份（Principal）发起一次动作（ActionDefinition），系统先做策略结论（PolicyDecision），必要时生成审批单（AccessRequest）与限时授权（AccessGrant），再由 Connector 领取一个签名任务（TaskEnvelope）去执行，全过程记录为 Execution 与 AuditEvent。
+**Warden 把「谁能对哪个东西做什么」拆成一串可审计的对象**：身份（Principal）发起一次动作（ActionDefinition），系统先做策略结论（PolicyDecision），必要时生成审批单（AccessRequest）与限时授权（AccessGrant），再由 Connector 领取一个签名任务（TaskEnvelope）去执行，全过程记录为 Execution 与 AuditEvent。
 
 Agent 始终拿不到目标系统的长期凭据，只拿到一个 `execution_id`。
 
@@ -52,7 +52,7 @@ erDiagram
 
 关键约束：**动作是白名单，不是任意命令**。系统不提供任意 Shell、原始 SQL、任意 `kubectl` 或 HTTP 代理。数据库查询是强类型 AST + 参数化渲染，云与网络设备动作也是固定集合。完整清单见 [actions.md](actions.md)。
 
-> 一个容易忽略的例外：macOS/Windows `pam-host-connector` 的 `host.command.run` 允许调用方提供参数，但程序名必须落在固定白名单、参数有长度与数量限制、环境被裁剪，且强制审批。它仍然不是 `sh -c`。
+> 一个容易忽略的例外：macOS/Windows `warden-host-connector` 的 `host.command.run` 允许调用方提供参数，但程序名必须落在固定白名单、参数有长度与数量限制、环境被裁剪，且强制审批。它仍然不是 `sh -c`。
 
 ## 身份与授权：Principal、PolicyDecision、Grant
 
@@ -63,7 +63,7 @@ erDiagram
 | 来源 | 角色怎么来 | 说明 |
 |---|---|---|
 | 内置 `admin` | 固定 ID 判定，直接获得 `pam:admin` | IdP 故障时的应急入口，`metadata.role` 反而是空的 |
-| OIDC/SSO 用户 | 首次登录按 `PAM_OIDC_DEFAULT_ROLE` 建档，默认 `user` | 之后由超级管理员在页面手工指派；登录不会覆盖已指派的角色 |
+| OIDC/SSO 用户 | 首次登录按 `WARDEN_OIDC_DEFAULT_ROLE` 建档，默认 `user` | 之后由超级管理员在页面手工指派；登录不会覆盖已指派的角色 |
 | 本地密码用户 | 管理员创建 | 常规账号 |
 | Agent / 机器人 | 独立 API Key，Scope 最小权限 | 不走 Web 会话，不算员工账号 |
 
@@ -120,9 +120,9 @@ append-only 记录，串起身份、策略决策、授权、执行与结果。�
 |---|---|
 | **租户 vs 项目** | 租户是客户间的数据隔离边界；项目是租户内部的分组。同一家公司按"生产/测试"或业务线分开，用项目就够；不同公司、要求互不可见才建租户 |
 | **租户 vs 角色** | 角色是平台级权限级别，租户是数据范围。实际可见范围 ≈ 角色级别 × 身份上的 `tenant_id` |
-| **认证 vs 授权** | IdP / 密码 / API Key 解决"你是谁"；PAM 的角色、策略、Grant 解决"你能做什么"。SSO 登录成功不等于有管理权限 |
+| **认证 vs 授权** | IdP / 密码 / API Key 解决"你是谁"；Warden 的角色、策略、Grant 解决"你能做什么"。SSO 登录成功不等于有管理权限 |
 
-关于 OIDC：当前所有 SSO 用户默认落到 `PAM_OIDC_DEFAULT_TENANT_ID`（通常是 `platform`），**没有**"按 IdP 部门自动分配到不同租户"的能力；这是第二阶段的方向。
+关于 OIDC：当前所有 SSO 用户默认落到 `WARDEN_OIDC_DEFAULT_TENANT_ID`（通常是 `platform`），**没有**"按 IdP 部门自动分配到不同租户"的能力；这是第二阶段的方向。
 
 ## 下一步
 
