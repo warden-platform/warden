@@ -7,7 +7,6 @@ import {
   Fingerprint,
   FolderKanban,
   LayoutDashboard,
-  Link2,
   Network,
   ServerCog,
   Share2,
@@ -38,7 +37,6 @@ const navItems: NavItem[] = [
   { to: '/resources', label: '资源目录', icon: Boxes },
   { to: '/connectors', label: '执行通道', icon: Network, requires: 'pam:tenant:admin' },
   { to: '/agents', label: 'Agent 身份', icon: Bot, requires: 'pam:tenant:admin' },
-  { to: '/external-identities', label: '外部身份', icon: Link2, requires: 'pam:tenant:admin' },
   { to: '/executions', label: '执行记录', icon: TerminalSquare },
   { to: '/approvals', label: '访问审批', icon: FileClock, requires: 'pam:approve' },
   { to: '/audit', label: '审计追踪', icon: Fingerprint, requires: 'pam:audit:read' },
@@ -58,7 +56,6 @@ export function AppSidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClo
         </div>
         <div>
           <strong>Warden</strong>
-          <span>Agent Warden</span>
         </div>
         <button className="icon-button sidebar-close" onClick={onClose} aria-label="关闭导航">
           <X size={20} />

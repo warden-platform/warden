@@ -26,7 +26,6 @@ const DingTalkApprovalsPage = lazy(() => import('./pages/DingTalkApprovalsPage')
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage').then((m) => ({ default: m.ProjectsPage })))
 const TenantsPage = lazy(() => import('./pages/TenantsPage').then((m) => ({ default: m.TenantsPage })))
 const ProjectUsersPage = lazy(() => import('./pages/ProjectUsersPage').then((m) => ({ default: m.ProjectUsersPage })))
-const ExternalIdentitiesPage = lazy(() => import('./pages/ExternalIdentitiesPage').then((m) => ({ default: m.ExternalIdentitiesPage })))
 const AccountsPage = lazy(() => import('./pages/AccountsPage').then((m) => ({ default: m.AccountsPage })))
 
 function PlatformOnly({ children }: { children: React.ReactElement }) {
@@ -91,14 +90,6 @@ function AppShell() {
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/policies" element={<PoliciesPage />} />
               <Route path="/agents" element={<AgentsPage />} />
-              <Route
-                path="/external-identities"
-                element={
-                  <TenantAdminOnly>
-                    <ExternalIdentitiesPage />
-                  </TenantAdminOnly>
-                }
-              />
               <Route path="*" element={<Navigate to="/overview" replace />} />
             </Routes>
           </Suspense>
