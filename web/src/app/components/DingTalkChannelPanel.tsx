@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { BellRing, Bot, CheckCircle2, ChevronDown, CircleAlert, Radio, Send, ShieldAlert, UserRoundCheck } from 'lucide-react'
+import { Bot, CheckCircle2, ChevronDown, CircleAlert, Info, Radio, Send, ShieldAlert, UserRoundCheck } from 'lucide-react'
 import type { ApiError, ApiNotificationChannel } from '../../shared/api'
 import { getDingTalkChannel, testDingTalkChannel, updateDingTalkChannel } from '../../shared/api'
 import { useApp } from './Toast'
@@ -73,13 +73,15 @@ export function DingTalkChannelPanel() {
   if (error || !channel)
     return (
       <section className="panel">
-        <div className="credential-note error-note">
-          <ShieldAlert size={16} />
-          <span>{error || '渠道配置不可用'}</span>
+        <div className="px-5 py-4">
+          <div className="credential-note error-note">
+            <ShieldAlert size={16} />
+            <span>{error || '渠道配置不可用'}</span>
+          </div>
+          <button className="quiet-button" onClick={load}>
+            重试
+          </button>
         </div>
-        <button className="quiet-button" onClick={load}>
-          重试
-        </button>
       </section>
     )
 
@@ -91,12 +93,8 @@ export function DingTalkChannelPanel() {
     <section className="panel">
       <div className="panel-header">
         <div>
-          <span className="eyebrow">
-            <BellRing size={15} />
-            审批通知渠道
-          </span>
           <h2>钉钉审批</h2>
-          <p className="panel-desc">应用机器人向群聊发送互动卡片，审批人可在卡片内直接同意或拒绝；Stream 通道负责安全接收按钮事件。</p>
+          <p className="panel-desc">审批人在群内互动卡片上直接同意或拒绝</p>
         </div>
         <span className={`badge ${statusTone}`}>
           {workflowReady ? <CheckCircle2 size={12} /> : <CircleAlert size={12} />}
@@ -104,48 +102,58 @@ export function DingTalkChannelPanel() {
         </span>
       </div>
 
-      <div className="dingtalk-workflow" aria-label="钉钉审批链路状态">
-        <div className={channel.card_configured ? 'ready' : 'missing'}>
+      <div className="dingtalk-pipeline" aria-label="钉钉审批链路状态">
+        <div
+          className={channel.card_configured ? 'ready' : 'missing'}
+          title={channel.card_configured ? '机器人可向审批群发送卡片' : '缺少机器人或卡片模板配置'}
+        >
           <span>
-            <Bot size={17} />
+            <Bot size={15} />
           </span>
           <div>
             <strong>互动卡片</strong>
-            <small>{channel.card_configured ? '机器人可向审批群发送卡片' : '缺少机器人或卡片模板配置'}</small>
+            <b>{channel.card_configured ? '已配置' : '待配置'}</b>
           </div>
-          <b>{channel.card_configured ? '可用' : '待配置'}</b>
         </div>
-        <div className={channel.stream_configured ? 'ready' : 'missing'}>
+        <i />
+        <div
+          className={channel.stream_configured ? 'ready' : 'missing'}
+          title={channel.stream_configured ? '可接收同意和拒绝按钮事件' : 'Stream 回调尚未就绪'}
+        >
           <span>
-            <Radio size={17} />
+            <Radio size={15} />
           </span>
           <div>
             <strong>Stream 回调</strong>
-            <small>{channel.stream_configured ? '可接收同意和拒绝按钮事件' : 'Stream 回调尚未就绪'}</small>
+            <b>{channel.stream_configured ? '已配置' : '待配置'}</b>
           </div>
-          <b>{channel.stream_configured ? '可用' : '待配置'}</b>
         </div>
-        <div className={channel.stream_configured ? 'ready' : 'missing'}>
+        <i />
+        <div
+          className={channel.stream_configured ? 'ready' : 'missing'}
+          title={channel.stream_configured ? '优先查询处理人姓名，失败时记录 User ID' : '回调就绪后自动记录处理人'}
+        >
           <span>
-            <UserRoundCheck size={17} />
+            <UserRoundCheck size={15} />
           </span>
           <div>
             <strong>处理人识别</strong>
-            <small>{channel.stream_configured ? '优先查询姓名，失败时记录 User ID' : '回调就绪后自动记录处理人'}</small>
+            <b>{channel.stream_configured ? '自动' : '待配置'}</b>
           </div>
-          <b>{channel.stream_configured ? '自动' : '待配置'}</b>
         </div>
       </div>
 
       {!workflowReady && (
-        <div className="credential-note" role="alert">
-          <ShieldAlert size={16} />
-          <span>完成互动卡片和 Stream 回调配置后即可启用钉钉审批。部署所需 Secret 可在下方“部署与兼容配置”中查看。</span>
+        <div className="px-5 py-4">
+          <div className="credential-note" role="alert">
+            <ShieldAlert size={16} />
+            <span>完成互动卡片和 Stream 回调配置后即可启用钉钉审批。部署所需 Secret 可在下方「部署提示」中查看。</span>
+          </div>
         </div>
       )}
 
-      <div className="notification-channel-grid">
-        <label htmlFor="dingtalk-channel-name">
+      <div className="dingtalk-form">
+        <label htmlFor="dingtalk-channel-name" className="dingtalk-field">
           <span>渠道名称</span>
           <input
             id="dingtalk-channel-name"
@@ -154,35 +162,36 @@ export function DingTalkChannelPanel() {
             onChange={(e) => setChannel({ ...channel, name: e.target.value })}
           />
         </label>
-        <label className="channel-enable" htmlFor="dingtalk-channel-enabled">
-          <span>渠道状态</span>
+        <label
+          className="dingtalk-toggle"
+          htmlFor="dingtalk-channel-enabled"
+          title={channel.enabled ? '' : '完成互动卡片和 Stream 回调配置后可启用'}
+        >
           <span>
-            <input
-              id="dingtalk-channel-enabled"
-              type="checkbox"
-              checked={channel.enabled}
-              disabled={!workflowReady && !channel.enabled}
-              onChange={(e) => setChannel({ ...channel, enabled: e.target.checked })}
-            />
-            启用互动卡片审批通知
+            <b>启用审批通知</b>
+            <small>开启后向审批群发送互动卡片，审批人可在卡片内直接操作</small>
           </span>
+          <input
+            id="dingtalk-channel-enabled"
+            type="checkbox"
+            checked={channel.enabled}
+            disabled={!workflowReady && !channel.enabled}
+            onChange={(e) => setChannel({ ...channel, enabled: e.target.checked })}
+          />
         </label>
       </div>
 
       <div className="notification-events">
         <strong>通知范围</strong>
-        <div>
+        <div className="event-chips">
           {EVENTS.map((event) => (
-            <label key={event.value}>
+            <label key={event.value} className="event-chip" title={event.hint}>
               <input
                 type="checkbox"
                 checked={channel.events.includes(event.value)}
                 onChange={(e) => setEvent(event.value, e.target.checked)}
               />
-              <span>
-                <b>{event.label}</b>
-                <small>{event.hint}</small>
-              </span>
+              {event.label}
             </label>
           ))}
         </div>
@@ -216,30 +225,39 @@ export function DingTalkChannelPanel() {
 
       <details className="dingtalk-advanced">
         <summary>
-          <span>部署与兼容配置</span>
+          <span className="summary-text">
+            <Info size={14} />
+            部署提示
+          </span>
           <ChevronDown size={15} />
         </summary>
-        <div>
-          <p>互动卡片需要以下 Secret 文件，并复用企业内部应用的 Client ID 和 Client Secret。修改后需重启 control 服务。</p>
-          <ul>
-            <li>
+        <div className="dingtalk-advanced-body">
+          <p className="adv-intro">启用前请确认以下条件，修改后需重启 control 服务生效。</p>
+          <div className="adv-row">
+            <span className="adv-label">Secret 文件</span>
+            <div className="adv-codes">
               <code>WARDEN_DINGTALK_CARD_TEMPLATE_ID_FILE</code>
-            </li>
-            <li>
               <code>WARDEN_DINGTALK_OPEN_CONVERSATION_ID_FILE</code>
-            </li>
-            <li>
               <code>WARDEN_DINGTALK_ROBOT_CODE_FILE</code>
-            </li>
-          </ul>
-          <p>
-            企业内部应用需要开通“成员信息读权限”（<code>qyapi_get_member</code>），用于根据回调 User ID 查询处理人姓名；查询失败时会记录
-            User ID，不会阻断审批。
-          </p>
-          <p>
-            Webhook {channel.webhook_configured ? '已配置' : '未配置'}
-            ，启用时会同步发送兼容文本通知。旧酷应用接口仅保留兼容，不参与当前卡片审批主流程。
-          </p>
+            </div>
+          </div>
+          <div className="adv-row">
+            <span className="adv-label">应用权限</span>
+            <p>
+              企业内部应用需开通「成员信息读权限」（<code>qyapi_get_member</code>
+              ），根据回调 User ID
+              查询处理人姓名；查询失败时记录 User ID，不阻断审批。
+            </p>
+          </div>
+          <div className="adv-row">
+            <span className="adv-label">兼容说明</span>
+            <p>
+              复用企业内部应用的 Client ID / Client
+              Secret，修改 Secret 文件后需重启 control 服务。Webhook{' '}
+              {channel.webhook_configured ? '已配置' : '未配置'}
+              ，启用时同步发送兼容文本通知；旧酷应用接口仅保留兼容，不参与当前卡片审批主流程。
+            </p>
+          </div>
         </div>
       </details>
     </section>

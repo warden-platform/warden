@@ -245,14 +245,8 @@ export function PoliciesPage() {
       <section className="panel">
         <div className="panel-header">
           <div>
-            <span className="eyebrow">
-              <ShieldCheck size={15} />
-              策略矩阵
-            </span>
             <h2>执行策略规则</h2>
-            <p className="panel-desc">
-              按项目、资源、动作、环境、风险和身份决定自动放行、人工审批或拒绝。高优先级先匹配，同优先级优先选择条件更精确的规则。
-            </p>
+            <p className="panel-desc">共 {sorted.length} 条 · 高优先级先匹配，同优先级选条件更精确者</p>
           </div>
           <button className="primary-button" onClick={openCreate}>
             <Plus size={16} />
@@ -260,13 +254,10 @@ export function PoliciesPage() {
           </button>
         </div>
 
-        <div className="policy-safety-banner">
-          <ShieldCheck size={20} />
-          <div>
-            <strong>Rego 默认拒绝仍是安全底线</strong>
-            <span>矩阵规则不能把 Rego 的拒绝改成允许；未命中矩阵时沿用 Rego 决策。</span>
-          </div>
-        </div>
+        <p className="policy-hint">
+          <ShieldCheck size={14} />
+          Rego 默认拒绝是安全底线：矩阵规则不能将其放宽，未命中时沿用 Rego 决策。
+        </p>
 
         {editing !== undefined && (
           <form className="policy-rule-editor" onSubmit={save}>
@@ -512,19 +503,25 @@ export function PoliciesPage() {
         )}
       </section>
 
-      <section className="panel">
-        <div className="panel-header">
-          <div>
-            <span className="eyebrow">
+      <div className="policy-secondary-grid">
+        <section className="panel">
+          <div className="panel-header">
+            <div>
+              <h2>测试规则命中</h2>
+              <p className="panel-desc">预览将命中的矩阵规则和最终决策</p>
+            </div>
+            <button
+              type="button"
+              className="primary-button"
+              disabled={busy === 'simulate' || !simulation.action_name}
+              onClick={runSimulation}
+            >
               <Play size={15} />
-              策略模拟器
-            </span>
-            <h2>测试规则命中</h2>
-            <p className="panel-desc">填写一次执行请求的关键属性，预览将命中的矩阵规则和最终决策。</p>
+              {busy === 'simulate' ? '模拟中…' : '开始模拟'}
+            </button>
           </div>
-        </div>
-        <form className="policy-simulator" onSubmit={runSimulation}>
-          <div className="form-grid policy-simulator-grid">
+          <form className="policy-simulator" onSubmit={runSimulation}>
+            <div className="form-grid policy-simulator-grid">
             <label>
               <span>项目</span>
               <select value={simulation.project_id ?? ''} onChange={(e) => setSimulation({ ...simulation, project_id: e.target.value })}>
@@ -587,13 +584,6 @@ export function PoliciesPage() {
                 ))}
               </select>
             </label>
-            <div className="policy-simulator-action">
-              <span aria-hidden="true">执行</span>
-              <button className="primary-button" disabled={busy === 'simulate' || !simulation.action_name}>
-                <Play size={15} />
-                {busy === 'simulate' ? '模拟中…' : '开始模拟'}
-              </button>
-            </div>
           </div>
         </form>
         {simulationResult && (
@@ -623,7 +613,8 @@ export function PoliciesPage() {
           </div>
         )}
       </section>
-      <DingTalkChannelPanel />
+        <DingTalkChannelPanel />
+      </div>
     </div>
   )
 }

@@ -1935,23 +1935,23 @@
   }
 
   /* ---------- Visual policy matrix ---------- */
-  .policy-safety-banner {
-    @apply mb-4 flex items-center gap-3 rounded-lg border border-green-200 bg-green-50 p-3 text-green-800;
+  .policy-hint {
+    @apply flex items-center gap-2 border-b border-border px-5 py-2.5 text-xs text-content-subtle;
   }
-  :root.dark .policy-safety-banner {
-    @apply border-green-900 bg-green-950 text-green-300;
+  :root.dark .policy-hint {
+    @apply border-border-dark text-content-dark-subtle;
   }
-  .policy-safety-banner > div {
-    @apply flex flex-col gap-0.5;
+  .policy-hint > svg {
+    @apply flex-none text-green-600;
   }
-  .policy-safety-banner strong {
-    @apply text-xs;
+  :root.dark .policy-hint > svg {
+    @apply text-green-400;
   }
-  .policy-safety-banner span {
-    @apply text-[10px];
+  .policy-secondary-grid {
+    @apply grid items-start gap-4 xl:grid-cols-2;
   }
   .policy-rule-editor {
-    @apply mb-4 rounded-lg border border-border bg-surface-muted p-4;
+    @apply mx-5 mt-4 mb-4 rounded-lg border border-border bg-surface-muted p-4;
   }
   :root.dark .policy-rule-editor {
     @apply border-border-dark bg-surface-dark-muted;
@@ -1972,7 +1972,25 @@
     @apply overflow-x-auto;
   }
   .policy-rule-table {
-    @apply min-w-[1120px];
+    @apply min-w-[1120px] table-fixed;
+  }
+  .policy-rule-table th:nth-child(1) {
+    width: 24%;
+  }
+  .policy-rule-table th:nth-child(2) {
+    width: 19%;
+  }
+  .policy-rule-table th:nth-child(3) {
+    width: 13%;
+  }
+  .policy-rule-table th:nth-child(4) {
+    width: 10%;
+  }
+  .policy-rule-table th:nth-child(5) {
+    width: 10%;
+  }
+  .policy-rule-table th:nth-child(6) {
+    width: 10%;
   }
   .policy-rule-table td {
     @apply align-top;
@@ -1983,6 +2001,9 @@
   }
   .policy-rule-table td > small {
     @apply mt-1 text-[10px];
+  }
+  .policy-rule-table small.muted {
+    @apply line-clamp-2;
   }
   .policy-rule-name {
     @apply flex items-center gap-2 text-xs;
@@ -2009,22 +2030,18 @@
     @apply hover:bg-red-950;
   }
   .policy-simulator {
-    @apply w-full;
+    @apply w-full px-5 py-4;
   }
   .policy-simulator-grid {
-    @apply grid-cols-[repeat(5,minmax(0,1fr))_auto] items-end;
+    @apply grid-cols-2;
   }
-  .policy-simulator-action {
-    @apply flex flex-col;
-  }
-  .policy-simulator-action > span {
-    @apply mb-2 block select-none text-xs font-semibold text-transparent;
-  }
-  .policy-simulator-action .primary-button {
-    @apply h-10;
+  @media (max-width: 639px) {
+    .policy-simulator-grid {
+      grid-template-columns: minmax(0, 1fr);
+    }
   }
   .policy-simulation-result {
-    @apply mt-4 overflow-hidden rounded-lg border border-border bg-surface-muted;
+    @apply mx-5 mb-5 overflow-hidden rounded-lg border border-border bg-surface-muted;
   }
   :root.dark .policy-simulation-result {
     @apply border-border-dark bg-surface-dark-muted;
@@ -2493,112 +2510,133 @@
   :root.dark .settings-warning {
     @apply text-amber-400;
   }
-  .notification-channel-grid {
-    @apply grid grid-cols-1 gap-4 border-t border-border pt-5 md:grid-cols-2;
+  .dingtalk-form {
+    @apply border-t border-border px-5 py-4;
   }
-  :root.dark .notification-channel-grid {
+  :root.dark .dingtalk-form {
     @apply border-border-dark;
   }
-  .notification-channel-grid > label > span:first-child {
-    @apply mb-2 block text-xs font-semibold text-content-subtle;
+  .dingtalk-field > span {
+    @apply mb-1.5 block text-xs font-semibold text-content-subtle;
   }
-  :root.dark .notification-channel-grid > label > span:first-child {
+  :root.dark .dingtalk-field > span {
     @apply text-content-dark-subtle;
   }
-  .notification-channel-grid input[type='text'],
-  .notification-channel-grid > label > input {
-    @apply h-10 w-full rounded-lg border border-border bg-surface px-3 text-content;
+  .dingtalk-field input {
+    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-content;
   }
-  :root.dark .notification-channel-grid input[type='text'],
-  :root.dark .notification-channel-grid > label > input {
+  :root.dark .dingtalk-field input {
     @apply border-border-dark bg-surface-dark text-content-dark;
   }
-  .channel-enable > span:last-child {
-    @apply flex h-10 items-center gap-2 text-sm text-content;
+  .dingtalk-toggle {
+    @apply mt-3 flex cursor-pointer items-center justify-between gap-4 rounded-xl border border-border bg-surface-muted px-4 py-3;
   }
-  :root.dark .channel-enable > span:last-child {
+  :root.dark .dingtalk-toggle {
+    @apply border-border-dark bg-surface-dark-muted;
+  }
+  .dingtalk-toggle b {
+    @apply block text-sm text-content;
+  }
+  :root.dark .dingtalk-toggle b {
     @apply text-content-dark;
   }
+  .dingtalk-toggle small {
+    @apply mt-0.5 block text-xs text-content-subtle;
+  }
+  :root.dark .dingtalk-toggle small {
+    @apply text-content-dark-subtle;
+  }
+  .dingtalk-toggle input {
+    @apply h-4 w-4 flex-none accent-indigo-600;
+  }
+  .dingtalk-toggle input:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
   .notification-events {
-    @apply mt-5;
+    @apply px-5 py-4;
   }
   .notification-events > strong {
     @apply mb-3 block text-xs font-semibold text-content-subtle;
   }
-  .notification-events > div {
-    @apply grid grid-cols-1 gap-2 md:grid-cols-2;
+  .event-chips {
+    @apply flex flex-wrap gap-2;
   }
-  .notification-events label {
-    @apply flex cursor-pointer items-start gap-3 rounded-lg border border-border p-3 hover:bg-surface-muted;
+  .event-chip {
+    @apply flex cursor-pointer select-none items-center gap-2 rounded-full border border-border px-3 py-1.5 text-xs text-content-subtle transition-colors hover:bg-surface-muted;
   }
-  :root.dark .notification-events label {
-    @apply border-border-dark hover:bg-surface-dark-muted;
+  :root.dark .event-chip {
+    @apply border-border-dark text-content-dark-subtle hover:bg-surface-dark-muted;
   }
-  .notification-events input {
-    @apply mt-0.5;
+  .event-chip:has(input:checked) {
+    @apply border-indigo-300 bg-indigo-50 text-indigo-700;
   }
-  .notification-events b {
-    @apply block text-sm text-content;
+  :root.dark .event-chip:has(input:checked) {
+    @apply border-indigo-800 bg-indigo-950 text-indigo-300;
   }
-  :root.dark .notification-events b {
-    @apply text-content-dark;
-  }
-  .notification-events small {
-    @apply mt-1 block text-xs text-content-subtle;
+  .event-chip input {
+    @apply h-3.5 w-3.5 accent-indigo-600;
   }
   .notification-actions {
-    @apply mt-5 justify-end;
+    @apply justify-end px-5 pb-5;
   }
-  .dingtalk-workflow {
-    @apply mb-5 grid grid-cols-1 gap-3 lg:grid-cols-3;
+  .dingtalk-pipeline {
+    @apply mx-5 mt-4 flex items-center gap-2 rounded-xl border border-border bg-surface-muted px-4 py-3;
   }
-  .dingtalk-workflow > div {
-    @apply flex min-w-0 items-center gap-3 rounded-xl border border-border bg-surface-muted p-3.5;
-  }
-  :root.dark .dingtalk-workflow > div {
+  :root.dark .dingtalk-pipeline {
     @apply border-border-dark bg-surface-dark-muted;
   }
-  .dingtalk-workflow > div > span {
-    @apply flex h-9 w-9 flex-none items-center justify-center rounded-lg bg-slate-200 text-slate-500;
+  .dingtalk-pipeline > div {
+    @apply flex min-w-0 flex-1 items-center gap-2.5;
   }
-  :root.dark .dingtalk-workflow > div > span {
+  .dingtalk-pipeline > div > span {
+    @apply flex h-8 w-8 flex-none items-center justify-center rounded-full bg-slate-200 text-slate-500;
+  }
+  :root.dark .dingtalk-pipeline > div > span {
     @apply bg-slate-800 text-slate-400;
   }
-  .dingtalk-workflow > div.ready > span {
+  .dingtalk-pipeline > div.ready > span {
     @apply bg-green-100 text-green-700;
   }
-  :root.dark .dingtalk-workflow > div.ready > span {
+  :root.dark .dingtalk-pipeline > div.ready > span {
     @apply bg-green-950 text-green-300;
   }
-  .dingtalk-workflow > div > div {
-    @apply min-w-0 flex-1;
+  .dingtalk-pipeline > div > div {
+    @apply min-w-0;
   }
-  .dingtalk-workflow strong {
-    @apply block text-xs text-content;
+  .dingtalk-pipeline strong {
+    @apply block truncate text-xs text-content;
   }
-  :root.dark .dingtalk-workflow strong {
+  :root.dark .dingtalk-pipeline strong {
     @apply text-content-dark;
   }
-  .dingtalk-workflow small {
-    @apply mt-1 block text-[10px] leading-relaxed text-content-subtle;
+  .dingtalk-pipeline b {
+    @apply block text-[10px] font-semibold text-slate-500;
   }
-  :root.dark .dingtalk-workflow small {
-    @apply text-content-dark-subtle;
+  :root.dark .dingtalk-pipeline b {
+    @apply text-slate-400;
   }
-  .dingtalk-workflow b {
-    @apply flex-none rounded-full bg-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-600;
+  .dingtalk-pipeline > div.ready b {
+    @apply text-green-600;
   }
-  :root.dark .dingtalk-workflow b {
-    @apply bg-slate-800 text-slate-300;
+  :root.dark .dingtalk-pipeline > div.ready b {
+    @apply text-green-400;
   }
-  .dingtalk-workflow .ready b {
-    @apply bg-green-100 text-green-700;
+  .dingtalk-pipeline > i {
+    @apply h-px w-3 flex-none bg-border;
   }
-  :root.dark .dingtalk-workflow .ready b {
-    @apply bg-green-950 text-green-300;
+  :root.dark .dingtalk-pipeline > i {
+    @apply bg-border-dark;
+  }
+  @media (max-width: 639px) {
+    .dingtalk-pipeline {
+      @apply flex-col items-stretch;
+    }
+    .dingtalk-pipeline > i {
+      @apply h-3 w-px;
+    }
   }
   .dingtalk-test-result {
-    @apply mt-4 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800;
+    @apply mx-5 mb-5 flex items-start gap-3 rounded-xl border border-green-200 bg-green-50 p-4 text-green-800;
   }
   :root.dark .dingtalk-test-result {
     @apply border-green-900 bg-green-950 text-green-300;
@@ -2621,22 +2659,25 @@
     @apply mt-1.5 text-[10px] opacity-75;
   }
   .dingtalk-advanced {
-    @apply mt-6 overflow-hidden rounded-xl border border-border;
+    @apply mx-5 mb-4 border-t border-border;
   }
   :root.dark .dingtalk-advanced {
     @apply border-border-dark;
   }
   .dingtalk-advanced summary {
-    @apply flex cursor-pointer list-none items-center justify-between px-4 py-3 text-xs font-semibold text-content transition-colors duration-200 hover:bg-surface-muted;
+    @apply flex cursor-pointer list-none items-center justify-between py-2.5 text-xs text-content-subtle transition-colors hover:text-content;
   }
   .dingtalk-advanced summary:focus-visible {
     @apply outline-none ring-2 ring-brand/30 ring-offset-0;
   }
   :root.dark .dingtalk-advanced summary {
-    @apply text-content-dark hover:bg-surface-dark-muted;
+    @apply text-content-dark-subtle hover:text-content-dark;
   }
   .dingtalk-advanced summary::-webkit-details-marker {
     display: none;
+  }
+  .dingtalk-advanced summary .summary-text {
+    @apply flex items-center gap-1.5 font-medium;
   }
   .dingtalk-advanced summary svg {
     @apply transition-transform duration-200;
@@ -2645,10 +2686,40 @@
     @apply rotate-180;
   }
   .dingtalk-advanced > div {
-    @apply border-t border-border bg-surface-muted px-4 py-3 text-xs leading-relaxed text-content-subtle;
+    @apply pb-3 text-xs leading-relaxed text-content-subtle;
   }
   :root.dark .dingtalk-advanced > div {
-    @apply border-border-dark bg-surface-dark-muted text-content-dark-subtle;
+    @apply text-content-dark-subtle;
+  }
+  .dingtalk-advanced .adv-intro {
+    @apply mb-2 text-[11px];
+  }
+  .dingtalk-advanced .adv-row {
+    @apply flex flex-col gap-1.5 py-2 sm:flex-row sm:gap-5;
+  }
+  :root.dark .dingtalk-advanced .adv-row {
+    @apply border-border-dark;
+  }
+  .dingtalk-advanced .adv-label {
+    @apply w-20 flex-none pt-0.5 text-[11px] font-semibold text-content;
+  }
+  :root.dark .dingtalk-advanced .adv-label {
+    @apply text-content-dark;
+  }
+  .dingtalk-advanced .adv-row > p {
+    @apply min-w-0 flex-1;
+  }
+  .dingtalk-advanced .adv-row code {
+    @apply text-[11px];
+  }
+  .dingtalk-advanced .adv-codes {
+    @apply flex min-w-0 flex-1 flex-col gap-1.5;
+  }
+  .dingtalk-advanced .adv-codes code {
+    @apply w-fit rounded border border-border bg-surface px-2 py-1 text-indigo-700;
+  }
+  :root.dark .dingtalk-advanced .adv-codes code {
+    @apply border-border-dark bg-surface-dark text-indigo-300;
   }
   .dingtalk-advanced p + p {
     @apply mt-3;
@@ -4618,12 +4689,6 @@
   }
   .policy-rule-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .policy-simulator-grid {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .policy-simulator-action .primary-button {
-    @apply w-full;
   }
   .connector-channel-row {
     grid-template-columns: auto 1fr 1fr;
