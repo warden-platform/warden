@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, Clock3, FileClock, History, Loader2, ShieldAlert, XCircle } from 'lucide-react'
 import type { ApiAccessRequest, ApiError, ApiExecution } from '../../shared/api'
 import { approveRequest, listAccessRequests, listExecutions, rejectRequest } from '../../shared/api'
@@ -9,33 +9,22 @@ import { useApp } from '../components/Toast'
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { apiRequestToApproval } from '../lib/mappers'
-import { useAutoRefresh } from '../lib/useAutoRefresh'
+import { useApiQuery } from '../lib/useApiQuery'
 
 export function ApprovalsPage() {
   const { notify, setPendingApprovals } = useApp()
-  const [requests, setRequests] = useState<ApiAccessRequest[]>([])
-  const [executions, setExecutions] = useState<ApiExecution[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [acting, setActing] = useState('')
   const [autoRefresh, setAutoRefresh] = useState(true)
 
-  const load = (showSpinner = true) => {
-    if (showSpinner) setLoading(true)
-    setError('')
-    Promise.all([listAccessRequests('PENDING'), listExecutions()])
-      .then(([reqs, execs]) => {
-        setRequests(reqs ?? [])
-        setExecutions(execs ?? [])
-        setPendingApprovals((reqs ?? []).length)
-      })
-      .catch((e: ApiError) => setError(e.message || '加载失败'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => load(), []) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useAutoRefresh(() => load(false), 5000, autoRefresh)
+  const { data, error, loading, reload } = useApiQuery(
+    () => Promise.all([listAccessRequests('PENDING'), listExecutions()]),
+    [],
+    {
+      intervalMs: autoRefresh ? 5000 : 0,
+      onSuccess: ([reqs]) => setPendingApprovals((reqs ?? []).length),
+    },
+  )
+  const [requests, executions] = data ?? [[], []]
 
   // Recent finished executions per resource, so approvers see the target's
   // track record instead of deciding blind.
@@ -50,7 +39,7 @@ export function ApprovalsPage() {
   }, [executions])
 
   if (loading) return <LoadingState />
-  if (error) return <ErrorState message={error} onRetry={() => load()} />
+  if (error) return <ErrorState message={error} onRetry={() => reload()} />
 
   const approvals = requests.map((r) => apiRequestToApproval(r))
 
@@ -58,8 +47,7 @@ export function ApprovalsPage() {
     setActing(approval.id)
     const call = allowed ? approveRequest(approval.id) : rejectRequest(approval.id)
     call.then(() => {
-      setRequests((items) => items.filter((r) => r.id !== approval.id))
-      setPendingApprovals(Math.max(0, requests.length - 1))
+      reload(false)
       notify(allowed ? '审批已通过，Connector 开始执行' : '审批已拒绝，授权申请已关闭')
     }).catch((e: ApiError) => notify(`操作失败：${e.message}`))
       .finally(() => setActing(''))
@@ -71,7 +59,7 @@ export function ApprovalsPage() {
         <div className="auto-refresh-toggle">
           <label><input type="checkbox" checked={autoRefresh} onChange={(e) => setAutoRefresh(e.target.checked)} /><span>自动刷新（5秒）</span></label>
         </div>
-        <button className="quiet-button" onClick={() => load()}><Clock3 size={16} />刷新</button>
+        <button className="quiet-button" onClick={() => reload()}><Clock3 size={16} />刷新</button>
       </div>
       {!approvals.length ? <EmptyState icon={FileClock} title="没有待处理的审批" text="需要人工确认的生产动作会出现在这里，并展示完整资源、参数和风险上下文。" /> : (
         <div className="approval-list">{requests.map((req) => {

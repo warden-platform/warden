@@ -1,13 +1,12 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ChevronDown, Plus, SlidersHorizontal, TerminalSquare } from 'lucide-react'
-import type { ApiAction, ApiError, ApiExecution } from '../../shared/api'
 import { listAvailableActions, listExecutions } from '../../shared/api'
 import { mapActionName, mapRiskLevel } from '../../shared/types'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { ExecutionTable } from '../components/ExecutionTable'
 import { ActionPanel } from '../components/ActionPanel'
 import { apiExecutionToView } from '../lib/mappers'
-import { useAutoRefresh } from '../lib/useAutoRefresh'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const STATUS_FILTERS = ['全部', '执行中', '成功', '失败', '等待审批'] as const
 const statusMap: Record<string, string> = {
@@ -15,39 +14,22 @@ const statusMap: Record<string, string> = {
 }
 
 export function ExecutionsPage() {
-  const [executions, setExecutions] = useState<ApiExecution[]>([])
-  const [actions, setActions] = useState<ApiAction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [filter, setFilter] = useState('全部')
   const [resourceType, setResourceType] = useState('全部类型')
   const [autoRefresh, setAutoRefresh] = useState(true)
   const [panelOpen, setPanelOpen] = useState(false)
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    Promise.all([listExecutions(), listAvailableActions()])
-      .then(([execs, acts]) => {
-        setExecutions(execs ?? [])
-        setActions(acts ?? [])
-      })
-      .catch((e: ApiError) => setError(e.message || '加载失败'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(load, [])
-
-  useAutoRefresh(() => {
-    listExecutions().then((execs) => {
-      // Skip the state update (and full table re-render) when nothing changed.
-      setExecutions((prev) => {
-        const next = execs ?? []
-        if (prev.length === next.length && prev.every((p, i) => p.id === next[i].id && p.updatedAt === next[i].updatedAt)) return prev
-        return next
-      })
-    }).catch(() => undefined)
-  }, 5000, autoRefresh)
+  const actionsQuery = useApiQuery(() => listAvailableActions(), [])
+  const executionsQuery = useApiQuery(() => listExecutions(), [], {
+    intervalMs: autoRefresh ? 5000 : 0,
+    // Skip the state update (and full table re-render) when nothing changed.
+    isEqual: (prev, next) => prev.length === next.length && prev.every((p, i) => p.id === next[i].id && p.updatedAt === next[i].updatedAt),
+  })
+  const actions = actionsQuery.data ?? []
+  const executions = executionsQuery.data ?? []
+  const loading = actionsQuery.loading || executionsQuery.loading
+  const error = actionsQuery.error || executionsQuery.error
+  const load = () => { actionsQuery.reload(); executionsQuery.reload() }
 
   const actionByID = useMemo(() => new Map(actions.map((a) => [a.id, a])), [actions])
   const resourceTypes = useMemo(() => [...new Set(executions.map((e) => e.resourceType).filter(Boolean))].sort() as string[], [executions])
