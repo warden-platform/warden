@@ -75,13 +75,13 @@ case "$oidc_switch" in
         WARDEN_OIDC_CLIENT_ID="$WARDEN_OIDC_CLIENT_ID"
         WARDEN_OIDC_CLIENT_SECRET_FILE="$oidc_secret_file"
         WARDEN_OIDC_REDIRECT_URL="$oidc_redirect_url"
-        WARDEN_OIDC_DEFAULT_TENANT_ID="${WARDEN_OIDC_DEFAULT_TENANT_ID:-platform}"
+        WARDEN_OIDC_DEFAULT_TENANT_ID="${WARDEN_OIDC_DEFAULT_TENANT_ID:-}"
         WARDEN_OIDC_DEFAULT_ROLE="${WARDEN_OIDC_DEFAULT_ROLE:-user}"
       )
       if [[ -n "$oidc_switch" ]]; then
         CONTROL_ENV+=(WARDEN_OIDC_ENABLED="$oidc_switch")
       fi
-      echo "OIDC enabled: issuer=$WARDEN_OIDC_ISSUER redirect=$oidc_redirect_url default_role=${WARDEN_OIDC_DEFAULT_ROLE:-user}"
+      echo "OIDC enabled: issuer=$WARDEN_OIDC_ISSUER redirect=$oidc_redirect_url default_tenant=${WARDEN_OIDC_DEFAULT_TENANT_ID:-<unaffiliated>} default_role=${WARDEN_OIDC_DEFAULT_ROLE:-user}"
     else
       echo "OIDC disabled (set WARDEN_OIDC_ENABLED=true plus issuer/client/secret to enable; see scripts/oidc-local.env.example)"
     fi
