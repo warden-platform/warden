@@ -95,6 +95,12 @@ export function IntegrationsPage() {
         </button>
       </div>
       <section className="panel">
+        <div className="ops-ph">
+          <span>Integrations · 中间件</span>
+          <span className="font-mono text-[10px] text-content-subtle dark:text-content-dark-subtle">
+            {activeCount}/{integrations.length} 运行中
+          </span>
+        </div>
         <div className="toolbar">
           <div className="search-box">
             <Search size={17} />
@@ -161,9 +167,12 @@ export function IntegrationsPage() {
                     <div className="integration-detail-title">
                       <Badge tone="info">{mapProtocolLabel(ig.protocol)}</Badge>
                       <strong>{ig.name}</strong>
-                      <Badge tone={ig.status === 'ACTIVE' ? 'success' : ig.status === 'FAILED' ? 'danger' : 'neutral'}>
-                        {mapIntegrationStatus(ig.status)}
-                      </Badge>
+                      <span className={`exec-led ${ig.status === 'ACTIVE' && !ig.last_error ? 'ok' : ig.status === 'FAILED' || ig.last_error ? 'deny' : 'wait'}`}>
+                        <i aria-hidden="true" />
+                        <Badge tone={ig.status === 'ACTIVE' ? 'success' : ig.status === 'FAILED' ? 'danger' : 'neutral'}>
+                          {mapIntegrationStatus(ig.status)}
+                        </Badge>
+                      </span>
                       {ig.last_error && <Badge tone="danger">探活异常</Badge>}
                     </div>
                     <code className="integration-endpoint">{ig.endpoint}</code>

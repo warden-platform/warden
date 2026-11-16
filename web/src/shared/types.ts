@@ -16,6 +16,7 @@ export type ExecutionStatus = '等待审批' | '排队中' | '执行中' | '成�
 export type Execution = {
   id: string
   taskId: string
+  tenant?: string
   resource: string
   action: string
   actor: string

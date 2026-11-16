@@ -32,6 +32,7 @@ export function apiExecutionToView(e: ApiExecution, resourceLookup?: (id: string
   return {
     id: e.id,
     taskId: e.traceId,
+    tenant: e.tenantId,
     resource: e.resourceName ?? res?.name ?? e.resourceId.slice(0, 8),
     action: e.actionDisplayName || mapActionName(e.actionName || e.actionId),
     actor: principalLabel,

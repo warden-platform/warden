@@ -1719,6 +1719,50 @@ func (r *ExecutionRepo) List(ctx context.Context, principalID, status string, li
 	return result, nil
 }
 
+// ListAllTenants is the super-admin visibility path: every execution across
+// every tenant, each row carrying its tenant_id so the console can label the
+// owning organization. Never reachable by tenant-scoped identities.
+func (r *ExecutionRepo) ListAllTenants(ctx context.Context, status string, limit, offset int) ([]domain.Execution, error) {
+	query := `SELECT tenant_id, id, COALESCE(grant_id::text,''), principal_id, COALESCE(acting_project_id::text,''), external_context,
+		COALESCE(delegation_token_id::text,''), COALESCE(on_behalf_of_principal_id::text,''), COALESCE(accountable_principal_id::text,''), COALESCE(credential_id::text,''), resource_id, action_id,
+		parameters, parameter_hash, status, COALESCE(decision_id::text,''),
+		COALESCE(idempotency_key,''), COALESCE(task_id,''), trace_id,
+		COALESCE(reason,''), timeout_seconds, expires_at, COALESCE(connector_id::text,''),
+		result, COALESCE(error_code,''), COALESCE(error_message,''),
+		executor_type, pending_secret,
+		created_at, updated_at
+		FROM executions`
+	args := []any{}
+	if status != "" {
+		query += ` WHERE status=$1 ORDER BY created_at DESC LIMIT $2 OFFSET $3`
+		args = append(args, status, limit, offset)
+	} else {
+		query += ` ORDER BY created_at DESC LIMIT $1 OFFSET $2`
+		args = append(args, limit, offset)
+	}
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.Execution
+	for rows.Next() {
+		var e domain.Execution
+		if err := rows.Scan(&e.TenantID, &e.ID, &e.GrantID, &e.PrincipalID, &e.ActingProjectID, &e.ExternalContext,
+			&e.DelegationTokenID, &e.OnBehalfOfPrincipalID, &e.AccountablePrincipalID, &e.CredentialID, &e.ResourceID, &e.ActionID,
+			&e.Parameters, &e.ParameterHash, &e.Status, &e.DecisionID,
+			&e.IdempotencyKey, &e.TaskID, &e.TraceID,
+			&e.Reason, &e.TimeoutSeconds, &e.ExpiresAt, &e.ConnectorID,
+			&e.Result, &e.ErrorCode, &e.ErrorMessage,
+			&e.ExecutorType, &e.PendingSecret,
+			&e.CreatedAt, &e.UpdatedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, e)
+	}
+	return result, rows.Err()
+}
+
 // TraceExecution is a diagnostic projection of one execution within a session
 // trace. It deliberately omits every internal identifier (execution, action,
 // grant, decision, credential) so the aggregation view never leaks them.
@@ -2239,6 +2283,41 @@ func (r *RequestRepo) List(ctx context.Context, status string, limit, offset int
 		result = append(result, ar)
 	}
 	return result, nil
+}
+
+// ListByPrincipal returns the access requests initiated by one principal
+// within the tenant boundary, powering the member-facing "my requests" view.
+func (r *RequestRepo) ListByPrincipal(ctx context.Context, principalID, status string, limit, offset int) ([]domain.AccessRequest, error) {
+	query := `SELECT id, COALESCE(execution_id::text,''), principal_id, resource_id, action_id, COALESCE(acting_project_id::text,''), external_context,
+		COALESCE(delegation_token_id::text,''), COALESCE(on_behalf_of_principal_id::text,''), COALESCE(accountable_principal_id::text,''), parameters, parameter_hash,
+		COALESCE(reason,''), status, COALESCE(decision_id::text,''), COALESCE(approved_by::text,''),
+		approved_at, expires_at, created_at, updated_at
+		FROM access_requests WHERE tenant_id=$1 AND principal_id=$2`
+	args := []any{repositoryTenant(ctx), principalID}
+	if status != "" {
+		query += ` AND status=$3 ORDER BY created_at DESC LIMIT $4 OFFSET $5`
+		args = append(args, status, limit, offset)
+	} else {
+		query += ` ORDER BY created_at DESC LIMIT $3 OFFSET $4`
+		args = append(args, limit, offset)
+	}
+	rows, err := r.pool.Query(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var result []domain.AccessRequest
+	for rows.Next() {
+		var ar domain.AccessRequest
+		if err := rows.Scan(&ar.ID, &ar.ExecutionID, &ar.PrincipalID, &ar.ResourceID, &ar.ActionID, &ar.ActingProjectID, &ar.ExternalContext,
+			&ar.DelegationTokenID, &ar.OnBehalfOfPrincipalID, &ar.AccountablePrincipalID, &ar.Parameters, &ar.ParameterHash,
+			&ar.Reason, &ar.Status, &ar.DecisionID, &ar.ApprovedBy,
+			&ar.ApprovedAt, &ar.ExpiresAt, &ar.CreatedAt, &ar.UpdatedAt); err != nil {
+			return nil, err
+		}
+		result = append(result, ar)
+	}
+	return result, rows.Err()
 }
 
 func (r *RequestRepo) ListExpiredPending(ctx context.Context, limit int) ([]domain.AccessRequest, error) {

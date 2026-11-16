@@ -56,12 +56,20 @@ flowchart LR
 
 ## 步骤 2：配置 warden-control
 
-`WARDEN_OIDC_ISSUER` 是总开关：为空时 OIDC 完全禁用、登录页不显示 SSO 入口，行为与旧版一致。
+`WARDEN_OIDC_ENABLED=true` 是显式总开关，`=false` 强制关闭。不设置开关时沿用旧契约（配了 `WARDEN_OIDC_ISSUER` 即启用），存量部署不受影响。
+
+**最小配置只有 4 行**——issuer / client id / secret 由 IdP 颁发，其余全部走默认：
 
 ```text
+WARDEN_OIDC_ENABLED=true
 WARDEN_OIDC_ISSUER=https://<idp.example.com>
 WARDEN_OIDC_CLIENT_ID=<client-id>
 WARDEN_OIDC_CLIENT_SECRET_FILE=/etc/warden/secrets/oidc_client_secret
+```
+
+默认值：`REDIRECT_URL` 自动取 `<WARDEN_PUBLIC_CONTROL_URL>/api/v1/auth/oidc/callback`；`DEFAULT_TENANT_ID=platform`；`DEFAULT_ROLE=user`。需要覆盖时再显式配置：
+
+```text
 WARDEN_OIDC_REDIRECT_URL=https://<warden.example.com>/api/v1/auth/oidc/callback
 WARDEN_OIDC_DEFAULT_TENANT_ID=platform
 WARDEN_OIDC_DEFAULT_ROLE=user
@@ -70,7 +78,8 @@ WARDEN_OIDC_DEFAULT_ROLE=user
 要点：
 
 - `WARDEN_OIDC_CLIENT_SECRET` 与 `_FILE` **不可同时设置**；生产用 `_FILE`。
-- 启用时 `CLIENT_ID` / `CLIENT_SECRET` / `REDIRECT_URL` / `DEFAULT_TENANT_ID` 四项必须齐全，否则启动报错。
+- 启用但缺 issuer / client id / secret / 回调（且无 `PUBLIC_CONTROL_URL` 可推导）时**启动失败并列出缺项**，不会静默降级。
+- 回调地址必须与 IdP 白名单**逐字符一致**；用推导默认值时，确认 IdP 侧注册的就是 `<PUBLIC_CONTROL_URL>/api/v1/auth/oidc/callback`。
 - `DEFAULT_TENANT_ID` 是租户 **slug**（外键指向 `tenants(slug)`），通常 `platform`。
 - `DEFAULT_ROLE` 只允许 `user` / `tenant_admin`；**填 `platform_admin` 会让服务启动失败**——超级管理员只能在页面手工指派。
 - Discovery 在首次请求时懒加载，启动不依赖 IdP 可用。
@@ -131,6 +140,16 @@ curl -sS -b /tmp/oidc.cookies "$BASE/api/v1/auth/me"
 4. 每次变更写审计 `account.role_updated`，与角色变更在同一事务提交。
 
 保护规则：内置 `admin` 不可修改、不能给自己降权、必须保留至少一个非内置 `platform_admin`、跨租户目标返回 404。完整说明见 [authorization.md](authorization.md)。
+
+## SSO 用户的租户归属
+
+SSO 认证解决「你是谁」，租户归属按以下顺序决定（仅对**首次登录**的新身份生效）：
+
+1. **可信邮箱域名路由**：IdP 在 id_token 里签发的 email（可信来源）匹配某租户配置的 `emailDomains`，且唯一命中一个 ACTIVE 租户 → 建档进该租户。域名在「租户管理 → 管理 → SSO 邮箱域名」配置（或 `PUT /tenants/{slug}/settings`）。
+2. **默认租户兜底**：未命中、命中多个（歧义）或 IdP 没给 email → 进 `WARDEN_OIDC_DEFAULT_TENANT_ID`（默认 `platform`）。
+3. **老身份绑定优先**：已登录过的身份永久绑定首次租户，再次登录直接回原租户，不受路由规则或默认值变化影响。
+
+安全边界：**只有 IdP 签发的 email 参与路由**；用户自填邮箱不能作为入租依据（未验证的自述邮箱是越权通道）。角色一律从最小权限 `user` 起步，与租户路由无关。
 
 ## 故障速查
 

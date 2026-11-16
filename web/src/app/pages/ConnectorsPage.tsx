@@ -69,7 +69,15 @@ export function ConnectorsPage() {
       {connectors.length === 0 ? (
         <EmptyState icon={Network} title="尚无执行通道" text="接入第一台主机、集群或网络设备后，系统会自动创建关联执行通道。" />
       ) : (
-        <div className="connector-channel-list">
+        <div className="panel">
+          <div className="ops-ph">
+            <span>Connector Channels · 执行通道</span>
+            <span className="topbar-live" title="心跳在 90 秒内视为在线">
+              <i aria-hidden="true" />
+              {connectors.filter((c) => isConnectorHealthy(c, now)).length}/{connectors.length} 在线
+            </span>
+          </div>
+          <div className="connector-channel-list" style={{ padding: 12 }}>
           {connectors.map((connector) => {
             const linux = connector.connector_type === 'linux'
             const network = connector.connector_type === 'network'
@@ -96,8 +104,11 @@ export function ConnectorsPage() {
                 </div>
                 <div className="channel-health">
                   <span>代理健康</span>
-                  <Badge tone={healthy ? 'success' : 'warning'}>{connectorHealthLabel(connector, now)}</Badge>
-                  <small>
+                  <strong className="flex items-center gap-2">
+                    <span className={`health-dot ${healthy ? 'healthy' : 'down'}`} aria-hidden="true" />
+                    <Badge tone={healthy ? 'success' : 'warning'}>{connectorHealthLabel(connector, now)}</Badge>
+                  </strong>
+                  <small className="font-mono">
                     v{connector.version} ·{' '}
                     {connector.last_heartbeat ? new Date(connector.last_heartbeat).toLocaleString('zh-CN', { hour12: false }) : '尚未心跳'}
                   </small>
@@ -126,6 +137,7 @@ export function ConnectorsPage() {
               </article>
             )
           })}
+          </div>
         </div>
       )}
     </div>

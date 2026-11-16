@@ -3,13 +3,14 @@ import { useLocation, useNavigate } from '../shared/router'
 import { Building2, KeyRound, LogOut, Menu, Moon, Sun } from 'lucide-react'
 import { useApp } from './components/Toast'
 import { ChangePasswordDialog } from './components/ChangePasswordDialog'
-import { canUser, userDisplayName, userInitial } from '../shared/api'
+import { canUser, getObservedTenant, listTenants, setObservedTenant, userDisplayName, userInitial, type ApiTenant } from '../shared/api'
 
 const titleMap: Record<string, string> = {
   '/overview': '运行总览',
   '/projects': '项目',
   '/project-users': '项目用户',
   '/platform/tenants': '租户管理',
+  '/platform/accounts': '账号与权限',
   '/topology': '拓扑图谱',
   '/targets': '主机与集群',
   '/integrations': '中间件',
@@ -19,6 +20,7 @@ const titleMap: Record<string, string> = {
   '/agents': 'Agent 身份',
   '/executions': '执行记录',
   '/approvals': '访问审批',
+  '/my-requests': '我的申请',
   '/audit': '审计追踪',
   '/policies': '策略中心',
 }
@@ -48,14 +50,38 @@ function useDarkMode() {
   return { dark, toggle }
 }
 
+function useClock() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  return now.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false })
+}
+
 export function AppTopbar({ onMenu }: { onMenu: () => void }) {
   const location = useLocation()
   const navigate = useNavigate()
   const { auth, signOut } = useApp()
   const title = resolveTitle(location.pathname)
   const { dark, toggle } = useDarkMode()
+  const clock = useClock()
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [avatarFailed, setAvatarFailed] = useState(false)
+  const isSuperAdmin = canUser(auth.user, 'pam:admin')
+  const [orgs, setOrgs] = useState<ApiTenant[]>([])
+  const observed = getObservedTenant()
+  useEffect(() => {
+    if (!isSuperAdmin) return
+    listTenants()
+      .then((items) => setOrgs(items ?? []))
+      .catch(() => setOrgs([]))
+  }, [isSuperAdmin])
+  const switchOrg = (slug: string) => {
+    setObservedTenant(slug)
+    // Full navigation remounts every page so no stale tenant data survives.
+    window.location.assign(slug ? '/overview' : '/platform/tenants')
+  }
   useEffect(() => setAvatarFailed(false), [auth.user?.avatar_url])
   return (
     <header className="topbar">
@@ -66,13 +92,55 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
         <div>
           <h1>{title}</h1>
         </div>
+        <span className="topbar-live" title="控制面连接正常，数据自动刷新">
+          <i aria-hidden="true" />
+          LIVE
+        </span>
       </div>
       <div className="top-actions">
-        {auth.user?.tenant && (
-          <span className="tenant-context">
+        <span className="topbar-clock" aria-label="当前时间">
+          {clock}
+        </span>
+        {isSuperAdmin ? (
+          <span className="tenant-context org-switcher" title="超级管理员可切入任意业务组织的完整控制台">
             <Building2 size={15} />
-            <span>{auth.user.tenant.name}</span>
-            <code>{auth.user.tenant.slug}</code>
+            <select
+              className="org-switcher-select"
+              value={observed}
+              onChange={(e) => switchOrg(e.target.value)}
+              aria-label="切换组织视角"
+            >
+              <option value="">平台管理域</option>
+              {orgs.map((t) => (
+                <option key={t.slug} value={t.slug}>
+                  {t.name}（{t.slug}）
+                </option>
+              ))}
+            </select>
+          </span>
+        ) : (
+          auth.user?.tenant && (
+            <span className="tenant-context">
+              <Building2 size={15} />
+              <span>{auth.user.tenant.slug === 'platform' ? '平台管理域' : auth.user.tenant.name}</span>
+              <code>{auth.user.tenant.slug}</code>
+            </span>
+          )
+        )}
+        {auth.user && (
+          <span
+            className={`role-badge ${
+              canUser(auth.user, 'pam:admin') ? 'role-super' : canUser(auth.user, 'pam:tenant:admin') ? 'role-admin' : 'role-member'
+            }`}
+            title={
+              canUser(auth.user, 'pam:admin')
+                ? '唯一超级管理员：跨租户管理组织与账号'
+                : canUser(auth.user, 'pam:tenant:admin')
+                  ? '组织管理员：管理本组织的资产、成员与审批'
+                  : '成员：在本组织内发起并跟踪自己的执行'
+            }
+          >
+            {canUser(auth.user, 'pam:admin') ? '超级管理员' : canUser(auth.user, 'pam:tenant:admin') ? '组织管理员' : '成员'}
           </span>
         )}
         {auth.user && (
@@ -92,10 +160,7 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
             )}
             <span className="user-name">
               {userDisplayName(auth.user)}
-              <small>
-                {canUser(auth.user, 'pam:admin') ? '平台管理员' : canUser(auth.user, 'pam:tenant:admin') ? '租户管理员' : '项目成员'}
-                {auth.user.email ? ` · ${auth.user.email}` : ''}
-              </small>
+              {auth.user.email ? <small>{auth.user.email}</small> : null}
             </span>
           </span>
         )}

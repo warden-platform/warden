@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Check, Clock3, FileClock, History, Loader2, ShieldAlert, XCircle } from 'lucide-react'
 import type { ApiAccessRequest, ApiError, ApiExecution } from '../../shared/api'
 import { approveRequest, listAccessRequests, listExecutions, rejectRequest } from '../../shared/api'
@@ -11,16 +11,26 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { apiRequestToApproval } from '../lib/mappers'
 import { useApiQuery } from '../lib/useApiQuery'
 
+// Mission Control approval queue: each request is a sign-off dossier with the
+// full context (who / why / scope / deadline) and a live countdown. Approving
+// still only issues a short-lived, single-use Grant — never long-term rights.
 export function ApprovalsPage() {
   const { notify, setPendingApprovals } = useApp()
   const [acting, setActing] = useState('')
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const [now, setNow] = useState(() => Date.now())
 
   const { data, error, loading, reload } = useApiQuery(() => Promise.all([listAccessRequests('PENDING'), listExecutions()]), [], {
     intervalMs: autoRefresh ? 5000 : 0,
     onSuccess: ([reqs]) => setPendingApprovals((reqs ?? []).length),
   })
   const [requests, executions] = data ?? [[], []]
+
+  // 1s ticker for the sign-off countdowns.
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
 
   // Recent finished executions per resource, so approvers see the target's
   // track record instead of deciding blind.
@@ -40,8 +50,6 @@ export function ApprovalsPage() {
   if (loading) return <LoadingState />
   if (error) return <ErrorState message={error} onRetry={() => reload()} />
 
-  const approvals = requests.map((r) => apiRequestToApproval(r))
-
   const decide = (approval: Approval, allowed: boolean) => {
     setActing(approval.id)
     const call = allowed ? approveRequest(approval.id) : rejectRequest(approval.id)
@@ -54,8 +62,23 @@ export function ApprovalsPage() {
       .finally(() => setActing(''))
   }
 
+  const countdown = (req: ApiAccessRequest) => {
+    if (!req.expires_at) return null
+    const secs = Math.max(0, Math.round((new Date(req.expires_at).getTime() - now) / 1000))
+    return `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`
+  }
+
   return (
     <section className="panel">
+      <div className="ops-ph">
+        <span>Approval Queue · 待命队列{requests.length ? ` · ${requests.length} 单待签署` : ''}</span>
+        {autoRefresh && (
+          <span className="topbar-live">
+            <i aria-hidden="true" />
+            LIVE · 5s
+          </span>
+        )}
+      </div>
       <div className="toolbar">
         <div className="auto-refresh-toggle">
           <label>
@@ -68,14 +91,14 @@ export function ApprovalsPage() {
           刷新
         </button>
       </div>
-      {!approvals.length ? (
+      {!requests.length ? (
         <EmptyState
           icon={FileClock}
           title="没有待处理的审批"
           text="需要人工确认的生产动作会出现在这里，并展示完整资源、参数和风险上下文。"
         />
       ) : (
-        <div className="approval-list">
+        <div className="approval-list" style={{ padding: 16 }}>
           {requests.map((req) => {
             const approval = apiRequestToApproval(req)
             const recent = recentByResource.get(req.resource_id) ?? []
@@ -93,46 +116,58 @@ export function ApprovalsPage() {
                   .filter(Boolean)
                   .join(' · ')
               : ''
+            const cd = countdown(req)
             return (
               <article className="approval-card" key={approval.id}>
                 <div className="approval-top">
                   <div>
-                    <Badge tone="danger">
-                      {req.action_name === 'database.query.execute' ? '查询成本审批' : `${approval.risk}风险 · 受治理`}
-                    </Badge>
+                    <span className="approval-eyebrow">
+                      待签署 · Access Request
+                      <Badge tone="danger">
+                        {req.action_name === 'database.query.execute' ? '查询成本审批' : `${approval.risk}风险 · 受治理`}
+                      </Badge>
+                    </span>
                     <h2>
                       {approval.action} · {approval.resource}
                     </h2>
                     <p>{approval.reason}</p>
                   </div>
-                  <span className="approval-expire">
-                    <Clock3 size={15} />
-                    {approval.expires}
+                  <span className="approval-countdown" title="申请过期倒计时">
+                    <b>{cd ?? '不限制'}</b>
+                    <small>{cd ? '后过期' : '有效期'}</small>
                   </span>
                 </div>
-                <div className="approval-context">
+                <dl className="approval-dossier">
                   <div>
-                    <span>申请 Agent</span>
-                    <strong>{approval.requestor}</strong>
+                    <dt>申请 Agent</dt>
+                    <dd>{approval.requestor}</dd>
                   </div>
                   <div>
-                    <span>目标资源</span>
-                    <strong>
+                    <dt>目标资源</dt>
+                    <dd>
                       {req.resource_type ? resourceTypeLabel(req.resource_type) : '资源'} ·{' '}
                       <Badge tone={resourceOK ? 'success' : 'warning'}>
                         {req.resource_status ? (resourceOK ? '正常' : req.resource_status) : '未知'}
                       </Badge>
-                    </strong>
+                    </dd>
                   </div>
                   <div>
-                    <span>执行参数</span>
-                    <strong>{approval.parameters}</strong>
+                    <dt>执行参数</dt>
+                    <dd>
+                      <code>{approval.parameters}</code>
+                    </dd>
                   </div>
+                  {queryCostSummary && (
+                    <div>
+                      <dt>查询预检</dt>
+                      <dd>{queryCostSummary}</dd>
+                    </div>
+                  )}
                   <div>
-                    <span>授权范围</span>
-                    <strong>单资源 · 单次使用 · 15 分钟</strong>
+                    <dt>授权范围</dt>
+                    <dd>单资源 · 单次使用 · 批准后 15 分钟内有效</dd>
                   </div>
-                </div>
+                </dl>
                 {recent.length > 0 && (
                   <div className="approval-history">
                     <span className="approval-history-head">
@@ -156,7 +191,7 @@ export function ApprovalsPage() {
                     ))}
                   </div>
                 )}
-                <div className="decision-note">
+                <div className="decision-note" style={{ marginTop: 8 }}>
                   <ShieldAlert size={18} />
                   <span>
                     {req.action_name === 'database.query.execute'

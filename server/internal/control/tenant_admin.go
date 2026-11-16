@@ -14,39 +14,36 @@ import (
 var tenantSlugPattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9-]{0,98}[a-z0-9])?$`)
 
 type tenantQuotaInput struct {
-	MaxPrincipals        int `json:"maxPrincipals"`
-	MaxConnectors        int `json:"maxConnectors"`
-	MaxConcurrentTasks   int `json:"maxConcurrentTasks"`
-	MaxRequestsPerMinute int `json:"maxRequestsPerMinute"`
-	AuditRetentionDays   int `json:"auditRetentionDays"`
+	MaxConcurrentTasks int `json:"maxConcurrentTasks"`
 }
 
 func defaultTenantQuotaInput() tenantQuotaInput {
-	return tenantQuotaInput{MaxPrincipals: 1000, MaxConnectors: 100, MaxConcurrentTasks: 100, MaxRequestsPerMinute: 600, AuditRetentionDays: 365}
+	return tenantQuotaInput{MaxConcurrentTasks: 100}
 }
 
 func validTenantQuota(q tenantQuotaInput) bool {
-	return q.MaxPrincipals > 0 && q.MaxConnectors > 0 && q.MaxConcurrentTasks > 0 && q.MaxRequestsPerMinute > 0 && q.AuditRetentionDays > 0
+	return q.MaxConcurrentTasks > 0
 }
 
 func validTenantIdentity(slug, name string) bool {
 	return slug != "" && name != "" && len(slug) <= 100 && len(name) <= 255 && tenantSlugPattern.MatchString(slug)
 }
 
+// LEFT JOIN + COALESCE: a missing guard row must never hide a tenant from the
+// list; the concurrency guard falls back to the platform default.
 const tenantSummaryQuery = `SELECT t.id,t.slug,t.name,t.status,t.settings,t.created_at,t.updated_at,
-	q.tenant_id,q.max_principals,q.max_connectors,q.max_concurrent_tasks,q.max_requests_per_minute,q.audit_retention_days,q.updated_at,
+	COALESCE(q.tenant_id,t.slug),COALESCE(q.max_concurrent_tasks,100),COALESCE(q.updated_at,t.updated_at),
 	(SELECT count(*) FROM principals p WHERE p.tenant_id=t.slug AND p.status='ACTIVE'),
 	(SELECT count(*) FROM connectors c WHERE c.tenant_id=t.slug AND c.archived_at IS NULL AND c.status<>'DISABLED'),
 	(SELECT count(*) FROM projects pr WHERE pr.tenant_id=t.slug),
 	(SELECT count(*) FROM executions e WHERE e.tenant_id=t.slug AND e.status IN ('WAITING_APPROVAL','QUEUED','DISPATCHED','RUNNING')),
 	(SELECT count(*) FROM principals a WHERE a.tenant_id=t.slug AND a.kind='user' AND a.status='ACTIVE' AND a.metadata->>'role'='tenant_admin')
-	FROM tenants t JOIN tenant_quotas q ON q.tenant_id=t.slug`
+	FROM tenants t LEFT JOIN tenant_quotas q ON q.tenant_id=t.slug`
 
 func scanTenantSummary(row interface{ Scan(...any) error }) (domain.TenantSummary, error) {
 	var summary domain.TenantSummary
 	err := row.Scan(&summary.ID, &summary.Slug, &summary.Name, &summary.Status, &summary.Settings, &summary.CreatedAt, &summary.UpdatedAt,
-		&summary.Quota.TenantID, &summary.Quota.MaxPrincipals, &summary.Quota.MaxConnectors, &summary.Quota.MaxConcurrentTasks,
-		&summary.Quota.MaxRequestsPerMinute, &summary.Quota.AuditRetentionDays, &summary.Quota.UpdatedAt,
+		&summary.Quota.TenantID, &summary.Quota.MaxConcurrentTasks, &summary.Quota.UpdatedAt,
 		&summary.Usage.Principals, &summary.Usage.Connectors, &summary.Usage.Projects, &summary.Usage.InFlightTasks, &summary.Usage.Administrators)
 	return summary, err
 }
@@ -68,6 +65,14 @@ func (h *Handler) ListTenants(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "读取租户失败")
 			return
+		}
+		// System domains are not business organizations and must not surface
+		// in the tenant list: `unaffiliated` is the parking hall for SSO
+		// identities with no organization yet, and `platform` is the super
+		// admin's management domain (the control plane itself), not a tenant
+		// that runs business workloads.
+		if tenant.Slug == unaffiliatedTenant || tenant.Slug == platformTenantSlug {
+			continue
 		}
 		result = append(result, tenant)
 	}
@@ -111,6 +116,10 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "INVALID_TENANT", "slug 和 name 为必填且长度无效")
 		return
 	}
+	if req.Slug == unaffiliatedTenant {
+		jsonError(w, http.StatusBadRequest, "RESERVED_TENANT_SLUG", "该组织标识为系统保留")
+		return
+	}
 	tx, err := h.pool.Begin(r.Context())
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "TENANT_CREATE_FAILED", "创建租户失败")
@@ -126,7 +135,7 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err := tx.Exec(r.Context(), `INSERT INTO tenant_quotas (tenant_id) VALUES ($1)`, tenant.Slug); err != nil {
-		jsonError(w, http.StatusInternalServerError, "TENANT_QUOTA_INIT_FAILED", "初始化租户配额失败")
+		jsonError(w, http.StatusInternalServerError, "TENANT_QUOTA_INIT_FAILED", "初始化租户并发保护失败")
 		return
 	}
 	if _, err := tx.Exec(r.Context(), `INSERT INTO projects (name, is_default, tenant_id) VALUES ('默认项目', true, $1)`, tenant.Slug); err != nil {
@@ -141,7 +150,7 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 }
 
 // BootstrapTenant atomically creates the tenant boundary, its default project,
-// configured quota and first tenant administrator.
+// concurrency guard and first tenant administrator.
 func (h *Handler) BootstrapTenant(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
 		databaseUnavailable(w)
@@ -167,8 +176,8 @@ func (h *Handler) BootstrapTenant(w http.ResponseWriter, r *http.Request) {
 	if req.Quota != nil {
 		quota = *req.Quota
 	}
-	if !validTenantIdentity(req.Slug, req.Name) || req.AdminName == "" || len(req.AdminName) > 255 || len(req.AdminPassword) < 8 || len(req.AdminPassword) > 72 || !validTenantQuota(quota) {
-		jsonError(w, http.StatusBadRequest, "INVALID_TENANT_BOOTSTRAP", "租户、管理员或配额格式无效")
+	if !validTenantIdentity(req.Slug, req.Name) || req.Slug == unaffiliatedTenant || !validLoginName(req.AdminName) || len(req.AdminPassword) < 8 || len(req.AdminPassword) > 72 || !validTenantQuota(quota) {
+		jsonError(w, http.StatusBadRequest, "INVALID_TENANT_BOOTSTRAP", "租户、管理员或并发保护阈值格式无效（管理员名称不能包含 @）")
 		return
 	}
 	passwordHash, err := hashPassword(req.AdminPassword)
@@ -191,9 +200,9 @@ func (h *Handler) BootstrapTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if _, err = tx.Exec(r.Context(), `INSERT INTO tenant_quotas
-		(tenant_id,max_principals,max_connectors,max_concurrent_tasks,max_requests_per_minute,audit_retention_days)
-		VALUES ($1,$2,$3,$4,$5,$6)`, req.Slug, quota.MaxPrincipals, quota.MaxConnectors, quota.MaxConcurrentTasks, quota.MaxRequestsPerMinute, quota.AuditRetentionDays); err != nil {
-		jsonError(w, http.StatusInternalServerError, "TENANT_QUOTA_INIT_FAILED", "初始化租户配额失败")
+		(tenant_id,max_concurrent_tasks)
+		VALUES ($1,$2)`, req.Slug, quota.MaxConcurrentTasks); err != nil {
+		jsonError(w, http.StatusInternalServerError, "TENANT_QUOTA_INIT_FAILED", "初始化租户并发保护失败")
 		return
 	}
 	if _, err = tx.Exec(r.Context(), `INSERT INTO projects(name,description,is_default,tenant_id)

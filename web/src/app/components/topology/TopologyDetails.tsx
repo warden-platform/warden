@@ -33,7 +33,7 @@ export function TopologyDetails({
     )
   }
   return (
-    <div className="flex h-full flex-col rounded-lg border border-white/60 bg-white/75 p-4 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-surface-dark/75 dark:shadow-glass-dark">
+    <div className="flex h-full flex-col rounded-lg border border-border bg-surface p-4 shadow-card dark:border-border-dark dark:bg-surface-dark">
       <div className="mb-3 flex items-start justify-between">
         <div>
           <p className="text-[10px] font-semibold uppercase tracking-wider text-brand dark:text-brand-dark">

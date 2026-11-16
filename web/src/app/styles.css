@@ -5,9 +5,10 @@
 @tailwind utilities;
 
 /* ============================================================
-   Warden Design System — Keep-inspired
-   Light: orange brand, white surfaces, gray-50 canvas
-   Dark:  blue brand, deep navy surfaces (class-based)
+   Warden Design System — Mission Control
+   Light: cool daylight ops canvas, signal-cyan accent
+   Dark:  graphite ops wall, signal cyan/green/amber/red (default)
+   Flat crisp surfaces, 1px borders, mono data typography.
    ============================================================ */
 
 @layer base {
@@ -29,7 +30,7 @@
     min-height: 100vh;
     @apply text-content font-sans antialiased;
   }
-  /* Glassmorphism canvas: fixed color blobs behind frosted surfaces.
+  /* Mission Control canvas: flat graphite with a faint engineering grid.
      Uses body::before (not background-attachment:fixed) for iOS Safari. */
   body::before {
     content: '';
@@ -38,18 +39,28 @@
     z-index: -1;
     pointer-events: none;
     background:
-      radial-gradient(640px 420px at 10% -6%, rgb(249 115 22 / 0.14), transparent 62%),
-      radial-gradient(560px 420px at 92% 8%, rgb(59 130 246 / 0.13), transparent 60%),
-      radial-gradient(720px 540px at 72% 102%, rgb(139 92 246 / 0.1), transparent 64%), linear-gradient(180deg, #f7f8fb 0%, #edf0f6 100%);
+      linear-gradient(rgb(26 35 50 / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(26 35 50 / 0.035) 1px, transparent 1px),
+      linear-gradient(180deg, #f2f4f8 0%, #e9edf3 100%);
+    background-size:
+      28px 28px,
+      28px 28px,
+      100% 100%;
   }
   :root.dark body {
     @apply text-content-dark;
   }
   :root.dark body::before {
     background:
-      radial-gradient(640px 420px at 10% -6%, rgb(59 130 246 / 0.18), transparent 62%),
-      radial-gradient(560px 420px at 92% 8%, rgb(99 102 241 / 0.15), transparent 60%),
-      radial-gradient(720px 540px at 72% 102%, rgb(14 165 233 / 0.11), transparent 64%), linear-gradient(180deg, #050a18 0%, #0a1128 100%);
+      linear-gradient(rgb(231 237 245 / 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(231 237 245 / 0.03) 1px, transparent 1px),
+      radial-gradient(900px 480px at 85% -10%, rgb(56 189 248 / 0.07), transparent 60%),
+      linear-gradient(180deg, #0b0f16 0%, #0a0e15 100%);
+    background-size:
+      28px 28px,
+      28px 28px,
+      100% 100%,
+      100% 100%;
   }
   h1,
   h2,
@@ -59,10 +70,10 @@
   }
   code {
     @apply font-mono text-[0.85em];
-    color: rgb(79 70 229);
+    color: rgb(2 132 199);
   }
   :root.dark code {
-    @apply text-indigo-300;
+    @apply text-sky-300;
   }
   button,
   input,
@@ -107,18 +118,22 @@
     @apply flex flex-col gap-4;
   }
 
-  /* ---------- Sidebar (frosted glass, brand-highlighted) ---------- */
+  /* ---------- Sidebar (ops rail, grouped nav) ---------- */
   .sidebar {
-    @apply fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-white/60 bg-white/60 px-3 py-5 shadow-glass backdrop-blur-2xl;
+    @apply fixed inset-y-0 left-0 z-30 flex w-56 flex-col border-r border-border bg-surface px-3 py-5 shadow-card;
   }
   :root.dark .sidebar {
-    @apply border-white/10 bg-surface-dark/60 shadow-glass-dark;
+    @apply border-border-dark shadow-card;
+    background: #0a0e15;
   }
   .brand {
     @apply flex items-center gap-3 px-2 pb-5;
   }
   .brand-mark {
     @apply grid h-9 w-9 place-items-center rounded-lg bg-brand text-white;
+  }
+  :root.dark .brand-mark {
+    @apply bg-brand-dark text-[#04222e];
   }
   .brand strong {
     @apply block text-sm font-semibold text-content;
@@ -130,14 +145,17 @@
     @apply mt-0.5 block text-[10px] uppercase tracking-wider text-content-subtle;
   }
   .nav-caption {
-    @apply mb-2 px-3 text-[10px] font-semibold uppercase tracking-wider text-content-subtle;
+    @apply mb-1.5 mt-4 flex items-center gap-2 px-3 text-[10px] font-bold uppercase tracking-[0.16em] text-content-subtle first:mt-0;
   }
   :root.dark .nav-caption {
     @apply text-content-dark-subtle;
   }
+  .nav-caption em {
+    @apply ml-auto text-[8px] font-semibold not-italic tracking-[0.1em] opacity-50;
+  }
   nav a,
   nav button {
-    @apply mb-0.5 flex h-10 w-full items-center gap-3 rounded-lg border border-transparent px-3 text-sm text-content-subtle transition hover:bg-surface-muted hover:text-content;
+    @apply relative mb-0.5 flex h-9 w-full items-center gap-3 rounded-md border border-transparent px-3 text-[13px] text-content-subtle transition hover:bg-surface-muted hover:text-content;
   }
   :root.dark nav a,
   :root.dark nav button {
@@ -151,9 +169,30 @@
   :root.dark nav button.nav-active {
     @apply bg-brand-dark/15 text-brand-dark;
   }
+  nav a.nav-active::before,
+  nav button.nav-active::before {
+    content: '';
+    @apply absolute left-0 top-1/2 h-4 w-[3px] -translate-y-1/2 rounded-full bg-brand;
+  }
+  :root.dark nav a.nav-active::before,
+  :root.dark nav button.nav-active::before {
+    @apply bg-brand-dark;
+    box-shadow: 0 0 8px rgb(56 189 248 / 0.7);
+  }
   nav a b,
   nav button b {
     @apply ml-auto grid h-5 min-w-[20px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-semibold text-white;
+  }
+  .sidebar-foot {
+    @apply mt-auto flex items-center gap-2 border-t border-border px-3 pt-3 text-[10px] font-medium text-content-subtle;
+  }
+  :root.dark .sidebar-foot {
+    @apply border-border-dark text-content-dark-subtle;
+  }
+  .sidebar-foot .pulse-dot {
+    @apply h-1.5 w-1.5 flex-none rounded-full bg-signal-green;
+    box-shadow: 0 0 6px rgb(74 222 128 / 0.8);
+    animation: led-blink 2.2s ease-in-out infinite;
   }
   .sidebar-close,
   .mobile-menu,
@@ -166,10 +205,10 @@
     @apply min-h-screen md:ml-56;
   }
   .topbar {
-    @apply sticky top-0 z-20 flex h-16 items-center justify-between border-b border-white/60 bg-white/55 px-7 shadow-glass backdrop-blur-2xl;
+    @apply sticky top-0 z-20 flex h-16 items-center justify-between border-b border-border bg-surface px-7 shadow-card;
   }
   :root.dark .topbar {
-    @apply border-white/10 bg-surface-dark/55 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .title-row {
     @apply flex items-center gap-3;
@@ -196,32 +235,35 @@
   .primary-button {
     @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg bg-brand px-4 text-sm font-semibold text-white transition hover:bg-brand/90 whitespace-nowrap;
   }
+  :root.dark .primary-button {
+    @apply bg-brand-dark text-[#04222e] hover:bg-brand-dark/90;
+  }
   .primary-button.compact {
     @apply min-h-[34px];
   }
   .secondary-button {
-    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-white/70 bg-white/60 px-4 text-sm font-semibold text-content shadow-glass backdrop-blur-md transition hover:bg-white/80 whitespace-nowrap;
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-border bg-surface px-4 text-sm font-semibold text-content shadow-card transition hover:bg-surface-muted whitespace-nowrap;
   }
   :root.dark .secondary-button {
-    @apply border-white/10 bg-surface-dark/60 text-content-dark shadow-glass-dark hover:bg-surface-dark/80;
+    @apply border-border-dark bg-surface-dark text-content-dark shadow-card hover:bg-surface-dark-muted;
   }
   .quiet-button {
-    @apply inline-flex min-h-[34px] items-center justify-center gap-2 rounded-lg border border-white/60 bg-white/40 px-3 text-sm font-semibold text-content-subtle backdrop-blur-md transition hover:bg-white/70 hover:text-content whitespace-nowrap;
+    @apply inline-flex min-h-[34px] items-center justify-center gap-2 rounded-lg border border-border bg-surface-muted px-3 text-sm font-semibold text-content-subtle transition hover:bg-surface hover:text-content whitespace-nowrap;
   }
   :root.dark .quiet-button {
-    @apply border-white/10 bg-white/5 text-content-dark-subtle hover:bg-white/10 hover:text-content-dark;
+    @apply border-border-dark bg-transparent text-content-dark-subtle hover:bg-surface-dark-muted hover:text-content-dark;
   }
   .danger-button {
-    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-red-200/80 bg-white/55 px-4 text-sm font-semibold text-red-600 backdrop-blur-md transition hover:bg-red-50/80 whitespace-nowrap;
+    @apply inline-flex min-h-[38px] items-center justify-center gap-2 rounded-lg border border-red-200/80 bg-surface px-4 text-sm font-semibold text-red-600 transition hover:bg-red-50/80 whitespace-nowrap;
   }
   :root.dark .danger-button {
-    @apply border-red-900 bg-surface-dark/55 text-red-400 hover:bg-red-950/80;
+    @apply border-red-900 bg-surface-dark text-red-400 hover:bg-red-950/80;
   }
   .icon-button {
-    @apply grid h-9 w-9 place-items-center rounded-lg border border-white/70 bg-white/60 text-content-subtle shadow-glass backdrop-blur-md transition hover:bg-white/80 hover:text-brand;
+    @apply grid h-9 w-9 place-items-center rounded-lg border border-border bg-surface text-content-subtle shadow-card transition hover:bg-surface-muted hover:text-brand;
   }
   :root.dark .icon-button {
-    @apply border-white/10 bg-surface-dark/60 text-content-dark-subtle shadow-glass-dark hover:bg-surface-dark/80 hover:text-brand-dark;
+    @apply border-border-dark bg-surface-dark text-content-dark-subtle shadow-card hover:bg-surface-dark-muted hover:text-brand-dark;
   }
   .link-button {
     @apply bg-transparent p-0 text-sm font-semibold text-brand hover:underline;
@@ -232,16 +274,16 @@
 
   /* ---------- Surfaces (frosted glass) ---------- */
   .card {
-    @apply rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl;
+    @apply rounded-lg border border-border bg-surface p-5 shadow-card;
   }
   :root.dark .card {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .panel {
-    @apply overflow-hidden rounded-lg border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl;
+    @apply overflow-hidden rounded-lg border border-border bg-surface shadow-card;
   }
   :root.dark .panel {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .panel-header {
     @apply flex min-h-[60px] items-center justify-between gap-4 border-b border-border px-5 py-3;
@@ -302,10 +344,10 @@
     @apply grid grid-cols-4 gap-4;
   }
   .kpi {
-    @apply flex min-h-[112px] items-start gap-4 rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl;
+    @apply flex min-h-[112px] items-start gap-4 rounded-lg border border-border bg-surface p-5 shadow-card;
   }
   :root.dark .kpi {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .kpi-icon {
     @apply grid h-9 w-9 flex-none place-items-center rounded-lg;
@@ -346,7 +388,7 @@
     @apply text-content-dark-subtle;
   }
   .kpi-copy strong {
-    @apply mt-1 text-2xl font-semibold leading-tight text-content;
+    @apply mt-1 font-mono text-2xl font-bold leading-tight tracking-tight text-content;
   }
   :root.dark .kpi-copy strong {
     @apply text-content-dark;
@@ -366,10 +408,10 @@
     @apply w-full border-collapse text-sm;
   }
   th {
-    @apply border-b border-border bg-white/50 px-4 py-3 text-left text-xs font-semibold text-content-subtle backdrop-blur-sm;
+    @apply border-b border-border bg-surface-muted px-4 py-3 text-left text-xs font-semibold text-content-subtle;
   }
   :root.dark th {
-    @apply border-border-dark bg-white/5 text-content-dark-subtle;
+    @apply border-border-dark bg-surface-dark-muted text-content-dark-subtle;
   }
   td {
     @apply border-b border-border px-4 py-3 align-middle text-content-subtle;
@@ -401,13 +443,13 @@
   .form-grid input,
   .form-grid select,
   .form-grid textarea {
-    @apply w-full rounded-lg border border-white/70 bg-white/70 px-3 py-2 text-sm text-content shadow-glass backdrop-blur-md transition focus:border-brand focus:ring-2 focus:ring-brand/20;
+    @apply w-full rounded-lg border border-border bg-surface px-3 py-2 text-sm text-content shadow-card transition focus:border-brand focus:ring-2 focus:ring-brand/20;
   }
   :root.dark .input,
   :root.dark .form-grid input,
   :root.dark .form-grid select,
   :root.dark .form-grid textarea {
-    @apply border-white/10 bg-white/5 text-content-dark shadow-glass-dark focus:border-brand-dark focus:ring-brand-dark/20;
+    @apply border-border-dark bg-surface-dark-muted text-content-dark shadow-card focus:border-brand-dark focus:ring-brand-dark/20;
   }
   .form-grid {
     @apply grid gap-4;
@@ -432,10 +474,10 @@
     @apply text-content-dark-subtle;
   }
   .search-box {
-    @apply flex h-9 min-w-[280px] items-center gap-2 rounded-lg border border-white/70 bg-white/70 px-3 text-content-subtle shadow-glass backdrop-blur-md focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20;
+    @apply flex h-9 min-w-[280px] items-center gap-2 rounded-lg border border-border bg-surface px-3 text-content-subtle shadow-card focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20;
   }
   :root.dark .search-box {
-    @apply border-white/10 bg-white/5 text-content-dark-subtle shadow-glass-dark focus-within:border-brand-dark focus-within:ring-brand-dark/20;
+    @apply border-border-dark bg-surface-dark-muted text-content-dark-subtle shadow-card focus-within:border-brand-dark focus-within:ring-brand-dark/20;
   }
   .search-box input {
     @apply w-full border-0 bg-transparent text-sm text-content outline-none;
@@ -443,11 +485,15 @@
   :root.dark .search-box input {
     @apply text-content-dark;
   }
+  :root.dark input::placeholder,
+  :root.dark textarea::placeholder {
+    color: #7d8da3;
+  }
   .select-wrap {
-    @apply relative flex h-9 min-w-[125px] items-center rounded-lg border border-white/70 bg-white/70 backdrop-blur-md;
+    @apply relative flex h-9 min-w-[125px] items-center rounded-lg border border-border bg-surface;
   }
   :root.dark .select-wrap {
-    @apply border-white/10 bg-white/5;
+    @apply border-border-dark bg-surface-dark-muted;
   }
   .select-wrap select {
     @apply h-full w-full cursor-pointer appearance-none rounded-lg border-0 bg-transparent py-0 pl-3 pr-8 text-sm text-content-subtle outline-none;
@@ -495,10 +541,10 @@
 
   /* ---------- Empty state ---------- */
   .empty-state {
-    @apply flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-white/60 bg-white/70 p-8 text-center shadow-glass backdrop-blur-xl;
+    @apply flex min-h-[400px] flex-col items-center justify-center rounded-lg border border-border bg-surface p-8 text-center shadow-card;
   }
   :root.dark .empty-state {
-    @apply border-white/10 bg-surface-dark/70 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .empty-state > div {
     @apply grid h-14 w-14 place-items-center rounded-full bg-surface-muted text-content-subtle;
@@ -522,35 +568,29 @@
     @apply p-6 text-center text-xs leading-relaxed text-content-subtle;
   }
 
-  /* ---------- Login ---------- */
-  .login-shell {
-    @apply flex min-h-screen items-center justify-center px-4 py-10;
+  /* ---------- Login (form primitives; shell lives in ops section) ---------- */
+  .login-hint {
+    @apply mt-1.5 block text-[10px] leading-relaxed text-content-subtle;
   }
-  :root.dark .login-shell {
-    @apply text-content-dark;
-  }
-  .login-card {
-    @apply w-full max-w-[380px] rounded-xl border border-white/70 bg-white/70 p-7 shadow-glass-strong backdrop-blur-2xl;
-  }
-  :root.dark .login-card {
-    @apply border-white/15 bg-surface-dark/70 shadow-glass-dark-strong;
+  :root.dark .login-hint {
+    @apply text-content-dark-subtle;
   }
   .login-brand {
-    @apply mb-6 flex items-center gap-3 text-brand;
+    @apply mb-5 flex items-center gap-3 text-brand;
   }
   :root.dark .login-brand {
     @apply text-brand-dark;
   }
-  .login-brand h1 {
-    @apply text-lg font-semibold text-content;
+  .login-brand strong {
+    @apply block text-base font-extrabold tracking-wide text-content;
   }
-  :root.dark .login-brand h1 {
+  :root.dark .login-brand strong {
     @apply text-content-dark;
   }
-  .login-brand p {
-    @apply mt-1 text-xs text-content-subtle;
+  .login-brand span {
+    @apply mt-0.5 block font-mono text-[9px] uppercase tracking-[0.22em] text-content-subtle;
   }
-  :root.dark .login-brand p {
+  :root.dark .login-brand span {
     @apply text-content-dark-subtle;
   }
   .login-field {
@@ -613,7 +653,7 @@
 
   /* ---------- Toast ---------- */
   .toast {
-    @apply flex min-h-[42px] items-center gap-2 rounded-lg border border-green-400/40 bg-green-900/80 px-4 py-2.5 text-sm text-white shadow-glass-dark-strong backdrop-blur-xl;
+    @apply flex min-h-[42px] items-center gap-2 rounded-lg border border-green-400/40 bg-green-900/80 px-4 py-2.5 text-sm text-white shadow-lift-dark;
   }
   .toast-stack {
     @apply fixed bottom-6 right-6 z-[100] flex max-w-[min(400px,calc(100vw-32px))] flex-col gap-2;
@@ -621,10 +661,10 @@
 
   /* ---------- Segmented control ---------- */
   .segmented {
-    @apply flex h-9 rounded-lg border border-white/60 bg-white/40 p-0.5 backdrop-blur-md;
+    @apply flex h-9 rounded-lg border border-border bg-surface-muted p-0.5;
   }
   :root.dark .segmented {
-    @apply border-white/10 bg-white/5;
+    @apply border-border-dark bg-surface-dark-muted;
   }
   .segmented button {
     @apply min-w-[60px] rounded-md border-0 bg-transparent px-3 text-xs text-content-subtle;
@@ -633,10 +673,10 @@
     @apply text-content-dark-subtle;
   }
   .segmented button.selected {
-    @apply bg-white/90 text-content shadow-sm;
+    @apply bg-surface text-content shadow-sm;
   }
   :root.dark .segmented button.selected {
-    @apply bg-surface-dark text-content-dark;
+    @apply bg-brand-dark/15 text-brand-dark;
   }
 
   /* ---------- Connectors ---------- */
@@ -644,10 +684,10 @@
     @apply grid grid-cols-2 gap-4;
   }
   .connector-card {
-    @apply rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl;
+    @apply rounded-lg border border-border bg-surface p-5 shadow-card;
   }
   :root.dark .connector-card {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .connector-head {
     @apply flex items-center gap-3;
@@ -916,10 +956,10 @@
     @apply grid gap-3;
   }
   .connector-channel-row {
-    @apply grid grid-cols-[auto_1.3fr_1fr_1fr_auto] items-center gap-4 rounded-lg border border-white/60 bg-white/75 p-4 shadow-glass backdrop-blur-xl;
+    @apply grid grid-cols-[auto_1.3fr_1fr_1fr_auto] items-center gap-4 rounded-lg border border-border bg-surface p-4 shadow-card;
   }
   :root.dark .connector-channel-row {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .channel-identity,
   .channel-target,
@@ -1085,10 +1125,10 @@
     @apply grid gap-3 md:grid-cols-2;
   }
   .cloud-account-card {
-    @apply rounded-xl border border-white/60 bg-white/75 p-4 shadow-glass backdrop-blur-xl;
+    @apply rounded-xl border border-border bg-surface p-4 shadow-card;
   }
   :root.dark .cloud-account-card {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .cloud-account-card-heading {
     @apply flex items-center gap-3;
@@ -1202,10 +1242,10 @@
     @apply bg-border-dark/60;
   }
   .cloud-resource-tree {
-    @apply overflow-hidden rounded-xl border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl;
+    @apply overflow-hidden rounded-xl border border-border bg-surface shadow-card;
   }
   :root.dark .cloud-resource-tree {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .cloud-tree-node {
     @apply min-w-0;
@@ -2082,10 +2122,10 @@
 
   /* ---------- Summary strip ---------- */
   .summary-strip {
-    @apply grid grid-cols-4 overflow-hidden rounded-lg border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl;
+    @apply grid grid-cols-4 overflow-hidden rounded-lg border border-border bg-surface shadow-card;
   }
   :root.dark .summary-strip {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .summary-strip > div {
     @apply flex min-h-[60px] items-center gap-2.5 border-r border-border px-5 text-xs text-content-subtle;
@@ -2100,7 +2140,7 @@
     @apply text-content-subtle;
   }
   .summary-strip strong {
-    @apply ml-auto text-base font-semibold text-content;
+    @apply ml-auto font-mono text-base font-bold text-content;
   }
   :root.dark .summary-strip strong {
     @apply text-content-dark;
@@ -2138,12 +2178,6 @@
   /* ---------- Approvals ---------- */
   .approval-list {
     @apply grid max-w-[1000px] gap-4;
-  }
-  .approval-card {
-    @apply rounded-lg border border-border border-l-4 border-l-brand bg-surface p-5;
-  }
-  :root.dark .approval-card {
-    @apply border-border-dark bg-surface-dark;
   }
   .approval-top {
     @apply flex justify-between gap-5;
@@ -2219,6 +2253,9 @@
   .audit-item:last-child {
     @apply border-b-0;
   }
+  .audit-item code {
+    @apply block truncate font-mono text-[10px];
+  }
   .audit-dot {
     @apply h-2 w-2 rounded-full;
   }
@@ -2236,7 +2273,7 @@
     @apply bg-gray-400;
   }
   .audit-time {
-    @apply text-content-subtle;
+    @apply font-mono text-[11px] text-content-subtle;
   }
   :root.dark .audit-time {
     @apply text-content-dark-subtle;
@@ -2343,10 +2380,10 @@
     @apply flex flex-col gap-4;
   }
   .detail-page-header {
-    @apply rounded-lg border border-white/60 bg-white/75 p-5 shadow-glass backdrop-blur-xl;
+    @apply rounded-lg border border-border bg-surface p-5 shadow-card;
   }
   :root.dark .detail-page-header {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .detail-page-header .btn-quiet,
   .detail-page-header .quiet-button {
@@ -2374,16 +2411,16 @@
     @apply text-slate-600;
   }
   .detail-page-body {
-    @apply min-h-[300px] rounded-lg border border-white/60 bg-white/75 p-6 shadow-glass backdrop-blur-xl;
+    @apply min-h-[300px] rounded-lg border border-border bg-surface p-6 shadow-card;
   }
   :root.dark .detail-page-body {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .detail-tabs {
-    @apply flex gap-0.5 rounded-t-lg border border-white/60 bg-white/70 px-3 backdrop-blur-xl;
+    @apply flex gap-0.5 rounded-t-lg border border-border bg-surface px-3;
   }
   :root.dark .detail-tabs {
-    @apply border-white/10 bg-surface-dark/70;
+    @apply border-border-dark bg-surface-dark;
   }
   .detail-tabs button {
     @apply border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-content-subtle transition;
@@ -2547,7 +2584,7 @@
     @apply text-content-dark-subtle;
   }
   .dingtalk-toggle input {
-    @apply h-4 w-4 flex-none accent-indigo-600;
+    @apply h-4 w-4 flex-none accent-brand;
   }
   .dingtalk-toggle input:disabled {
     @apply cursor-not-allowed opacity-40;
@@ -2568,13 +2605,13 @@
     @apply border-border-dark text-content-dark-subtle hover:bg-surface-dark-muted;
   }
   .event-chip:has(input:checked) {
-    @apply border-indigo-300 bg-indigo-50 text-indigo-700;
+    @apply border-brand/40 bg-brand/10 text-brand;
   }
   :root.dark .event-chip:has(input:checked) {
-    @apply border-indigo-800 bg-indigo-950 text-indigo-300;
+    @apply border-brand-dark/40 bg-brand-dark/15 text-brand-dark;
   }
   .event-chip input {
-    @apply h-3.5 w-3.5 accent-indigo-600;
+    @apply h-3.5 w-3.5 accent-brand;
   }
   .notification-actions {
     @apply justify-end px-5 pb-5;
@@ -2716,10 +2753,10 @@
     @apply flex min-w-0 flex-1 flex-col gap-1.5;
   }
   .dingtalk-advanced .adv-codes code {
-    @apply w-fit rounded border border-border bg-surface px-2 py-1 text-indigo-700;
+    @apply w-fit rounded border border-border bg-surface px-2 py-1 text-brand;
   }
   :root.dark .dingtalk-advanced .adv-codes code {
-    @apply border-border-dark bg-surface-dark text-indigo-300;
+    @apply border-border-dark bg-surface-dark text-brand-dark;
   }
   .dingtalk-advanced p + p {
     @apply mt-3;
@@ -2837,12 +2874,12 @@
     z-index: 60;
   }
   .drawer {
-    @apply fixed inset-y-0 right-0 overflow-y-auto border-l border-white/60 bg-white/85 shadow-glass-strong backdrop-blur-2xl;
+    @apply fixed inset-y-0 right-0 overflow-y-auto border-l border-border bg-surface shadow-lift;
     z-index: 70;
     width: min(480px, 100%);
   }
   :root.dark .drawer {
-    @apply border-white/10 bg-surface-dark/85 shadow-glass-dark-strong;
+    @apply border-border-dark bg-surface-dark shadow-lift-dark;
   }
   .drawer-header {
     @apply flex items-start justify-between border-b border-border px-6 py-5;
@@ -3531,7 +3568,7 @@
     @apply text-content-dark-subtle;
   }
   .resource-overview strong {
-    @apply text-content;
+    @apply font-mono text-content;
   }
   :root.dark .resource-overview strong {
     @apply text-content-dark;
@@ -3543,7 +3580,7 @@
     @apply text-green-400;
   }
   .overview-abnormal {
-    @apply flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-amber-600 transition hover:bg-amber-50;
+    @apply flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs text-amber-700 transition hover:bg-amber-50;
   }
   :root.dark .overview-abnormal {
     @apply border-border-dark text-amber-400 hover:bg-amber-950;
@@ -3555,7 +3592,7 @@
     @apply border-amber-500 bg-amber-950;
   }
   .overview-abnormal strong {
-    @apply text-amber-600;
+    @apply text-amber-700;
   }
   :root.dark .overview-abnormal strong {
     @apply text-amber-400;
@@ -4005,10 +4042,10 @@
     @apply border-border-dark hover:bg-surface-dark-muted;
   }
   .agent-list-item.selected {
-    @apply bg-brand/5 shadow-[inset_3px_0_0_rgb(249_115_22)];
+    @apply bg-brand/5 shadow-[inset_3px_0_0_rgb(2_132_199)];
   }
   :root.dark .agent-list-item.selected {
-    @apply bg-brand-dark/10 shadow-[inset_3px_0_0_rgb(59_130_246)];
+    @apply bg-brand-dark/10 shadow-[inset_3px_0_0_rgb(56_189_248)];
   }
   .agent-avatar {
     @apply grid h-9 w-9 flex-none place-items-center rounded-lg bg-brand/10 text-brand;
@@ -4396,10 +4433,10 @@
     @apply absolute inset-0 h-full w-full border-0 bg-black/55 backdrop-blur-[3px];
   }
   .secret-dialog {
-    @apply relative z-[91] w-full max-w-[680px] rounded-xl border border-white/70 bg-white/85 p-6 shadow-glass-strong backdrop-blur-2xl;
+    @apply relative z-[91] w-full max-w-[680px] rounded-xl border border-border bg-surface p-6 shadow-lift;
   }
   :root.dark .secret-dialog {
-    @apply border-white/15 bg-surface-dark/85 shadow-glass-dark-strong;
+    @apply border-border-dark bg-surface-dark shadow-lift-dark;
   }
   .secret-dialog-icon {
     @apply mb-4 grid h-11 w-11 place-items-center rounded-lg bg-green-50 text-green-600;
@@ -4459,14 +4496,11 @@
   .tenant-identity-grid {
     @apply grid-cols-4;
   }
-  .tenant-quota-grid {
-    @apply grid-cols-5;
-  }
   .tenant-detail-dialog {
-    @apply relative z-[91] max-h-[calc(100vh-32px)] w-full max-w-[960px] overflow-y-auto rounded-xl border border-white/70 bg-white/85 shadow-glass-strong backdrop-blur-2xl;
+    @apply relative z-[91] max-h-[calc(100vh-32px)] w-full max-w-[960px] overflow-y-auto rounded-xl border border-border bg-surface shadow-lift;
   }
   :root.dark .tenant-detail-dialog {
-    @apply border-white/15 bg-surface-dark/85 shadow-glass-dark-strong;
+    @apply border-border-dark bg-surface-dark shadow-lift-dark;
   }
   .tenant-detail-header {
     @apply flex items-start justify-between gap-4 border-b border-border p-6;
@@ -4579,10 +4613,10 @@
     @apply mt-1.5 text-lg font-semibold;
   }
   .project-user-summary {
-    @apply grid grid-cols-4 overflow-hidden rounded-lg border border-white/60 bg-white/75 shadow-glass backdrop-blur-xl;
+    @apply grid grid-cols-4 overflow-hidden rounded-lg border border-border bg-surface shadow-card;
   }
   :root.dark .project-user-summary {
-    @apply border-white/10 bg-surface-dark/75 shadow-glass-dark;
+    @apply border-border-dark bg-surface-dark shadow-card;
   }
   .project-user-summary > div {
     @apply flex min-h-[74px] items-baseline gap-2 border-r border-border px-5 py-4 last:border-r-0;
@@ -4591,7 +4625,7 @@
     @apply border-border-dark;
   }
   .project-user-summary strong {
-    @apply text-xl font-semibold text-content;
+    @apply font-mono text-xl font-bold text-content;
   }
   :root.dark .project-user-summary strong {
     @apply text-content-dark;
@@ -4632,6 +4666,711 @@
   .change-password-dialog {
     @apply max-w-[480px];
   }
+
+  /* ============================================================
+     Mission Control ops components (overview wall / stream / login)
+     ============================================================ */
+
+  /* ---------- Topbar live indicator ---------- */
+  .topbar-live {
+    @apply flex items-center gap-1.5 font-mono text-[10px] font-semibold tracking-wider text-green-600;
+  }
+  :root.dark .topbar-live {
+    @apply text-signal-green;
+  }
+  .topbar-live i {
+    @apply h-1.5 w-1.5 rounded-full bg-green-500;
+    animation: led-blink 1.8s ease-in-out infinite;
+  }
+  :root.dark .topbar-live i {
+    @apply bg-signal-green;
+    box-shadow: 0 0 6px rgb(74 222 128 / 0.8);
+  }
+  .topbar-clock {
+    @apply hidden font-mono text-xs text-content-subtle md:block;
+  }
+  :root.dark .topbar-clock {
+    @apply text-content-dark-subtle;
+  }
+
+  /* ---------- Ops KPI tiles ---------- */
+  .ops-kpi-grid {
+    @apply grid grid-cols-4 gap-4;
+  }
+  .ops-kpi {
+    @apply rounded-lg border border-border bg-surface p-4 shadow-card;
+  }
+  :root.dark .ops-kpi {
+    @apply border-border-dark bg-surface-dark;
+  }
+  .ops-kpi-head {
+    @apply flex items-center justify-between gap-2 text-[11px] font-medium text-content-subtle;
+  }
+  :root.dark .ops-kpi-head {
+    @apply text-content-dark-subtle;
+  }
+  .ops-kpi-head svg {
+    @apply h-3.5 w-3.5 opacity-70;
+  }
+  .ops-kpi-value {
+    @apply mt-1.5 block font-mono text-[26px] font-bold leading-none tracking-tight text-content;
+  }
+  :root.dark .ops-kpi-value {
+    @apply text-content-dark;
+  }
+  .ops-kpi-value small {
+    @apply ml-0.5 text-sm font-semibold text-content-subtle;
+  }
+  :root.dark .ops-kpi-value small {
+    @apply text-content-dark-subtle;
+  }
+  .ops-kpi-detail {
+    @apply mt-1.5 block text-[10px] text-content-subtle;
+  }
+  :root.dark .ops-kpi-detail {
+    @apply text-content-dark-subtle;
+  }
+  .ops-kpi.tone-cyan .ops-kpi-value {
+    @apply text-brand;
+  }
+  :root.dark .ops-kpi.tone-cyan .ops-kpi-value {
+    @apply text-brand-dark;
+  }
+  .ops-kpi.tone-green .ops-kpi-value {
+    @apply text-green-600;
+  }
+  :root.dark .ops-kpi.tone-green .ops-kpi-value {
+    @apply text-signal-green;
+  }
+  .ops-kpi.tone-amber .ops-kpi-value {
+    @apply text-amber-600;
+  }
+  :root.dark .ops-kpi.tone-amber .ops-kpi-value {
+    @apply text-signal-amber;
+  }
+  .ops-kpi.tone-red .ops-kpi-value {
+    @apply text-red-600;
+  }
+  :root.dark .ops-kpi.tone-red .ops-kpi-value {
+    @apply text-signal-red;
+  }
+  .ops-spark {
+    @apply mt-2.5 flex h-4 items-end gap-[2px];
+  }
+  .ops-spark i {
+    @apply flex-1 rounded-[1px] bg-border;
+  }
+  :root.dark .ops-spark i {
+    @apply bg-border-dark;
+    background: #223047;
+  }
+  .ops-spark i.hi {
+    @apply bg-brand/70;
+  }
+  :root.dark .ops-spark i.hi {
+    @apply bg-brand-dark;
+  }
+  .ops-spark.green i.hi {
+    @apply bg-green-500/80;
+  }
+  :root.dark .ops-spark.green i.hi {
+    @apply bg-signal-green;
+  }
+  .ops-spark.amber i.hi {
+    @apply bg-amber-500/80;
+  }
+  :root.dark .ops-spark.amber i.hi {
+    @apply bg-signal-amber;
+  }
+  .ops-channel-strip {
+    @apply mt-2.5 flex h-4 items-end gap-[2px];
+  }
+  .ops-channel-strip i {
+    @apply h-full flex-1 rounded-[1px] bg-green-500/75;
+  }
+  :root.dark .ops-channel-strip i {
+    @apply bg-signal-green;
+    box-shadow: 0 0 5px rgb(74 222 128 / 0.35);
+  }
+  .ops-channel-strip i.off {
+    @apply bg-red-400/70;
+  }
+  :root.dark .ops-channel-strip i.off {
+    @apply bg-signal-red;
+    box-shadow: 0 0 5px rgb(248 113 113 / 0.35);
+  }
+
+  /* ---------- Pending-approval alert strip ---------- */
+  .ops-alert {
+    @apply flex flex-wrap items-center gap-3 rounded-lg border border-amber-300/70 bg-amber-50 px-4 py-2.5 text-xs text-amber-900;
+  }
+  :root.dark .ops-alert {
+    @apply border-amber-400/35 bg-amber-400/10 text-amber-200;
+  }
+  .ops-alert > svg {
+    @apply h-4 w-4 flex-none text-amber-500;
+  }
+  :root.dark .ops-alert > svg {
+    @apply text-signal-amber;
+  }
+  .ops-alert strong {
+    @apply font-semibold;
+  }
+  .ops-alert .ops-alert-copy {
+    @apply min-w-0 flex-1 truncate;
+  }
+  .ops-alert .cd {
+    @apply font-mono text-sm font-bold text-amber-700;
+  }
+  :root.dark .ops-alert .cd {
+    @apply text-signal-amber;
+  }
+  .ops-alert .primary-button {
+    @apply min-h-[30px] px-3 text-xs;
+  }
+
+  /* ---------- Ops panel header (mono eyebrow) ---------- */
+  .ops-ph {
+    @apply flex items-center justify-between gap-3 border-b border-border px-4 py-2.5;
+  }
+  :root.dark .ops-ph {
+    @apply border-border-dark;
+  }
+  .ops-ph > span {
+    @apply font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-content-subtle;
+  }
+  :root.dark .ops-ph > span {
+    @apply text-content-dark-subtle;
+  }
+
+  /* ---------- Execution stream (compact feed) ---------- */
+  .stream-row {
+    @apply grid cursor-pointer grid-cols-[10px_86px_minmax(0,1fr)_100px_72px_52px] items-center gap-2.5 border-b border-border px-4 py-2 font-mono text-[11px] transition last:border-b-0 hover:bg-surface-muted;
+  }
+  :root.dark .stream-row {
+    @apply border-border-dark/70 hover:bg-surface-dark-muted/60;
+  }
+  .stream-dot {
+    @apply h-1.5 w-1.5 rounded-full bg-gray-400;
+  }
+  .stream-dot.ok {
+    @apply bg-green-500;
+  }
+  :root.dark .stream-dot.ok {
+    @apply bg-signal-green;
+  }
+  .stream-dot.run {
+    @apply bg-brand;
+    animation: led-blink 1.1s ease-in-out infinite;
+  }
+  :root.dark .stream-dot.run {
+    @apply bg-brand-dark;
+    box-shadow: 0 0 6px rgb(56 189 248 / 0.8);
+  }
+  .stream-dot.wait {
+    @apply bg-amber-500;
+    animation: led-blink 1.4s ease-in-out infinite;
+  }
+  :root.dark .stream-dot.wait {
+    @apply bg-signal-amber;
+  }
+  .stream-dot.deny {
+    @apply bg-red-500;
+  }
+  :root.dark .stream-dot.deny {
+    @apply bg-signal-red;
+  }
+  .stream-id {
+    @apply truncate text-content-subtle;
+  }
+  :root.dark .stream-id {
+    @apply text-content-dark-subtle;
+  }
+  .stream-act {
+    @apply truncate text-content;
+  }
+  :root.dark .stream-act {
+    @apply text-content-dark;
+  }
+  .stream-who {
+    @apply truncate text-[10px] text-content-subtle;
+  }
+  :root.dark .stream-who {
+    @apply text-content-dark-subtle;
+  }
+  .stream-st {
+    @apply text-right text-[10px] font-bold;
+  }
+  .stream-st.ok {
+    @apply text-green-600;
+  }
+  :root.dark .stream-st.ok {
+    @apply text-signal-green;
+  }
+  .stream-st.run {
+    @apply text-brand;
+  }
+  :root.dark .stream-st.run {
+    @apply text-brand-dark;
+  }
+  .stream-st.wait {
+    @apply text-amber-600;
+  }
+  :root.dark .stream-st.wait {
+    @apply text-signal-amber;
+  }
+  .stream-st.deny {
+    @apply text-red-600;
+  }
+  :root.dark .stream-st.deny {
+    @apply text-signal-red;
+  }
+  .stream-time {
+    @apply text-right text-[10px] text-content-subtle;
+  }
+  :root.dark .stream-time {
+    @apply text-content-dark-subtle;
+  }
+
+  /* ---------- Decision / status distribution bars ---------- */
+  .ops-funnel {
+    @apply grid gap-3 px-4 py-3.5;
+  }
+  .ops-frow .lbl {
+    @apply mb-1 flex items-center justify-between font-mono text-[10px] text-content-subtle;
+  }
+  :root.dark .ops-frow .lbl {
+    @apply text-content-dark-subtle;
+  }
+  .ops-frow .lbl b {
+    @apply font-bold text-content;
+  }
+  :root.dark .ops-frow .lbl b {
+    @apply text-content-dark;
+  }
+  .ops-track {
+    @apply h-1.5 overflow-hidden rounded-full bg-surface-muted;
+  }
+  :root.dark .ops-track {
+    background: #182233;
+  }
+  .ops-track i {
+    @apply block h-full rounded-full;
+  }
+
+  /* ---------- Connector heartbeat wall ---------- */
+  .ops-hb {
+    @apply grid gap-0.5 px-3 py-2.5;
+  }
+  .ops-hrow {
+    @apply flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 font-mono text-[11px] text-content transition hover:bg-surface-muted;
+  }
+  :root.dark .ops-hrow {
+    @apply text-content-dark hover:bg-surface-dark-muted/60;
+  }
+  .ops-hrow i {
+    @apply h-1.5 w-1.5 flex-none rounded-full bg-green-500;
+  }
+  :root.dark .ops-hrow i {
+    @apply bg-signal-green;
+    box-shadow: 0 0 6px rgb(74 222 128 / 0.7);
+  }
+  .ops-hrow.off i {
+    @apply bg-red-500;
+  }
+  :root.dark .ops-hrow.off i {
+    @apply bg-signal-red;
+    box-shadow: 0 0 6px rgb(248 113 113 / 0.7);
+  }
+  .ops-hrow strong {
+    @apply min-w-0 flex-1 truncate font-medium;
+  }
+  .ops-hrow small {
+    @apply flex-none text-[9px] text-content-subtle;
+  }
+  :root.dark .ops-hrow small {
+    @apply text-content-dark-subtle;
+  }
+
+  /* ---------- Login: split shell with chain motif ---------- */
+  .login-split {
+    @apply grid min-h-screen lg:grid-cols-[1.05fr_1fr];
+  }
+  .login-hero {
+    @apply relative hidden flex-col justify-center overflow-hidden border-r border-border px-14 lg:flex;
+  }
+  :root.dark .login-hero {
+    @apply border-border-dark;
+    background:
+      linear-gradient(rgb(231 237 245 / 0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgb(231 237 245 / 0.035) 1px, transparent 1px),
+      #0a0e15;
+    background-size:
+      26px 26px,
+      26px 26px,
+      100% 100%;
+  }
+  .login-hero-brand {
+    @apply flex items-center gap-3;
+  }
+  .login-hero-brand .brand-mark {
+    @apply h-11 w-11 rounded-xl;
+  }
+  .login-hero-brand strong {
+    @apply block text-xl font-extrabold tracking-wide text-content;
+  }
+  :root.dark .login-hero-brand strong {
+    @apply text-content-dark;
+  }
+  .login-hero-brand span {
+    @apply mt-0.5 block font-mono text-[10px] uppercase tracking-[0.24em] text-content-subtle;
+  }
+  :root.dark .login-hero-brand span {
+    @apply text-content-dark-subtle;
+  }
+  .login-hero h2 {
+    @apply mt-10 max-w-[430px] text-[26px] font-extrabold leading-snug text-content;
+  }
+  :root.dark .login-hero h2 {
+    @apply text-content-dark;
+  }
+  .login-hero h2 em {
+    @apply not-italic text-brand;
+  }
+  :root.dark .login-hero h2 em {
+    @apply text-brand-dark;
+  }
+  .login-hero > p {
+    @apply mt-3 max-w-[430px] text-[13px] leading-relaxed text-content-subtle;
+  }
+  :root.dark .login-hero > p {
+    @apply text-content-dark-subtle;
+  }
+  .login-chain {
+    @apply mt-12 flex max-w-[470px] items-center;
+  }
+  .login-chain-node {
+    @apply rounded-md border border-border bg-surface px-3 py-2;
+  }
+  :root.dark .login-chain-node {
+    @apply border-border-dark bg-surface-dark;
+  }
+  .login-chain-node b {
+    @apply block font-mono text-[9px] uppercase tracking-[0.18em] text-content-subtle;
+  }
+  :root.dark .login-chain-node b {
+    @apply text-content-dark-subtle;
+  }
+  .login-chain-node span {
+    @apply mt-0.5 block text-xs font-semibold text-content;
+  }
+  :root.dark .login-chain-node span {
+    @apply text-content-dark;
+  }
+  .login-chain-node.gate {
+    @apply border-brand/60;
+  }
+  :root.dark .login-chain-node.gate {
+    @apply border-brand-dark/60;
+  }
+  .login-chain-node.gate span {
+    @apply text-brand;
+  }
+  :root.dark .login-chain-node.gate span {
+    @apply text-brand-dark;
+  }
+  .login-chain-edge {
+    @apply relative -mx-px h-px min-w-7 flex-1;
+    background: repeating-linear-gradient(90deg, rgb(91 107 130 / 0.65) 0 5px, transparent 5px 10px);
+  }
+  :root.dark .login-chain-edge {
+    background: repeating-linear-gradient(90deg, rgb(143 160 182 / 0.55) 0 5px, transparent 5px 10px);
+  }
+  .login-chain-edge i {
+    @apply absolute -top-[3px] left-0 h-[7px] w-[7px] rounded-full bg-brand;
+    animation: chain-travel 2.8s linear infinite;
+  }
+  :root.dark .login-chain-edge i {
+    @apply bg-brand-dark;
+    box-shadow: 0 0 8px rgb(56 189 248 / 0.9);
+  }
+  .login-hero-foot {
+    @apply mt-12 font-mono text-[10px] tracking-wider text-content-subtle;
+  }
+  :root.dark .login-hero-foot {
+    @apply text-content-dark-subtle;
+  }
+  .login-pane {
+    @apply flex items-center justify-center px-4 py-10;
+  }
+  .login-card {
+    @apply w-full max-w-[400px] rounded-xl border border-border bg-surface p-8 shadow-lift;
+  }
+  :root.dark .login-card {
+    @apply border-border-dark bg-surface-dark shadow-lift-dark;
+  }
+  .login-eyebrow {
+    @apply mb-2 font-mono text-[10px] font-bold uppercase tracking-[0.2em] text-brand;
+  }
+  :root.dark .login-eyebrow {
+    @apply text-brand-dark;
+  }
+  .login-card h1 {
+    @apply mb-6 text-xl font-bold text-content;
+  }
+  :root.dark .login-card h1 {
+    @apply text-content-dark;
+  }
+
+  /* ---------- Approval dossier (sign-off card) ---------- */
+  .approval-card {
+    @apply rounded-lg border border-border border-l-4 border-l-amber-400 bg-surface p-5 shadow-card;
+  }
+  :root.dark .approval-card {
+    @apply border-border-dark border-l-signal-amber bg-surface-dark;
+  }
+  .approval-eyebrow {
+    @apply flex items-center gap-2 font-mono text-[10px] font-bold uppercase tracking-[0.18em] text-amber-700;
+  }
+  :root.dark .approval-eyebrow {
+    @apply text-signal-amber;
+  }
+  .approval-countdown {
+    @apply flex flex-col items-end gap-0.5 whitespace-nowrap;
+  }
+  .approval-countdown b {
+    @apply font-mono text-xl font-bold leading-none text-amber-700;
+  }
+  :root.dark .approval-countdown b {
+    @apply text-signal-amber;
+  }
+  .approval-countdown small {
+    @apply text-[9px] uppercase tracking-wider text-content-subtle;
+  }
+  :root.dark .approval-countdown small {
+    @apply text-content-dark-subtle;
+  }
+  .approval-dossier {
+    @apply my-4 grid gap-0 overflow-hidden rounded-lg border border-border;
+  }
+  :root.dark .approval-dossier {
+    @apply border-border-dark;
+  }
+  .approval-dossier > div {
+    @apply grid grid-cols-[92px_minmax(0,1fr)] items-baseline gap-3 border-b border-border bg-surface-muted/50 px-3.5 py-2.5 last:border-b-0;
+  }
+  :root.dark .approval-dossier > div {
+    @apply border-border-dark bg-surface-dark-muted/40;
+  }
+  .approval-dossier dt {
+    @apply text-[10px] font-semibold uppercase tracking-wide text-content-subtle;
+  }
+  :root.dark .approval-dossier dt {
+    @apply text-content-dark-subtle;
+  }
+  .approval-dossier dd {
+    @apply min-w-0 overflow-hidden break-words text-xs text-content;
+  }
+  :root.dark .approval-dossier dd {
+    @apply text-content-dark;
+  }
+  .approval-dossier dd code {
+    @apply block max-h-24 overflow-auto whitespace-pre-wrap break-all text-[11px];
+  }
+
+  /* ---------- Terminal execution table ---------- */
+  .execution-table {
+    @apply table-fixed;
+  }
+  .execution-table th:nth-child(1) {
+    width: 190px;
+  }
+  .execution-table th:nth-child(3) {
+    width: 190px;
+  }
+  .execution-table th:nth-child(4) {
+    width: 150px;
+  }
+  .execution-table th:nth-child(5) {
+    width: 70px;
+  }
+  .execution-table th:nth-child(6) {
+    width: 122px;
+  }
+  .execution-table th:nth-child(7) {
+    width: 92px;
+  }
+  .execution-table th:nth-child(8) {
+    width: 64px;
+  }
+  .execution-table td {
+    @apply overflow-hidden;
+  }
+  .execution-table td:nth-child(1) strong {
+    @apply block truncate font-mono text-xs;
+  }
+  .execution-table td:nth-child(1) .cell-sub {
+    @apply font-mono;
+  }
+  .execution-table td:nth-child(2) strong {
+    @apply block truncate;
+  }
+  .execution-table td:nth-child(3) {
+    @apply truncate font-mono text-xs;
+  }
+  .execution-table td:nth-child(4) {
+    @apply truncate;
+  }
+  .execution-table td:nth-child(7),
+  .execution-table td:nth-child(8) {
+    @apply whitespace-nowrap font-mono text-xs;
+  }
+  .exec-led {
+    @apply inline-flex items-center gap-1.5;
+  }
+  .exec-led i {
+    @apply h-1.5 w-1.5 flex-none rounded-full bg-gray-400;
+  }
+  .exec-led.ok i {
+    @apply bg-green-500;
+  }
+  :root.dark .exec-led.ok i {
+    @apply bg-signal-green;
+  }
+  .exec-led.run i {
+    @apply bg-brand;
+    animation: led-blink 1.1s ease-in-out infinite;
+  }
+  :root.dark .exec-led.run i {
+    @apply bg-brand-dark;
+  }
+  .exec-led.wait i {
+    @apply bg-amber-500;
+    animation: led-blink 1.4s ease-in-out infinite;
+  }
+  :root.dark .exec-led.wait i {
+    @apply bg-signal-amber;
+  }
+  .exec-led.deny i {
+    @apply bg-red-500;
+  }
+  :root.dark .exec-led.deny i {
+    @apply bg-signal-red;
+  }
+  .exec-count {
+    @apply ml-1 rounded bg-border/50 px-1.5 font-mono text-[9px] font-semibold text-content-subtle;
+  }
+  :root.dark .exec-count {
+    @apply bg-border-dark/60 text-content-dark-subtle;
+  }
+  .segmented button.selected .exec-count {
+    @apply bg-brand/15 text-brand;
+  }
+  :root.dark .segmented button.selected .exec-count {
+    @apply bg-brand-dark/20 text-brand-dark;
+  }
+
+  /* ---------- Tenant concurrency guard ---------- */
+  .quota-hint {
+    @apply mt-1.5 block text-[10px] leading-relaxed text-content-subtle;
+  }
+  :root.dark .quota-hint {
+    @apply text-content-dark-subtle;
+  }
+  .usage-bar {
+    @apply mt-1 h-1 w-full max-w-[150px] overflow-hidden rounded-full bg-surface-muted;
+  }
+  :root.dark .usage-bar {
+    background: #223047;
+  }
+  .usage-bar i {
+    @apply block h-full rounded-full bg-brand/70;
+  }
+  :root.dark .usage-bar i {
+    @apply bg-brand-dark;
+  }
+  .usage-bar.warn i {
+    @apply bg-amber-500;
+  }
+  :root.dark .usage-bar.warn i {
+    @apply bg-signal-amber;
+  }
+
+  /* ---------- Topology execution signals ---------- */
+  .topo-live-dot {
+    @apply absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full bg-brand;
+    animation: led-blink 1.2s ease-in-out infinite;
+  }
+  :root.dark .topo-live-dot {
+    @apply bg-brand-dark;
+    box-shadow: 0 0 8px rgb(56 189 248 / 0.9);
+  }
+  .react-flow__edge-path {
+    stroke: rgb(91 107 130 / 0.5);
+  }
+  :root.dark .react-flow__edge-path {
+    stroke: rgb(143 160 182 / 0.38);
+  }
+  .react-flow__edge.animated .react-flow__edge-path {
+    stroke: rgb(2 132 199);
+    stroke-width: 1.6;
+  }
+  :root.dark .react-flow__edge.animated .react-flow__edge-path {
+    stroke: rgb(56 189 248);
+    filter: drop-shadow(0 0 3px rgb(56 189 248 / 0.55));
+  }
+  .react-flow__edge-text {
+    @apply fill-content-subtle text-[10px];
+  }
+  :root.dark .react-flow__edge-text {
+    @apply fill-content-dark-subtle;
+  }
+  .react-flow__edge-textbg {
+    fill: rgb(255 255 255 / 0.85);
+  }
+  :root.dark .react-flow__edge-textbg {
+    fill: rgb(16 23 34 / 0.85);
+  }
+  .react-flow__minimap {
+    @apply rounded-md border border-border;
+    background: #f4f6fa;
+  }
+  :root.dark .react-flow__minimap {
+    @apply border-border-dark;
+    background: #0d1219;
+  }
+
+  @media (max-width: 1100px) {
+    .ops-kpi-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+  @media (max-width: 600px) {
+    .ops-kpi-grid {
+      grid-template-columns: 1fr 1fr;
+      gap: 9px;
+    }
+    .ops-kpi {
+      padding: 12px;
+    }
+    .ops-kpi-value {
+      font-size: 20px;
+    }
+    .stream-row {
+      grid-template-columns: 10px minmax(0, 1fr) 60px;
+    }
+    .stream-id,
+    .stream-who,
+    .stream-time {
+      display: none;
+    }
+    .login-card {
+      padding: 22px;
+    }
+    .approval-dossier > div {
+      grid-template-columns: 76px minmax(0, 1fr);
+    }
+  }
 }
 
 @layer utilities {
@@ -4655,6 +5394,31 @@
     to {
       transform: translateX(0);
       opacity: 1;
+    }
+  }
+  @keyframes led-blink {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.3;
+    }
+  }
+  @keyframes chain-travel {
+    0% {
+      left: 0;
+      opacity: 0;
+    }
+    12% {
+      opacity: 1;
+    }
+    88% {
+      opacity: 1;
+    }
+    100% {
+      left: calc(100% - 7px);
+      opacity: 0;
     }
   }
 }
@@ -4705,9 +5469,6 @@
   }
   .tenant-identity-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
-  }
-  .tenant-quota-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
   }
   .project-page-form {
     grid-template-columns: 1fr 1fr;
@@ -5064,7 +5825,6 @@
     display: none;
   }
   .tenant-identity-grid,
-  .tenant-quota-grid,
   .tenant-admin-form,
   .project-page-form {
     grid-template-columns: 1fr;
@@ -5160,6 +5920,297 @@
   :root.dark .project-user-summary,
   :root.dark .secondary-button,
   :root.dark .icon-button {
-    background-color: #0b1229;
+    background-color: #101722;
   }
+}
+
+/* ---------- Unaffiliated waiting screen ---------- */
+.unaffiliated-screen {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.unaffiliated-card {
+  width: min(560px, 100%);
+  padding: 40px 36px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.unaffiliated-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+.unaffiliated-card h1 {
+  font-size: 24px;
+  margin: 0;
+}
+.unaffiliated-lede {
+  color: var(--text-muted, #5b6675);
+  margin: 0;
+  line-height: 1.6;
+}
+.unaffiliated-who {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--border, #d5dae2);
+}
+.unaffiliated-who strong {
+  font-size: 15px;
+}
+.unaffiliated-actions {
+  display: flex;
+  justify-content: flex-end;
+}
+:root.dark .unaffiliated-lede {
+  color: #97a3b2;
+}
+:root.dark .unaffiliated-who {
+  border-color: #24303f;
+}
+.assign-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  align-items: center;
+}
+.invitation-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+  padding: 4px 0 14px;
+}
+.invitation-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 220px;
+}
+.invitation-form input,
+.invitation-form select {
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--border, #d5dae2);
+  background: transparent;
+  color: inherit;
+}
+.unaffiliated-invites {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding-top: 4px;
+}
+.unaffiliated-invite-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 12px;
+  border: 1px solid var(--border, #d5dae2);
+  border-radius: 10px;
+}
+.unaffiliated-invite-row > div {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+:root.dark .unaffiliated-invite-row {
+  border-color: #24303f;
+}
+
+/* --- Role clarity: topbar badge, my-requests, my-access card, resource note --- */
+.role-badge {
+  @apply inline-flex h-6 items-center rounded-md border px-2 font-mono text-[10px] font-bold uppercase tracking-[0.08em];
+}
+.role-super {
+  @apply border-red-200 bg-red-50 text-red-700;
+}
+.role-admin {
+  @apply border-sky-200 bg-sky-50 text-sky-700;
+}
+.role-member {
+  @apply border-border bg-surface-muted text-content-subtle;
+}
+:root.dark .role-super {
+  @apply border-red-900 bg-red-950 text-red-300;
+}
+:root.dark .role-admin {
+  @apply border-sky-900 bg-sky-950 text-sky-300;
+}
+:root.dark .role-member {
+  @apply border-border-dark bg-surface-dark-muted text-content-dark-subtle;
+}
+.ops-ph-note {
+  @apply font-sans text-[10px] font-medium normal-case tracking-normal text-content-subtle;
+}
+:root.dark .ops-ph-note {
+  @apply text-content-dark-subtle;
+}
+.my-requests-filters {
+  @apply flex flex-wrap gap-1.5 px-4 py-3;
+}
+.my-requests-filters .segment {
+  @apply rounded-md border border-border px-2.5 py-1 text-xs font-semibold text-content-subtle transition-colors;
+}
+.my-requests-filters .segment-active {
+  @apply border-sky-300 bg-sky-50 text-sky-700;
+}
+:root.dark .my-requests-filters .segment {
+  @apply border-border-dark text-content-dark-subtle;
+}
+:root.dark .my-requests-filters .segment-active {
+  @apply border-sky-800 bg-sky-950 text-sky-300;
+}
+.cell-reason {
+  @apply max-w-[260px] truncate text-content-subtle;
+}
+:root.dark .cell-reason {
+  @apply text-content-dark-subtle;
+}
+.my-access-card .ops-ph > span {
+  @apply inline-flex items-center gap-1.5;
+}
+.my-access-grid {
+  @apply grid grid-cols-1 gap-4 px-4 py-4 md:grid-cols-2 xl:grid-cols-4;
+}
+.my-access-block {
+  @apply flex flex-col gap-1.5;
+}
+.my-access-block > small {
+  @apply font-mono text-[10px] font-bold uppercase tracking-[0.12em] text-content-subtle;
+}
+:root.dark .my-access-block > small {
+  @apply text-content-dark-subtle;
+}
+.my-access-block > strong {
+  @apply text-sm font-bold text-content;
+}
+:root.dark .my-access-block > strong {
+  @apply text-content-dark;
+}
+.my-access-block > code {
+  @apply w-fit rounded bg-surface-muted px-1.5 py-0.5 font-mono text-[10px] text-content-subtle;
+}
+:root.dark .my-access-block > code {
+  @apply bg-surface-dark-muted text-content-dark-subtle;
+}
+.my-access-block ul {
+  @apply flex flex-col gap-1;
+}
+.my-access-projects li {
+  @apply flex items-center justify-between gap-2 text-xs text-content;
+}
+:root.dark .my-access-projects li {
+  @apply text-content-dark;
+}
+.project-role-chip {
+  @apply rounded border border-border px-1.5 py-0.5 font-mono text-[9px] font-bold not-italic text-content-subtle;
+}
+.project-role-chip.role-project_admin {
+  @apply border-sky-200 bg-sky-50 text-sky-700;
+}
+.project-role-chip.role-operator {
+  @apply border-emerald-200 bg-emerald-50 text-emerald-700;
+}
+.project-role-chip.role-viewer {
+  @apply border-border bg-surface-muted text-content-subtle;
+}
+:root.dark .project-role-chip {
+  @apply border-border-dark text-content-dark-subtle;
+}
+:root.dark .project-role-chip.role-project_admin {
+  @apply border-sky-800 bg-sky-950 text-sky-300;
+}
+:root.dark .project-role-chip.role-operator {
+  @apply border-emerald-800 bg-emerald-950 text-emerald-300;
+}
+:root.dark .project-role-chip.role-viewer {
+  @apply border-border-dark bg-surface-dark-muted text-content-dark-subtle;
+}
+.my-access-caps li {
+  @apply relative pl-3.5 text-xs text-content-subtle;
+}
+.my-access-caps li::before {
+  content: '';
+  @apply absolute left-0 top-1.5 h-1.5 w-1.5 rounded-full bg-emerald-400;
+}
+:root.dark .my-access-caps li {
+  @apply text-content-dark-subtle;
+}
+.resource-access-note {
+  @apply rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-800;
+}
+:root.dark .resource-access-note {
+  @apply border-sky-900 bg-sky-950 text-sky-200;
+}
+.org-switcher-select {
+  @apply h-9 min-w-[150px] cursor-pointer rounded-md border border-border bg-surface pl-2.5 text-xs font-semibold text-content outline-none;
+  /* The forms-plugin base reset gives every select appearance:none and
+     padding-block:0.5rem; zero the block padding and size the line box to the
+     content area so glyphs are never vertically clipped. */
+  appearance: none;
+  padding-block: 0;
+  padding-right: 24px;
+  line-height: calc(2.25rem - 2px);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%2394a3b8' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+}
+:root.dark .org-switcher-select {
+  @apply border-border-dark bg-surface-dark text-content-dark;
+}
+/* Super-admin cross-tenant table: the inserted org column shifts every
+   nth-child rule, so remap widths/styles explicitly and allow horizontal
+   scrolling instead of squeezing the data columns. */
+.execution-table.cross-tenant {
+  min-width: 1240px;
+}
+.execution-table.cross-tenant th:nth-child(2) {
+  width: 90px;
+}
+.execution-table.cross-tenant th:nth-child(5) {
+  width: 170px;
+}
+.execution-table.cross-tenant th:nth-child(6) {
+  width: 70px;
+}
+.execution-table.cross-tenant th:nth-child(7) {
+  width: 122px;
+}
+.execution-table.cross-tenant th:nth-child(8) {
+  width: 92px;
+}
+.execution-table.cross-tenant th:nth-child(9) {
+  width: 64px;
+}
+.execution-table.cross-tenant td:nth-child(2) {
+  @apply truncate font-mono text-xs text-content-subtle;
+}
+:root.dark .execution-table.cross-tenant td:nth-child(2) {
+  @apply text-content-dark-subtle;
+}
+.execution-table.cross-tenant td:nth-child(3) {
+  @apply font-sans text-sm;
+}
+.execution-table.cross-tenant td:nth-child(3) strong {
+  @apply block truncate;
+}
+.execution-table.cross-tenant td:nth-child(4) {
+  @apply truncate font-mono text-xs;
+}
+.execution-table.cross-tenant td:nth-child(5) {
+  @apply truncate;
+}
+.execution-table.cross-tenant td:nth-child(8),
+.execution-table.cross-tenant td:nth-child(9) {
+  @apply whitespace-nowrap font-mono text-xs;
 }

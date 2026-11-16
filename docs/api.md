@@ -35,7 +35,7 @@
 | `pam:registration:read` | 查询 Connector、Project、Integration 和 Integration 项目范围（资源注册用途） |
 | `pam:registration:write` | 创建/更新 Project、Integration 和 Integration 项目范围 |
 | `pam:tenant:admin` | 管理当前认证租户的 Principal、Connector、Project、Integration、策略、通知和查询模板 |
-| `pam:admin` | 平台管理员通配权限，包括租户生命周期和配额管理 |
+| `pam:admin` | 平台管理员通配权限，包括租户生命周期和并发保护管理 |
 
 ## 通用约定
 
@@ -64,7 +64,7 @@
 | GET | `/livez` | 进程存活检查 |
 | GET | `/readyz` | 数据库就绪检查 |
 | GET | `/api/v1/health` | 与 readiness 等价的兼容端点 |
-| POST | `/api/v1/auth/login` | 管理员密码登录并设置会话 Cookie |
+| POST | `/api/v1/auth/login` | 密码登录并设置会话 Cookie。`username` 支持 RAM 式限定名 `user@tenant-slug`；显式 `tenant` 字段优先（平台运维页传 `platform`）；裸 `admin` 保留为应急别名，其余裸名返回 `INVALID_LOGIN_NAME` |
 | GET | `/api/v1/auth/me` | 查询当前登录身份、租户、角色、Scope、`capabilities`、展示名/邮箱/头像、登录来源与会话过期时间 |
 | POST | `/api/v1/auth/logout` | 撤销当前会话并清除 Cookie；**只需已认证，无额外 Scope 包装**（SSO 用户请改用 `/auth/oidc/logout` 以同时终止 IdP 会话） |
 | PUT | `/api/v1/auth/password` | 登录用户修改自己的密码；成功后撤销该用户的全部会话并清除当前 Cookie |
@@ -116,13 +116,20 @@
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/v1/tenants` | 查询租户列表，包含配额和 Principal、Connector、Project、在途任务、管理员使用量 |
-| GET | `/api/v1/tenants/{slug}` | 查询单个租户及其实时配额使用量 |
-| POST | `/api/v1/tenants/bootstrap` | 原子创建租户、默认项目、配额和首个租户管理员 |
+| GET | `/api/v1/tenants` | 查询租户列表，包含并发保护阈值和 Principal、Connector、Project、在途任务、管理员观测计数 |
+| GET | `/api/v1/tenants/{slug}` | 查询单个租户及其实时观测计数 |
+| POST | `/api/v1/tenants/bootstrap` | 原子创建租户、默认项目、并发保护阈值和首个租户管理员 |
 | GET | `/api/v1/tenants/{slug}/admins` | 查询租户管理员 |
 | POST | `/api/v1/tenants/{slug}/admins` | 为有效租户增加管理员 |
-| PUT | `/api/v1/tenants/{slug}/quota` | 更新租户配额 |
+| PUT | `/api/v1/tenants/{slug}/quota` | 更新租户并发保护阈值（`{"maxConcurrentTasks": N}`） |
+| PUT | `/api/v1/tenants/{slug}/settings` | 更新租户 SSO 路由设置（`{"emailDomains": ["acme.com"]}`，最多 20 个，自动小写去重） |
 | POST | `/api/v1/tenants/{slug}/disable` | 停用租户及其 Principal、Connector；初始 `platform` 租户受保护 |
+
+Warden 不做商业化计量：身份（Principal）与执行通道（Connector）数量**不设上限**。
+唯一的租户级限制是并发保护阈值 `max_concurrent_tasks`——在途执行（含待审批/排队/
+执行中）达到该值时，新执行返回 `429 CONCURRENCY_LIMIT_REACHED`。这是保护共享控制面
+的安全阀，不是售卖容量。历史上的 `max_principals`、`max_connectors`、
+`max_requests_per_minute`、`audit_retention_days` 字段已在迁移 098 移除。
 
 `POST /api/v1/tenants/bootstrap` 请求示例：
 
@@ -133,11 +140,7 @@
   "adminName": "acme-admin",
   "adminPassword": "<initial-password>",
   "quota": {
-    "maxPrincipals": 1000,
-    "maxConnectors": 100,
-    "maxConcurrentTasks": 100,
-    "maxRequestsPerMinute": 600,
-    "auditRetentionDays": 365
+    "maxConcurrentTasks": 100
   }
 }
 ```

@@ -279,24 +279,15 @@ func (h *Handler) CreateProjectUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	input.Name = strings.TrimSpace(input.Name)
-	if input.Name == "" || len([]rune(input.Name)) > 255 || len(input.Password) < 8 || len(input.Password) > 72 ||
+	if !validLoginName(input.Name) || len(input.Password) < 8 || len(input.Password) > 72 ||
 		(input.Role != domain.ProjectRoleAdmin && input.Role != domain.ProjectRoleOperator && input.Role != domain.ProjectRoleViewer) {
-		jsonError(w, http.StatusBadRequest, "INVALID_PROJECT_USER", "用户名、密码或项目角色格式无效")
+		jsonError(w, http.StatusBadRequest, "INVALID_PROJECT_USER", "用户名、密码或项目角色格式无效（用户名不能包含 @）")
 		return
 	}
 	ctx := r.Context()
 	projectID := r.PathValue("projectId")
 	if project, err := h.projects.GetByID(ctx, projectID); err != nil || project == nil {
 		jsonError(w, http.StatusNotFound, "PROJECT_NOT_FOUND", "项目不存在")
-		return
-	}
-	var count, max int
-	if err := h.pool.QueryRow(ctx, `SELECT count(*) FROM principals WHERE tenant_id=$1 AND status='ACTIVE'`, domain.TenantIDFromContext(ctx)).Scan(&count); err != nil {
-		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "检查租户 Principal 配额失败")
-		return
-	}
-	if err := h.pool.QueryRow(ctx, `SELECT max_principals FROM tenant_quotas WHERE tenant_id=$1`, domain.TenantIDFromContext(ctx)).Scan(&max); err == nil && count >= max {
-		jsonError(w, http.StatusTooManyRequests, "TENANT_QUOTA_EXCEEDED", "已达到该租户的 Principal 配额")
 		return
 	}
 	hash, err := hashPassword(input.Password)
@@ -450,7 +441,8 @@ func (h *Handler) ListMyProjects(w http.ResponseWriter, r *http.Request) {
 	}
 	var items []domain.Project
 	var err error
-	if identity.IsTenantAdministrator() || !h.projectMembershipEnforced(r.Context()) {
+	adminView := identity.IsTenantAdministrator() || !h.projectMembershipEnforced(r.Context())
+	if adminView {
 		items, err = h.projects.List(r.Context())
 	} else {
 		items, err = h.projectMemberships.ListForPrincipal(r.Context(), identity.Principal.ID)
@@ -462,7 +454,29 @@ func (h *Handler) ListMyProjects(w http.ResponseWriter, r *http.Request) {
 	if items == nil {
 		items = []domain.Project{}
 	}
-	jsonResp(w, 200, items)
+	// Attach the caller's per-project role so the console can render an
+	// explicit "my permissions" view instead of leaving members guessing.
+	roles := map[string]string{}
+	if !adminView {
+		roles, err = h.projectMemberships.RolesForPrincipal(r.Context(), identity.Principal.ID)
+		if err != nil {
+			jsonError(w, 500, "DB_ERROR", "查询项目角色失败")
+			return
+		}
+	}
+	type projectWithRole struct {
+		domain.Project
+		MyRole string `json:"my_role"`
+	}
+	out := make([]projectWithRole, 0, len(items))
+	for _, p := range items {
+		role := roles[p.ID]
+		if adminView {
+			role = string(domain.ProjectRoleAdmin)
+		}
+		out = append(out, projectWithRole{Project: p, MyRole: role})
+	}
+	jsonResp(w, 200, out)
 }
 func (h *Handler) GetProjectMembershipPolicy(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {

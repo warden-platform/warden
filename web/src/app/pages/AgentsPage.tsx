@@ -195,6 +195,10 @@ export function AgentsPage() {
       ) : (
         <div className="agent-management-grid">
           <section className="panel agent-list-panel">
+            <div className="ops-ph">
+              <span>Agent Registry · 身份名册</span>
+              <span className="font-mono text-[10px] text-content-subtle dark:text-content-dark-subtle">{filtered.length}/{principals.length}</span>
+            </div>
             <div className="toolbar">
               <div className="search-box">
                 <Search size={17} />
@@ -231,7 +235,10 @@ export function AgentsPage() {
                       </small>
                     </span>
                     <span className="agent-list-state">
-                      <Badge tone={principal.status === 'ACTIVE' ? 'success' : 'neutral'}>{principal.status}</Badge>
+                      <span className={`exec-led ${principal.status === 'ACTIVE' ? 'ok' : 'deny'}`}>
+                        <i aria-hidden="true" />
+                        <Badge tone={principal.status === 'ACTIVE' ? 'success' : 'neutral'}>{principal.status}</Badge>
+                      </span>
                       <small>{active} 个有效 Key</small>
                     </span>
                   </button>
@@ -242,6 +249,10 @@ export function AgentsPage() {
           </section>
           {selected && (
             <section className="panel agent-detail-panel">
+              <div className="ops-ph">
+                <span>Identity Dossier · 身份档案</span>
+                <span className="font-mono text-[10px] text-content-subtle dark:text-content-dark-subtle">{selected.id.slice(0, 8)}</span>
+              </div>
               <div className="agent-detail-header">
                 <div className="agent-detail-identity">
                   <span className="agent-avatar large">{selected.kind === 'workload' ? <ShieldCheck size={22} /> : <Bot size={22} />}</span>
@@ -346,9 +357,9 @@ export function AgentsPage() {
                         </div>
                         <div className="credential-usage">
                           <span>最后使用</span>
-                          <strong>{formatTime(key.last_used_at)}</strong>
+                          <strong className="font-mono">{formatTime(key.last_used_at)}</strong>
                           {key.last_used_ip && <code>{key.last_used_ip}</code>}
-                          {key.expires_at && <small>到期 {formatTime(key.expires_at)}</small>}
+                          {key.expires_at && <small className="font-mono">到期 {formatTime(key.expires_at)}</small>}
                         </div>
                         <div className="credential-actions">
                           {active && (

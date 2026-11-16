@@ -245,7 +245,7 @@ func TestPlatformBootstrapTenantCreatesCompleteBoundary(t *testing.T) {
 		_, _ = pool.Exec(ctx, `DELETE FROM tenants WHERE slug=$1`, tenant)
 	}()
 
-	body := `{"slug":"http-bootstrap-acme","name":"Bootstrap Acme","adminName":"bootstrap-admin","adminPassword":"bootstrap-password","quota":{"maxPrincipals":25,"maxConnectors":5,"maxConcurrentTasks":7,"maxRequestsPerMinute":90,"auditRetentionDays":180}}`
+	body := `{"slug":"http-bootstrap-acme","name":"Bootstrap Acme","adminName":"bootstrap-admin","adminPassword":"bootstrap-password","quota":{"maxConcurrentTasks":7}}`
 	created := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/tenants/bootstrap", bytes.NewBufferString(body))
 	req.Header.Set("Authorization", "Bearer "+testAdminAPIKey)
@@ -265,7 +265,7 @@ func TestPlatformBootstrapTenantCreatesCompleteBoundary(t *testing.T) {
 	if err := json.Unmarshal(detail.Body.Bytes(), &summary); err != nil {
 		t.Fatalf("decode tenant detail: %v", err)
 	}
-	if summary.Slug != tenant || summary.Quota.MaxPrincipals != 25 || summary.Usage.Administrators != 1 || summary.Usage.Projects != 1 {
+	if summary.Slug != tenant || summary.Quota.MaxConcurrentTasks != 7 || summary.Usage.Administrators != 1 || summary.Usage.Projects != 1 {
 		t.Fatalf("unexpected tenant detail: %#v", summary)
 	}
 

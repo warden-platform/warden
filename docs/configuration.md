@@ -74,18 +74,28 @@
 
 ## OIDC / SSO
 
-`WARDEN_OIDC_ISSUER` 为空时 **OIDC 完全禁用**，登录页不显示 SSO 入口，启动行为与旧版一致；discovery 在首次请求时才做，启动不依赖 IdP 可用。
+`WARDEN_OIDC_ENABLED=true` 是显式总开关；`=false` 强制关闭（即使配了 issuer）。**不设置该开关时沿用旧契约**：配置了 `WARDEN_OIDC_ISSUER` 即启用，为空则完全禁用——存量部署无需任何改动。禁用时登录页不显示 SSO 入口；discovery 在首次请求时才做，启动不依赖 IdP 可用。
+
+最小启用配置只需 4 行（其余走默认）：
+
+```text
+WARDEN_OIDC_ENABLED=true
+WARDEN_OIDC_ISSUER=https://<idp.example.com>
+WARDEN_OIDC_CLIENT_ID=<client-id>
+WARDEN_OIDC_CLIENT_SECRET_FILE=/etc/warden/secrets/oidc_client_secret
+```
 
 | 变量 | 默认值 | 说明 | 启用时必填 |
 |---|---|---|---|
-| `WARDEN_OIDC_ISSUER` | 空 | IdP 地址，需可访问 `/.well-known/openid-configuration` | 是（总开关） |
+| `WARDEN_OIDC_ENABLED` | 空（沿用 issuer 契约） | 显式开关：`true` 启用 / `false` 强制关闭；非法值启动失败 | 否 |
+| `WARDEN_OIDC_ISSUER` | 空 | IdP 地址，需可访问 `/.well-known/openid-configuration` | 是 |
 | `WARDEN_OIDC_CLIENT_ID` | 空 | IdP 注册的 client id | 是 |
 | `WARDEN_OIDC_CLIENT_SECRET` / `_FILE` | 空 | client secret；两者不可同时设置 | 是 |
-| `WARDEN_OIDC_REDIRECT_URL` | 无 | 回调地址，必须与 IdP 白名单**逐字符一致**；服务端据此推导规范 origin | 是 |
-| `WARDEN_OIDC_DEFAULT_TENANT_ID` | 无 | 联邦身份默认租户 slug，外键指向 `tenants(slug)` | 是 |
+| `WARDEN_OIDC_REDIRECT_URL` | 由 `WARDEN_PUBLIC_CONTROL_URL` 推导 | 回调地址，必须与 IdP 白名单**逐字符一致**；服务端据此推导规范 origin。不填时自动取 `<PUBLIC_CONTROL_URL>/api/v1/auth/oidc/callback` | 否（二者至少配一） |
+| `WARDEN_OIDC_DEFAULT_TENANT_ID` | `platform` | 联邦身份默认租户 slug，外键指向 `tenants(slug)` | 否 |
 | `WARDEN_OIDC_DEFAULT_ROLE` | `user` | 首次建档角色，仅允许 `user` / `tenant_admin`；**配置 `platform_admin` 会启动失败** | 否 |
 
-scope 固定 `openid profile email`。接入步骤与踩坑见 [oidc-setup.md](oidc-setup.md)。
+启用但缺必填项时**启动失败并列出缺少的变量**，不会静默降级。scope 固定 `openid profile email`。接入步骤与踩坑见 [oidc-setup.md](oidc-setup.md)。
 
 ## 联邦断言登录
 

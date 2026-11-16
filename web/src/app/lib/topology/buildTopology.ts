@@ -20,6 +20,7 @@ export type TopoNodeData = {
   count?: number // resource-group member count
   actions?: string[] // for action nodes
   detailPath?: string
+  live?: boolean // an in-flight execution is traversing this node right now
   raw?: unknown
 }
 
@@ -73,13 +74,27 @@ export function buildTopology(
   const nodes: TopoNode[] = []
   const edges: TopoEdge[] = []
 
-  // Recent execution set per resource_type (for animating action edges).
+  // Execution signals: in-flight executions light up the whole chain
+  // (connector -> integration -> resource group -> action); executions
+  // finished within 30 minutes leave a short afterglow on the same path.
+  const IN_FLIGHT = new Set(['QUEUED', 'DISPATCHED', 'RUNNING', 'WAITING_APPROVAL'])
+  const livePairs = new Set<string>() // `${connectorId}|${resource_type}`
+  const recentPairs = new Set<string>()
+  const liveTypes = new Set<string>()
   const recentTypes = new Set<string>()
+  const liveConnectors = new Set<string>()
   const resourceByID = new Map(resources.map((r) => [r.id, r]))
-  const cutoff = Date.now() - 24 * 60 * 60 * 1000
+  const cutoff = Date.now() - 30 * 60 * 1000
   for (const e of executions) {
     const res = resourceByID.get(e.resourceId)
-    if (res && new Date(e.createdAt).getTime() >= cutoff) {
+    if (!res) continue
+    const pair = `${res.connector_id}|${res.resource_type}`
+    if (IN_FLIGHT.has(e.status)) {
+      livePairs.add(pair)
+      liveTypes.add(res.resource_type)
+      liveConnectors.add(res.connector_id)
+    } else if (new Date(e.createdAt).getTime() >= cutoff) {
+      recentPairs.add(pair)
       recentTypes.add(res.resource_type)
     }
   }
@@ -97,6 +112,7 @@ export function buildTopology(
         kind: connectorKind(c.connector_type),
         status: normalizeStatus(c.status),
         detailPath: `/connectors/${c.id}`,
+        live: liveConnectors.has(c.id),
         raw: c,
       },
     })
@@ -123,6 +139,7 @@ export function buildTopology(
       source: `connector:${i.connector_id}`,
       target: `integration:${i.id}`,
       label: '承载',
+      animated: liveConnectors.has(i.connector_id),
     })
   }
 
@@ -165,6 +182,8 @@ export function buildTopology(
     const domain = resourceDomain(g.members[0])
     const allActive = g.activeCount === g.count
     const anyActive = g.activeCount > 0
+    const pairKey = `${g.connectorId}|${g.type}`
+    const pairLive = livePairs.has(pairKey)
     nodes.push({
       id,
       type: 'topology',
@@ -177,6 +196,7 @@ export function buildTopology(
         status: allActive ? 'active' : anyActive ? 'warning' : 'error',
         count: g.count,
         detailPath: `/resources?domain=${domain}`,
+        live: pairLive,
         raw: { type: g.type, count: g.count, connectorId: g.connectorId, integrationId: g.integrationId, sample: g.members.slice(0, 8) },
       },
     })
@@ -185,6 +205,7 @@ export function buildTopology(
       source: g.parentId,
       target: id,
       label: '发现',
+      animated: pairLive || recentPairs.has(pairKey),
     })
 
     // --- Layer 4: Action node (one per resource_type that has actions) ---
@@ -214,7 +235,7 @@ export function buildTopology(
         source: id,
         target: actionId,
         label: '可执行',
-        animated: recentTypes.has(g.type),
+        animated: liveTypes.has(g.type) || recentTypes.has(g.type),
       })
     }
   }

@@ -28,18 +28,18 @@ type Tenant struct {
 	UpdatedAt time.Time      `json:"updated_at"`
 }
 
+// TenantQuota holds the tenant's operational safety valve. Warden does not
+// meter identities or connectors for commercial tiering; the only limit is a
+// concurrency guard that protects the shared control plane from runaway
+// execution floods.
 type TenantQuota struct {
-	TenantID             string    `json:"tenant_id"`
-	MaxPrincipals        int       `json:"max_principals"`
-	MaxConnectors        int       `json:"max_connectors"`
-	MaxConcurrentTasks   int       `json:"max_concurrent_tasks"`
-	MaxRequestsPerMinute int       `json:"max_requests_per_minute"`
-	AuditRetentionDays   int       `json:"audit_retention_days"`
-	UpdatedAt            time.Time `json:"updated_at"`
+	TenantID           string    `json:"tenant_id"`
+	MaxConcurrentTasks int       `json:"max_concurrent_tasks"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // TenantUsage is a current control-plane snapshot used by platform
-// administrators to compare tenant consumption with configured quotas.
+// administrators to observe tenant consumption (informational, not metered).
 type TenantUsage struct {
 	Principals     int `json:"principals"`
 	Connectors     int `json:"connectors"`

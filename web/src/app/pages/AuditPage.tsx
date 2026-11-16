@@ -58,6 +58,10 @@ export function AuditPage() {
 
   return (
     <section className="panel">
+      <div className="ops-ph">
+        <span>Audit Trail · 不可变审计时间线</span>
+        <span className="font-mono text-[10px] text-content-subtle dark:text-content-dark-subtle">{list.length} 条事件</span>
+      </div>
       <div className="toolbar">
         <div className="search-box">
           <Search size={17} />
@@ -155,7 +159,7 @@ export function AuditPage() {
                   })()}
                 </span>
               </div>
-              <code>{item.traceId}</code>
+              <code title={item.traceId}>{item.traceId}</code>
             </div>
           ))}
         </div>

@@ -3,6 +3,7 @@ import { request } from './core'
 export type ApiExecution = {
   id: string
   status: string
+  tenantId?: string
   actingProjectId?: string
   principalId?: string
   principalName?: string
@@ -79,6 +80,8 @@ export const listExecutions = (status?: string) =>
   request<ApiExecution[]>('GET', `/executions${status ? `?status=${encodeURIComponent(status)}` : ''}`)
 export const listAccessRequests = (status?: string) =>
   request<ApiAccessRequest[]>('GET', `/access-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`)
+export const listMyAccessRequests = (status?: string) =>
+  request<ApiAccessRequest[]>('GET', `/my/access-requests${status ? `?status=${encodeURIComponent(status)}` : ''}`)
 export type AuditEventFilters = {
   action?: string
   category?: string

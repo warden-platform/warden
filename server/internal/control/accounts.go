@@ -12,22 +12,23 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// validateRoleChange keeps the guard rails testable without a database:
-// the seeded break-glass admin is immutable, and demoting the last federated
-// platform administrator (or demoting yourself) would lock the console down.
-func validateRoleChange(targetID, actorID, currentRole, newRole string, otherPlatformAdmins int) (string, bool) {
-	if !validAccountRole(newRole) {
+// validateRoleChange keeps the guard rails testable without a database.
+// The built-in break-glass admin is the single immutable super administrator;
+// platform_admin can never be granted to anyone else. Tenant sub-admins are
+// protected against self-demotion and against leaving a tenant with no admin.
+func validateRoleChange(targetID, actorID, currentRole, newRole string, otherTenantAdmins int) (string, bool) {
+	if !validAssignableRole(newRole) {
 		return "INVALID_ACCOUNT_ROLE", false
 	}
 	if targetID == adminPrincipalID {
 		return "BUILTIN_ADMIN_PROTECTED", false
 	}
-	if currentRole == RolePlatformAdmin && newRole != RolePlatformAdmin {
+	if currentRole == RoleTenantAdmin && newRole != RoleTenantAdmin {
 		if actorID == targetID {
 			return "CANNOT_DEMOTE_SELF", false
 		}
-		if otherPlatformAdmins == 0 {
-			return "LAST_PLATFORM_ADMIN", false
+		if otherTenantAdmins == 0 {
+			return "LAST_TENANT_ADMIN", false
 		}
 	}
 	return "", true
@@ -46,6 +47,7 @@ type Account struct {
 	Role            string     `json:"role"`
 	Status          string     `json:"status"`
 	TenantID        string     `json:"tenant_id"`
+	TenantName      string     `json:"tenant_name"`
 	LastLoginAt     *time.Time `json:"last_login_at"`
 	CreatedAt       time.Time  `json:"created_at"`
 	IsBuiltinAdmin  bool       `json:"is_builtin_admin"`
@@ -61,6 +63,7 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	}
 	actorID := ""
 	actorTenant := platformTenantSlug
+	superAdmin := false
 	if identity := identityFromContext(r.Context()); identity != nil {
 		if identity.Principal != nil {
 			actorID = identity.Principal.ID
@@ -68,25 +71,40 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 		if identity.TenantID != "" {
 			actorTenant = identity.TenantID
 		}
+		superAdmin = identity.HasScope(ScopeAdmin)
 	}
+	// The single super administrator sees every tenant's accounts; everyone
+	// else (tenant sub-admins) stays scoped to their own tenant.
+	tenantFilter := "AND p.tenant_id=$3"
+	queryArgs := []any{adminPrincipalID, actorID, actorTenant}
+	if superAdmin {
+		tenantFilter = ""
+		queryArgs = []any{adminPrincipalID, actorID}
+	}
+	// Auth source is derived from the actual federated binding, never from
+	// self-declared metadata: it must match the branch RemoveAccountFromOrganization
+	// takes (federated -> unaffiliated hall, local -> disable), so the UI badge
+	// and the removal confirmation never promise a different outcome.
 	rows, err := h.pool.Query(r.Context(), `
 		SELECT p.id::text, p.name, p.status, p.tenant_id,
 		       COALESCE(NULLIF(p.metadata->>'display_name',''), NULLIF(f.display_name,''), ''),
 		       COALESCE(NULLIF(p.metadata->>'email',''), NULLIF(f.email,''), ''),
 		       COALESCE(NULLIF(p.metadata->>'avatar_url',''), ''),
-		       COALESCE(NULLIF(p.metadata->>'source',''), CASE WHEN f.id IS NOT NULL THEN 'oidc' ELSE 'local' END),
+		       CASE WHEN f.id IS NOT NULL THEN 'oidc' ELSE 'local' END,
 		       CASE WHEN p.id::text=$1 THEN 'platform_admin' ELSE COALESCE(NULLIF(p.metadata->>'role',''),'user') END,
 		       p.last_login_at, p.created_at,
 		       p.id::text=$1, p.id::text=$2,
-		       COALESCE(f.issuer,''), COALESCE(f.subject,'')
+		       COALESCE(f.issuer,''), COALESCE(f.subject,''),
+		       COALESCE(t.name, p.tenant_id)
 		FROM principals p
 		LEFT JOIN LATERAL (
 			SELECT id, issuer, subject, email, display_name
 			FROM federated_identities WHERE principal_id=p.id
 			ORDER BY last_login_at DESC NULLS LAST LIMIT 1
 		) f ON TRUE
-		WHERE p.kind='user' AND p.tenant_id=$3
-		ORDER BY (p.id::text=$1) DESC, p.created_at DESC`, adminPrincipalID, actorID, actorTenant)
+		LEFT JOIN tenants t ON t.slug=p.tenant_id
+		WHERE p.kind='user' `+tenantFilter+`
+		ORDER BY p.tenant_id, (p.id::text=$1) DESC, p.created_at DESC`, queryArgs...)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询账号列表失败")
 		return
@@ -97,9 +115,16 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 		var a Account
 		if err := rows.Scan(&a.ID, &a.Name, &a.Status, &a.TenantID, &a.DisplayName, &a.Email,
 			&a.AvatarURL, &a.AuthSource, &a.Role, &a.LastLoginAt, &a.CreatedAt,
-			&a.IsBuiltinAdmin, &a.IsSelf, &a.ProviderIssuer, &a.ProviderSubject); err != nil {
+			&a.IsBuiltinAdmin, &a.IsSelf, &a.ProviderIssuer, &a.ProviderSubject, &a.TenantName); err != nil {
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "读取账号信息失败")
 			return
+		}
+		// An unaffiliated federated identity has no tenant row, so the SQL
+		// COALESCE would surface the raw sentinel. Render a human label and keep
+		// the sentinel in TenantID so the console can offer the assign action.
+		if a.TenantID == unaffiliatedTenant {
+			a.TenantName = "未分配组织"
+			a.Role = RoleUser
 		}
 		accounts = append(accounts, a)
 	}
@@ -127,6 +152,7 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 	actorID := ""
 	actorType := "user"
 	actorTenant := platformTenantSlug
+	superAdmin := false
 	if identity := identityFromContext(r.Context()); identity != nil {
 		if identity.Principal != nil {
 			actorID = identity.Principal.ID
@@ -135,6 +161,7 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 		if identity.TenantID != "" {
 			actorTenant = identity.TenantID
 		}
+		superAdmin = identity.HasScope(ScopeAdmin)
 	}
 
 	ctx := r.Context()
@@ -145,15 +172,22 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Every lookup is tenant-scoped: an administrator in tenant A can never
-	// read or change an account that belongs to tenant B.
-	var currentRole, name, displayName string
-	err = tx.QueryRow(ctx, `
+	// The super administrator may manage accounts in any tenant; a tenant
+	// sub-admin is confined to their own tenant. The target's tenant is read
+	// from the row so cross-tenant changes audit against the right tenant.
+	var currentRole, name, displayName, targetTenant string
+	lookup := `
 		SELECT COALESCE(NULLIF(metadata->>'role',''),'user'), name,
-		       COALESCE(NULLIF(metadata->>'display_name',''), '')
+		       COALESCE(NULLIF(metadata->>'display_name',''), ''), tenant_id
 		FROM principals
-		WHERE id::text=$1 AND kind='user' AND tenant_id=$2 FOR UPDATE`, targetID, actorTenant).
-		Scan(&currentRole, &name, &displayName)
+		WHERE id::text=$1 AND kind='user'`
+	args := []any{targetID}
+	if !superAdmin {
+		lookup += ` AND tenant_id=$2`
+		args = append(args, actorTenant)
+	}
+	lookup += ` FOR UPDATE`
+	err = tx.QueryRow(ctx, lookup, args...).Scan(&currentRole, &name, &displayName, &targetTenant)
 	if errors.Is(err, pgx.ErrNoRows) {
 		jsonError(w, http.StatusNotFound, "ACCOUNT_NOT_FOUND", "账号不存在")
 		return
@@ -163,20 +197,20 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var otherPlatformAdmins int
+	var otherTenantAdmins int
 	if err := tx.QueryRow(ctx, `
 		SELECT count(*) FROM principals
-		WHERE kind='user' AND metadata->>'role'='platform_admin' AND tenant_id=$3
-		  AND id::text <> $1 AND id::text <> $2`, targetID, adminPrincipalID, actorTenant).Scan(&otherPlatformAdmins); err != nil {
+		WHERE kind='user' AND metadata->>'role'='tenant_admin' AND tenant_id=$3
+		  AND id::text <> $1 AND id::text <> $2`, targetID, adminPrincipalID, targetTenant).Scan(&otherTenantAdmins); err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "校验管理员数量失败")
 		return
 	}
-	if code, ok := validateRoleChange(targetID, actorID, currentRole, newRole, otherPlatformAdmins); !ok {
+	if code, ok := validateRoleChange(targetID, actorID, currentRole, newRole, otherTenantAdmins); !ok {
 		messages := map[string]string{
-			"INVALID_ACCOUNT_ROLE":    "角色必须是 user、tenant_admin 或 platform_admin",
+			"INVALID_ACCOUNT_ROLE":    "角色只能是 user 或 tenant_admin；超级管理员仅内置 admin 一个，不可指派",
 			"BUILTIN_ADMIN_PROTECTED": "内置超级管理员账号不可修改（故障应急入口）",
-			"CANNOT_DEMOTE_SELF":      "不能给自己降权，请由另一个超级管理员操作",
-			"LAST_PLATFORM_ADMIN":     "必须保留至少一个单点登录的超级管理员",
+			"CANNOT_DEMOTE_SELF":      "不能给自己降权，请由其他管理员操作",
+			"LAST_TENANT_ADMIN":       "每个租户至少保留一个租户管理员",
 		}
 		status := http.StatusBadRequest
 		if code != "INVALID_ACCOUNT_ROLE" {
@@ -188,7 +222,7 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 
 	if _, err := tx.Exec(ctx, `
 		UPDATE principals SET metadata = metadata || jsonb_build_object('role',$2::text), updated_at=now()
-		WHERE id::text=$1 AND tenant_id=$3`, targetID, newRole, actorTenant); err != nil {
+		WHERE id::text=$1 AND tenant_id=$3`, targetID, newRole, targetTenant); err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "更新角色失败")
 		return
 	}
@@ -212,7 +246,7 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 	if h.audit != nil {
 		metadata := map[string]any{
 			"previous_role": currentRole, "new_role": newRole,
-			"revoked_sessions": revoked, "target_name": name,
+			"revoked_sessions": revoked, "target_name": name, "target_tenant": targetTenant,
 		}
 		event := &domain.AuditEvent{
 			Action: "account.role_updated", ActorID: actorID, ActorType: actorType,
@@ -224,7 +258,8 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 				metadata[key] = value
 			}
 		}
-		if err := h.audit.CreateTx(ctx, tx, event); err != nil {
+		auditCtx := domain.WithTenantID(ctx, targetTenant)
+		if err := h.audit.CreateTx(auditCtx, tx, event); err != nil {
 			log.Printf("account role audit failed: %v", err)
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "写入角色变更审计失败")
 			return

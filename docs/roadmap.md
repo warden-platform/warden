@@ -23,7 +23,7 @@
 | 部署与发布 | 本地 Docker Compose、K8s 基线清单、多阶段 Dockerfile / distroless 发布镜像、Helm Chart、Linux / Host / Network 安装脚本、发布迁移清单 |
 | Admin Web | 管理员密码登录与 HttpOnly 会话、全量页面接真实 API（无 Mock）、拓扑图谱、分类资源目录、结构化 Action 面板、配对向导 |
 | Agent 接入 | 每 Agent 独立 Hash 存储 API Key、Scope 最小权限、Execution 所有权隔离、撤销 / 轮换、`scripts/warden-agent.sh` 只读巡检脚本、Agent 身份管理页 |
-| 多租户 | 租户 slug 隔离、`tenant_id` 上下文注入、租户管理接口与配额、平台级接口的 `RequirePlatformTenant` 守卫 |
+| 多租户 | 租户 slug 隔离、`tenant_id` 上下文注入、租户管理接口与并发保护、平台级接口的 `RequirePlatformTenant` 守卫 |
 | **OIDC / SSO** | 授权码 + PKCE S256、state/nonce 校验、联邦身份自动建档（稳定内部标识 + IdP 展示名 / 邮箱 / 头像）、RP-initiated logout；未配置 issuer 时行为与旧版完全一致 |
 | **统一权限模型** | 角色 / Scope / `capabilities` 集中在 `authorization.go`；后端守卫与前端菜单读同一份能力清单；OIDC 默认角色禁止配成 `platform_admin` |
 | **账号与权限** | 页面指派 `user` / `tenant_admin` / `platform_admin`；内置应急超管不可改、保留至少一个 SSO 超管、审计与变更同事务、立即撤销目标会话、账号 SQL 带 `tenant_id` |

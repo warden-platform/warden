@@ -3,6 +3,27 @@
 
 export const API_BASE = import.meta.env.VITE_API_BASE_URL ?? '/api/v1'
 
+// Super-admin organization switcher: while observing a business organization,
+// every request carries X-Warden-Tenant so the backend scopes the business
+// console to it. Persisted across reloads; the backend ignores the header for
+// non-super-admins, so it is safe to keep in localStorage.
+const OBSERVE_KEY = 'warden-observe-tenant'
+export function getObservedTenant(): string {
+  try {
+    return localStorage.getItem(OBSERVE_KEY) || ''
+  } catch {
+    return ''
+  }
+}
+export function setObservedTenant(slug: string) {
+  try {
+    if (slug) localStorage.setItem(OBSERVE_KEY, slug)
+    else localStorage.removeItem(OBSERVE_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 // Admin authentication is held in an HttpOnly cookie; these compatibility
 // helpers intentionally keep JWT material out of browser storage.
 export function getToken() {
@@ -23,6 +44,8 @@ export class ApiError extends Error {
 
 export async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = {}
+  const observed = getObservedTenant()
+  if (observed) headers['X-Warden-Tenant'] = observed
   let payload: BodyInit | undefined
   if (body !== undefined) {
     headers['Content-Type'] = 'application/json'
@@ -48,8 +71,10 @@ export async function request<T>(method: string, path: string, body?: unknown): 
     }
     // Token missing/expired: clear and bounce to login. Hard redirect avoids
     // React Router loops when the caller is already inside a guarded route.
+    // Both public login entries must be exempt, or an unauthenticated visitor
+    // on /platform/login gets bounced to the tenant login page.
     clearToken()
-    if (window.location.pathname !== '/login') {
+    if (window.location.pathname !== '/login' && window.location.pathname !== '/platform/login') {
       window.location.href = '/login'
     }
     throw new ApiError(401, 'UNAUTHORIZED', '登录已过期，请重新登录')

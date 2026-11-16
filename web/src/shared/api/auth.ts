@@ -29,6 +29,9 @@ export type AuthUser = {
   /** Server-computed capability list: pam:admin is already expanded. */
   capabilities?: string[]
   is_platform_admin: boolean
+  /** True when this is a federated identity authenticated but not yet placed
+   *  into any organization (the unaffiliated sentinel tenant). */
+  unaffiliated?: boolean
   expires_at?: string | null
 }
 
@@ -98,6 +101,7 @@ export type ApiAccount = {
   role: AccountRole | string
   status: string
   tenant_id: string
+  tenant_name?: string
   last_login_at: string | null
   created_at: string
   is_builtin_admin: boolean
@@ -113,3 +117,13 @@ export const updateAccountRole = (id: string, role: AccountRole) =>
     { role },
   )
 export const accountDisplayName = (account: ApiAccount) => account.display_name?.trim() || account.email?.trim() || account.name
+
+/** Remove a member from its organization: SSO identities go back to the
+ *  unaffiliated hall, local accounts are disabled. Super-admin only. */
+export const removeAccountFromOrganization = (id: string) =>
+  request<{ id: string; action: 'removed' | 'disabled'; previous_tenant: string; revoked_sessions: number }>(
+    'POST',
+    `/accounts/${encodeURIComponent(id)}/remove`,
+  )
+export const reenableAccount = (id: string) =>
+  request<{ id: string; status: string }>('POST', `/accounts/${encodeURIComponent(id)}/reenable`)

@@ -2,6 +2,7 @@ package control
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 
@@ -15,16 +16,75 @@ func (h *Handler) UpdateTenantQuota(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !validTenantQuota(q) {
-		jsonError(w, 400, "INVALID_QUOTA", "配额必须为正数")
+		jsonError(w, 400, "INVALID_CONCURRENCY_LIMIT", "并发保护阈值必须为正数")
 		return
 	}
 	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))
-	result, err := h.pool.Exec(r.Context(), `UPDATE tenant_quotas q SET max_principals=$2,max_connectors=$3,max_concurrent_tasks=$4,max_requests_per_minute=$5,audit_retention_days=$6,updated_at=now() WHERE tenant_id=$1`, slug, q.MaxPrincipals, q.MaxConnectors, q.MaxConcurrentTasks, q.MaxRequestsPerMinute, q.AuditRetentionDays)
+	result, err := h.pool.Exec(r.Context(), `UPDATE tenant_quotas q SET max_concurrent_tasks=$2,updated_at=now() WHERE tenant_id=$1`, slug, q.MaxConcurrentTasks)
 	if err != nil || result.RowsAffected() != 1 {
 		jsonError(w, 404, "TENANT_NOT_FOUND", "租户不存在")
 		return
 	}
 	jsonResp(w, 200, q)
+}
+
+// normalizeEmailDomains lowercases, validates and deduplicates tenant SSO
+// routing domains. Empty entries are dropped; more than 20 is rejected.
+func normalizeEmailDomains(input []string) ([]string, error) {
+	if len(input) > 20 {
+		return nil, errors.New("邮箱域名最多 20 个")
+	}
+	seen := make(map[string]bool, len(input))
+	domains := make([]string, 0, len(input))
+	for _, d := range input {
+		d = strings.ToLower(strings.TrimSpace(d))
+		if d == "" {
+			continue
+		}
+		if !emailDomainPattern.MatchString(d) {
+			return nil, errors.New("邮箱域名格式无效：" + d)
+		}
+		if !seen[d] {
+			seen[d] = true
+			domains = append(domains, d)
+		}
+	}
+	return domains, nil
+}
+
+// UpdateTenantSettings manages tenant-level routing settings. emailDomains
+// claims email domains for trusted-email SSO routing: a new OIDC identity
+// whose IdP-asserted email matches exactly one active tenant's domain list is
+// provisioned into that tenant. Domains are lowercase; duplicates are removed.
+func (h *Handler) UpdateTenantSettings(w http.ResponseWriter, r *http.Request) {
+	var req struct {
+		EmailDomains []string `json:"emailDomains"`
+	}
+	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16<<10))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&req); err != nil {
+		jsonError(w, 400, "INVALID_REQUEST_BODY", "请求体解析失败")
+		return
+	}
+	domains, err := normalizeEmailDomains(req.EmailDomains)
+	if err != nil {
+		jsonError(w, 400, "INVALID_EMAIL_DOMAINS", err.Error())
+		return
+	}
+	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))
+	domainsJSON, err := json.Marshal(domains)
+	if err != nil {
+		jsonError(w, 500, "TENANT_SETTINGS_FAILED", "序列化域名失败")
+		return
+	}
+	result, err := h.pool.Exec(r.Context(),
+		`UPDATE tenants SET settings = settings || jsonb_build_object('emailDomains', $2::jsonb), updated_at=now() WHERE slug=$1`,
+		slug, string(domainsJSON))
+	if err != nil || result.RowsAffected() != 1 {
+		jsonError(w, 404, "TENANT_NOT_FOUND", "租户不存在")
+		return
+	}
+	jsonResp(w, 200, map[string]any{"slug": slug, "emailDomains": domains})
 }
 
 func (h *Handler) DisableTenant(w http.ResponseWriter, r *http.Request) {

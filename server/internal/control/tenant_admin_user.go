@@ -22,8 +22,8 @@ func (h *Handler) CreateTenantAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	req.Name = strings.TrimSpace(req.Name)
-	if req.Name == "" || len(req.Name) > 255 || len(req.Password) < 8 || len(req.Password) > 72 {
-		jsonError(w, http.StatusBadRequest, "INVALID_ADMIN_USER", "管理员名称或密码格式无效")
+	if !validLoginName(req.Name) || len(req.Password) < 8 || len(req.Password) > 72 {
+		jsonError(w, http.StatusBadRequest, "INVALID_ADMIN_USER", "管理员名称或密码格式无效（名称不能包含 @）")
 		return
 	}
 	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))

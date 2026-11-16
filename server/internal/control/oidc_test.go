@@ -32,9 +32,9 @@ const (
 )
 
 var oidcEnvKeys = []string{
-	"WARDEN_OIDC_ISSUER", "WARDEN_OIDC_CLIENT_ID", "WARDEN_OIDC_CLIENT_SECRET",
+	"WARDEN_OIDC_ENABLED", "WARDEN_OIDC_ISSUER", "WARDEN_OIDC_CLIENT_ID", "WARDEN_OIDC_CLIENT_SECRET",
 	"WARDEN_OIDC_CLIENT_SECRET_FILE", "WARDEN_OIDC_REDIRECT_URL", "WARDEN_OIDC_DEFAULT_TENANT_ID",
-	"WARDEN_OIDC_DEFAULT_ROLE",
+	"WARDEN_OIDC_DEFAULT_ROLE", "WARDEN_PUBLIC_CONTROL_URL",
 }
 
 // setOIDCEnv sets (or, with an empty value, unsets) an env var and restores the
@@ -127,8 +127,7 @@ func TestLoadOIDCConfigRejectsIncompleteSettings(t *testing.T) {
 	cases := []struct{ name, missing string }{
 		{"client id", "WARDEN_OIDC_CLIENT_ID"},
 		{"client secret", "WARDEN_OIDC_CLIENT_SECRET"},
-		{"redirect url", "WARDEN_OIDC_REDIRECT_URL"},
-		{"tenant", "WARDEN_OIDC_DEFAULT_TENANT_ID"},
+		{"redirect url without public base", "WARDEN_OIDC_REDIRECT_URL"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -139,6 +138,92 @@ func TestLoadOIDCConfigRejectsIncompleteSettings(t *testing.T) {
 			}
 		})
 	}
+}
+
+// The explicit master switch: true enables, false forces off, unset keeps the
+// legacy issuer-presence contract so existing deployments are unaffected.
+func TestLoadOIDCConfigEnabledSwitch(t *testing.T) {
+	t.Run("false overrides a configured issuer", func(t *testing.T) {
+		fullOIDCEnv(t, "https://idp.example.com")
+		setOIDCEnv(t, "WARDEN_OIDC_ENABLED", "false")
+		cfg, err := loadOIDCConfig()
+		if err != nil || cfg != nil {
+			t.Fatalf("expected disabled without error, got cfg=%#v err=%v", cfg, err)
+		}
+	})
+	t.Run("true without issuer fails startup", func(t *testing.T) {
+		resetOIDCEnv(t)
+		setOIDCEnv(t, "WARDEN_OIDC_ENABLED", "true")
+		if _, err := loadOIDCConfig(); err == nil {
+			t.Fatal("expected an error when enabled without an issuer")
+		}
+	})
+	t.Run("invalid switch value fails startup", func(t *testing.T) {
+		fullOIDCEnv(t, "https://idp.example.com")
+		setOIDCEnv(t, "WARDEN_OIDC_ENABLED", "maybe")
+		if _, err := loadOIDCConfig(); err == nil {
+			t.Fatal("expected an error for a non-boolean switch value")
+		}
+	})
+	t.Run("true with full config enables", func(t *testing.T) {
+		fullOIDCEnv(t, "https://idp.example.com")
+		setOIDCEnv(t, "WARDEN_OIDC_ENABLED", "true")
+		cfg, err := loadOIDCConfig()
+		if err != nil || cfg == nil {
+			t.Fatalf("expected enabled config, got cfg=%#v err=%v", cfg, err)
+		}
+	})
+	t.Run("unset keeps legacy issuer contract", func(t *testing.T) {
+		fullOIDCEnv(t, "https://idp.example.com")
+		cfg, err := loadOIDCConfig()
+		if err != nil || cfg == nil {
+			t.Fatalf("expected legacy enabled config, got cfg=%#v err=%v", cfg, err)
+		}
+	})
+}
+
+// Adopters only need the three IdP-issued values: the redirect URL derives
+// from the public control URL and a newcomer with no email-domain match stays
+// unaffiliated (empty default tenant) until assigned.
+func TestLoadOIDCConfigSmartDefaults(t *testing.T) {
+	t.Run("redirect derived from public control url", func(t *testing.T) {
+		resetOIDCEnv(t)
+		setOIDCEnv(t, "WARDEN_OIDC_ENABLED", "true")
+		setOIDCEnv(t, "WARDEN_OIDC_ISSUER", "https://idp.example.com")
+		setOIDCEnv(t, "WARDEN_OIDC_CLIENT_ID", testOIDCClientID)
+		setOIDCEnv(t, "WARDEN_OIDC_CLIENT_SECRET", testOIDCSecret)
+		setOIDCEnv(t, "WARDEN_PUBLIC_CONTROL_URL", "https://pam.example.com/")
+		cfg, err := loadOIDCConfig()
+		if err != nil {
+			t.Fatalf("loadOIDCConfig: %v", err)
+		}
+		if cfg.RedirectURL != "https://pam.example.com/api/v1/auth/oidc/callback" {
+			t.Fatalf("RedirectURL = %q, want derived callback", cfg.RedirectURL)
+		}
+		if cfg.DefaultTenantID != "" || cfg.DefaultRole != "user" {
+			t.Fatalf("defaults = tenant %q role %q, want ''/user (newcomers stay unaffiliated)", cfg.DefaultTenantID, cfg.DefaultRole)
+		}
+	})
+	t.Run("explicit redirect wins over derivation", func(t *testing.T) {
+		fullOIDCEnv(t, "https://idp.example.com")
+		setOIDCEnv(t, "WARDEN_PUBLIC_CONTROL_URL", "https://pam.example.com")
+		cfg, err := loadOIDCConfig()
+		if err != nil {
+			t.Fatalf("loadOIDCConfig: %v", err)
+		}
+		if cfg.RedirectURL != testOIDCRedirectURL {
+			t.Fatalf("RedirectURL = %q, want explicit %q", cfg.RedirectURL, testOIDCRedirectURL)
+		}
+	})
+	t.Run("missing redirect without public base fails", func(t *testing.T) {
+		resetOIDCEnv(t)
+		setOIDCEnv(t, "WARDEN_OIDC_ISSUER", "https://idp.example.com")
+		setOIDCEnv(t, "WARDEN_OIDC_CLIENT_ID", testOIDCClientID)
+		setOIDCEnv(t, "WARDEN_OIDC_CLIENT_SECRET", testOIDCSecret)
+		if _, err := loadOIDCConfig(); err == nil {
+			t.Fatal("expected an error when neither redirect nor public base is set")
+		}
+	})
 }
 
 func TestLoadOIDCConfigReadsSecretFile(t *testing.T) {

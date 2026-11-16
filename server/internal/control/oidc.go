@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -44,9 +47,35 @@ type oidcState struct {
 	verifier *oidc.IDTokenVerifier
 }
 
+// loadOIDCConfig resolves the SSO configuration.
+//
+// Master switch: WARDEN_OIDC_ENABLED=true enables SSO explicitly; =false
+// forces it off even when an issuer is configured. When the switch is unset,
+// the legacy contract applies (a configured issuer enables SSO), so existing
+// deployments keep working unchanged.
+//
+// Only the three IdP-issued values are truly required (issuer, client id,
+// client secret). The redirect URL defaults to
+// <WARDEN_PUBLIC_CONTROL_URL>/api/v1/auth/oidc/callback and the default tenant
+// to "platform", so adopters can enable SSO with four lines of configuration.
 func loadOIDCConfig() (*oidcConfig, error) {
+	explicit := false
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("WARDEN_OIDC_ENABLED"))) {
+	case "":
+		// Legacy mode: decided by issuer presence below.
+	case "true", "1", "yes", "on":
+		explicit = true
+	case "false", "0", "no", "off":
+		log.Printf("SSO disabled: WARDEN_OIDC_ENABLED=false")
+		return nil, nil
+	default:
+		return nil, errors.New("WARDEN_OIDC_ENABLED must be true or false")
+	}
 	issuer := strings.TrimSpace(os.Getenv("WARDEN_OIDC_ISSUER"))
 	if issuer == "" {
+		if explicit {
+			return nil, errors.New("WARDEN_OIDC_ENABLED=true requires WARDEN_OIDC_ISSUER (the IdP issuer URL)")
+		}
 		return nil, nil
 	}
 	clientID := strings.TrimSpace(os.Getenv("WARDEN_OIDC_CLIENT_ID"))
@@ -55,9 +84,28 @@ func loadOIDCConfig() (*oidcConfig, error) {
 		return nil, err
 	}
 	redirectURL := strings.TrimSpace(os.Getenv("WARDEN_OIDC_REDIRECT_URL"))
+	if redirectURL == "" {
+		if base := strings.TrimSpace(os.Getenv("WARDEN_PUBLIC_CONTROL_URL")); base != "" {
+			redirectURL = strings.TrimRight(base, "/") + "/api/v1/auth/oidc/callback"
+		}
+	}
+	// An unset default tenant means a new federated identity that matches no
+	// email-domain rule lands in the unaffiliated state rather than any real
+	// organization. Operators who want the legacy "everything falls into one
+	// tenant" behavior may still set WARDEN_OIDC_DEFAULT_TENANT_ID explicitly.
 	defaultTenantID := strings.TrimSpace(os.Getenv("WARDEN_OIDC_DEFAULT_TENANT_ID"))
-	if clientID == "" || clientSecret == "" || redirectURL == "" || defaultTenantID == "" {
-		return nil, errors.New("WARDEN_OIDC_ISSUER is set, so WARDEN_OIDC_CLIENT_ID, WARDEN_OIDC_CLIENT_SECRET, WARDEN_OIDC_REDIRECT_URL, and WARDEN_OIDC_DEFAULT_TENANT_ID must all be set")
+	var missing []string
+	if clientID == "" {
+		missing = append(missing, "WARDEN_OIDC_CLIENT_ID")
+	}
+	if clientSecret == "" {
+		missing = append(missing, "WARDEN_OIDC_CLIENT_SECRET (or WARDEN_OIDC_CLIENT_SECRET_FILE)")
+	}
+	if redirectURL == "" {
+		missing = append(missing, "WARDEN_OIDC_REDIRECT_URL (or WARDEN_PUBLIC_CONTROL_URL to derive it)")
+	}
+	if len(missing) > 0 {
+		return nil, fmt.Errorf("OIDC is enabled but required configuration is missing: %s", strings.Join(missing, ", "))
 	}
 	defaultRole := strings.TrimSpace(os.Getenv("WARDEN_OIDC_DEFAULT_ROLE"))
 	if defaultRole == "" {
@@ -76,9 +124,18 @@ func loadOIDCConfig() (*oidcConfig, error) {
 	}
 	// Never log the client secret. The remaining fields make it immediately
 	// obvious which relying-party configuration is active during local testing.
-	log.Printf("OIDC configured: issuer=%s client_id=%s redirect=%s tenant=%s default_role=%s",
-		cfg.Issuer, cfg.ClientID, cfg.RedirectURL, cfg.DefaultTenantID, cfg.DefaultRole)
+	log.Printf("SSO enabled: issuer=%s client_id=%s redirect=%s default_tenant=%s default_role=%s",
+		cfg.Issuer, cfg.ClientID, cfg.RedirectURL, oidcDefaultTenantLabel(cfg.DefaultTenantID), cfg.DefaultRole)
 	return cfg, nil
+}
+
+// oidcDefaultTenantLabel renders the startup log: an empty default tenant means
+// newcomers without an email-domain match stay unaffiliated.
+func oidcDefaultTenantLabel(defaultTenantID string) string {
+	if defaultTenantID == "" {
+		return "unaffiliated"
+	}
+	return defaultTenantID
 }
 
 // resolve returns the resolved OIDC provider, verifier, and OAuth2 config.
@@ -118,6 +175,57 @@ func oidcLoginOrigin(redirectURL string) string {
 		return ""
 	}
 	return u.Scheme + "://" + u.Host
+}
+
+var emailDomainPattern = regexp.MustCompile(`^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)+$`)
+
+// emailDomainOf extracts the lowercase domain from an email address, or ""
+// when the address is malformed.
+func emailDomainOf(email string) string {
+	at := strings.LastIndex(email, "@")
+	if at <= 0 || at == len(email)-1 {
+		return ""
+	}
+	domainPart := strings.ToLower(strings.TrimSpace(email[at+1:]))
+	if !emailDomainPattern.MatchString(domainPart) {
+		return ""
+	}
+	return domainPart
+}
+
+// routeTenantByEmail maps a trusted (IdP-asserted) email to a tenant via the
+// admin-configured emailDomains list in tenants.settings. Exactly one active
+// tenant must claim the domain; zero or ambiguous matches fall back to the
+// configured default. Only verified id_token claims may reach this function.
+func (h *Handler) routeTenantByEmail(ctx context.Context, email string) string {
+	domainPart := emailDomainOf(email)
+	if domainPart == "" {
+		return ""
+	}
+	param, err := json.Marshal([]string{domainPart})
+	if err != nil {
+		return ""
+	}
+	rows, err := h.pool.Query(ctx, `SELECT slug FROM tenants WHERE status='ACTIVE' AND settings->'emailDomains' @> $1::jsonb LIMIT 2`, string(param))
+	if err != nil {
+		log.Printf("OIDC tenant routing query failed: %v", err)
+		return ""
+	}
+	defer rows.Close()
+	var slugs []string
+	for rows.Next() {
+		var s string
+		if err := rows.Scan(&s); err == nil {
+			slugs = append(slugs, s)
+		}
+	}
+	if len(slugs) == 1 {
+		return slugs[0]
+	}
+	if len(slugs) > 1 {
+		log.Printf("OIDC tenant routing ambiguous: domain=%s matches=%d, using default", domainPart, len(slugs))
+	}
+	return ""
 }
 
 // OIDCConfig tells the SPA whether SSO is available and, when it is, the
@@ -305,7 +413,30 @@ func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusUnauthorized, "OIDC_INVALID_SUBJECT", "OIDC id_token 缺少用户唯一标识")
 		return
 	}
-	tenantID := h.oidc.config.DefaultTenantID
+	// A brand-new federated identity that matches no configured email-domain
+	// rule lands in the unaffiliated sentinel, NOT in the platform tenant. It
+	// is authenticated but belongs to no organization until a super admin
+	// assigns it or a tenant invitation is accepted. Returning identities keep
+	// their original binding; a trusted IdP email may still route a newcomer
+	// straight into the matching tenant. Self-asserted emails never apply.
+	tenantID := unaffiliatedTenant
+	if h.oidc.config.DefaultTenantID != "" {
+		// Legacy fallback retained only for operators who explicitly configure a
+		// default tenant; a newcomer then lands there instead of unaffiliated.
+		tenantID = h.oidc.config.DefaultTenantID
+	}
+	if bound, found, err := h.federated.IdentityTenant(ctx, issuer, subject); err != nil {
+		log.Printf("OIDC identity binding lookup failed: %v", err)
+	} else if found {
+		tenantID = bound
+	} else if claims.Email != "" {
+		if routed := h.routeTenantByEmail(ctx, claims.Email); routed != "" {
+			tenantID = routed
+			log.Printf("OIDC tenant routing: trusted email domain matched tenant=%s", routed)
+		} else if h.oidc.config.DefaultTenantID == "" {
+			log.Printf("OIDC new identity unaffiliated: no email-domain rule matched")
+		}
+	}
 	metadata := map[string]any{
 		"oidc":    true,
 		"issuer":  issuer,

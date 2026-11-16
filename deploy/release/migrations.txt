@@ -57,3 +57,10 @@
 095_external_delegation_operations.sql
 096_federated_authorization.sql
 097_account_role_audit.sql
+098_remove_commercial_quotas.sql
+099_single_super_admin.sql
+100_unaffiliated_assignment_audit.sql
+101_unaffiliated_system_tenant.sql
+102_principal_invitations.sql
+103_account_removed_audit.sql
+104_account_reenabled_audit.sql

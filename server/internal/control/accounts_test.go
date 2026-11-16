@@ -15,6 +15,19 @@ func TestValidAccountRole(t *testing.T) {
 	}
 }
 
+func TestValidAssignableRole(t *testing.T) {
+	for _, role := range []string{RoleUser, RoleTenantAdmin} {
+		if !validAssignableRole(role) {
+			t.Errorf("expected %q to be assignable", role)
+		}
+	}
+	for _, role := range []string{RolePlatformAdmin, "", "root"} {
+		if validAssignableRole(role) {
+			t.Errorf("expected %q to NOT be assignable", role)
+		}
+	}
+}
+
 func TestValidateRoleChange(t *testing.T) {
 	const other = "11111111-1111-1111-1111-111111111111"
 	const self = "22222222-2222-2222-2222-222222222222"
@@ -28,15 +41,15 @@ func TestValidateRoleChange(t *testing.T) {
 		wantOK   bool
 		wantCode string
 	}{
-		{"promote federated user", other, self, RoleUser, RolePlatformAdmin, 0, true, ""},
+		{"platform admin not assignable", other, self, RoleUser, RolePlatformAdmin, 0, false, "INVALID_ACCOUNT_ROLE"},
 		{"assign tenant admin", other, self, RoleUser, RoleTenantAdmin, 0, true, ""},
 		{"no-op role assignment", other, self, RoleUser, RoleUser, 0, true, ""},
 		{"reject unknown role", other, self, RoleUser, "root", 0, false, "INVALID_ACCOUNT_ROLE"},
 		{"builtin admin immutable", adminPrincipalID, self, RolePlatformAdmin, RoleUser, 3, false, "BUILTIN_ADMIN_PROTECTED"},
-		{"cannot demote self", self, self, RolePlatformAdmin, RoleUser, 2, false, "CANNOT_DEMOTE_SELF"},
-		{"keep last federated admin", other, self, RolePlatformAdmin, RoleTenantAdmin, 0, false, "LAST_PLATFORM_ADMIN"},
-		{"demote when another admin remains", other, self, RolePlatformAdmin, RoleTenantAdmin, 1, true, ""},
-		{"keep platform admin role", other, self, RolePlatformAdmin, RolePlatformAdmin, 0, true, ""},
+		{"cannot demote self", self, self, RoleTenantAdmin, RoleUser, 2, false, "CANNOT_DEMOTE_SELF"},
+		{"keep last tenant admin", other, self, RoleTenantAdmin, RoleUser, 0, false, "LAST_TENANT_ADMIN"},
+		{"demote when another tenant admin remains", other, self, RoleTenantAdmin, RoleUser, 1, true, ""},
+		{"promote member to tenant admin", other, self, RoleUser, RoleTenantAdmin, 0, true, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

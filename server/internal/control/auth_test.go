@@ -97,6 +97,35 @@ func TestIssueJWTScopesByUserRole(t *testing.T) {
 	}
 }
 
+// A federated identity with no organization is authenticated but must be
+// issued a session carrying no tenant business scope, so it cannot read or
+// create anything in any tenant until a super admin assigns it.
+func TestIssueJWTUnaffiliatedHasNoBusinessScope(t *testing.T) {
+	h := newTestHandler()
+	principal := &domain.Principal{
+		ID:       "10000000-0000-4000-8000-000000000005",
+		Name:     "federated:stranger",
+		TenantID: unaffiliatedTenant,
+		Metadata: map[string]any{"source": "oidc", "role": "user"},
+	}
+	token, _, err := h.issueJWT(principal)
+	if err != nil {
+		t.Fatal(err)
+	}
+	claims, err := h.parseJWT(token)
+	if err != nil {
+		t.Fatalf("unaffiliated session must still be parseable: %v", err)
+	}
+	for _, banned := range []string{"pam:resources:read", "pam:executions:create", "pam:tenant:admin", "pam:admin", "pam:audit:read"} {
+		if hasScopeValue(claims.Scope, banned) {
+			t.Fatalf("unaffiliated JWT must not carry business scope %s, got %v", banned, claims.Scope)
+		}
+	}
+	if !hasScopeValue(claims.Scope, ScopeSelfProfile) {
+		t.Fatalf("unaffiliated JWT must carry only the self profile scope, got %v", claims.Scope)
+	}
+}
+
 func TestParseJWTRejectsTampered(t *testing.T) {
 	h := newTestHandler()
 	principal := &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive}

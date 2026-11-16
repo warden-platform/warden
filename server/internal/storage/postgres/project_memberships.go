@@ -116,6 +116,26 @@ func (r *ProjectMembershipRepo) ProjectIDs(ctx context.Context, principalID stri
 	return out, rows.Err()
 }
 
+// RolesForPrincipal maps project ID to the principal's active membership role,
+// used by the console to explain "what can I do in each project".
+func (r *ProjectMembershipRepo) RolesForPrincipal(ctx context.Context, principalID string) (map[string]string, error) {
+	rows, err := r.pool.Query(ctx, `SELECT project_id::text, role FROM project_memberships
+		WHERE tenant_id=$1 AND principal_id=$2 AND status='ACTIVE'`, projectTenant(ctx), principalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	out := make(map[string]string)
+	for rows.Next() {
+		var projectID, role string
+		if err := rows.Scan(&projectID, &role); err != nil {
+			return nil, err
+		}
+		out[projectID] = role
+	}
+	return out, rows.Err()
+}
+
 func (r *ProjectMembershipRepo) ListForPrincipal(ctx context.Context, principalID string) ([]domain.Project, error) {
 	tenantID := projectTenant(ctx)
 	rows, err := r.pool.Query(ctx, `SELECT p.id::text,p.name,p.description,p.is_default,p.tenant_id,p.created_at,p.updated_at

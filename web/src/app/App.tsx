@@ -5,7 +5,8 @@ import { AppTopbar } from './AppTopbar'
 import { AppProvider, useApp } from './components/Toast'
 import { LoadingState } from './components/States'
 import { LoginPage } from './pages/LoginPage'
-import { canUser } from '../shared/api'
+import { PlatformLoginPage } from './pages/PlatformLoginPage'
+import { canUser, getObservedTenant } from '../shared/api'
 
 // 路由级代码分割：除登录页外全部懒加载，首屏只保留 shell + 登录逻辑
 const OverviewPage = lazy(() => import('./pages/OverviewPage').then((m) => ({ default: m.OverviewPage })))
@@ -19,6 +20,7 @@ const TargetsPage = lazy(() => import('./pages/TargetsPage').then((m) => ({ defa
 const ResourcesPage = lazy(() => import('./pages/ResourcesPage').then((m) => ({ default: m.ResourcesPage })))
 const ExecutionsPage = lazy(() => import('./pages/ExecutionsPage').then((m) => ({ default: m.ExecutionsPage })))
 const ApprovalsPage = lazy(() => import('./pages/ApprovalsPage').then((m) => ({ default: m.ApprovalsPage })))
+const MyRequestsPage = lazy(() => import('./pages/MyRequestsPage').then((m) => ({ default: m.MyRequestsPage })))
 const AuditPage = lazy(() => import('./pages/AuditPage').then((m) => ({ default: m.AuditPage })))
 const PoliciesPage = lazy(() => import('./pages/PoliciesPage').then((m) => ({ default: m.PoliciesPage })))
 const AgentsPage = lazy(() => import('./pages/AgentsPage').then((m) => ({ default: m.AgentsPage })))
@@ -27,6 +29,7 @@ const ProjectsPage = lazy(() => import('./pages/ProjectsPage').then((m) => ({ de
 const TenantsPage = lazy(() => import('./pages/TenantsPage').then((m) => ({ default: m.TenantsPage })))
 const ProjectUsersPage = lazy(() => import('./pages/ProjectUsersPage').then((m) => ({ default: m.ProjectUsersPage })))
 const AccountsPage = lazy(() => import('./pages/AccountsPage').then((m) => ({ default: m.AccountsPage })))
+const UnaffiliatedPage = lazy(() => import('./pages/UnaffiliatedPage').then((m) => ({ default: m.UnaffiliatedPage })))
 
 function PlatformOnly({ children }: { children: React.ReactElement }) {
   const { auth } = useApp()
@@ -36,6 +39,16 @@ function PlatformOnly({ children }: { children: React.ReactElement }) {
 function TenantAdminOnly({ children }: { children: React.ReactElement }) {
   const { auth } = useApp()
   return canUser(auth.user, 'pam:tenant:admin') ? children : <Navigate to="/overview" replace />
+}
+
+// The super admin's home is the platform management domain, not an empty
+// business overview; everyone else lands on their organization's overview.
+function HomeRedirect() {
+  const { auth } = useApp()
+  if (canUser(auth.user, 'pam:admin')) {
+    return <Navigate to={getObservedTenant() ? '/overview' : '/platform/tenants'} replace />
+  }
+  return <Navigate to="/overview" replace />
 }
 
 function AppShell() {
@@ -49,7 +62,7 @@ function AppShell() {
         <div className="page-content">
           <Suspense fallback={<LoadingState label="正在加载页面" />}>
             <Routes>
-              <Route path="/" element={<Navigate to="/overview" replace />} />
+              <Route path="/" element={<HomeRedirect />} />
               <Route path="/overview" element={<OverviewPage />} />
               <Route path="/projects" element={<ProjectsPage />} />
               <Route
@@ -87,10 +100,11 @@ function AppShell() {
               <Route path="/resources" element={<ResourcesPage />} />
               <Route path="/executions" element={<ExecutionsPage />} />
               <Route path="/approvals" element={<ApprovalsPage />} />
+              <Route path="/my-requests" element={<MyRequestsPage />} />
               <Route path="/audit" element={<AuditPage />} />
               <Route path="/policies" element={<PoliciesPage />} />
               <Route path="/agents" element={<AgentsPage />} />
-              <Route path="*" element={<Navigate to="/overview" replace />} />
+              <Route path="*" element={<HomeRedirect />} />
             </Routes>
           </Suspense>
         </div>
@@ -102,12 +116,23 @@ function AppShell() {
 function AppRoutes() {
   const { auth } = useApp()
   if (auth.loading) return <LoadingState label="正在验证登录状态" />
+  // A federated identity that authenticated but has no organization is shown a
+  // dedicated waiting screen instead of the console; every business route would
+  // otherwise 403 with the session's self-profile-only capability.
+  if (auth.user?.unaffiliated) {
+    return (
+      <Suspense fallback={<LoadingState label="正在加载页面" />}>
+        <UnaffiliatedPage />
+      </Suspense>
+    )
+  }
   return (
     <Routes>
       <Route
         path="/login"
         element={auth.user ? <Navigate to={canUser(auth.user, 'pam:admin') ? '/platform/tenants' : '/overview'} replace /> : <LoginPage />}
       />
+      <Route path="/platform/login" element={auth.user ? <Navigate to="/platform/tenants" replace /> : <PlatformLoginPage />} />
       <Route path="*" element={auth.user ? <AppShell /> : <Navigate to="/login" replace />} />
     </Routes>
   )

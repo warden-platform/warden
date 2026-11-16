@@ -28,6 +28,7 @@ import {
   type Integration,
 } from '../../shared/api'
 import { canUser } from '../../shared/api'
+import { MyAccessCard } from '../components/MyAccessCard'
 import { ErrorState, LoadingState } from '../components/States'
 import { Kpi } from '../components/Kpi'
 import { useApp } from '../components/Toast'
@@ -125,7 +126,7 @@ export function ProjectsPage() {
         setMembers((items) => [...items.filter((value) => value.principal_id !== membership.principal_id), membership])
         setNewUserName('')
         setNewUserPassword('')
-        notify('项目用户已创建并加入项目')
+        notify(`项目用户已创建，登录名 ${newUserName.trim()}@${auth.user?.tenant?.slug ?? 'platform'}`)
         return listProjectMemberCandidates(memberProject.id).then((people) => setCandidates(people ?? []))
       })
       .catch((e: ApiError) => notify(e.message || '创建项目用户失败'))
@@ -230,6 +231,7 @@ export function ProjectsPage() {
 
   return (
     <div className="view-stack">
+      {!isTenantAdmin && <MyAccessCard />}
       <section className="kpi-grid project-kpis">
         <Kpi icon={FolderKanban} tone="blue" label="项目" value={projects.length} detail="含租户默认项目" />
         <Kpi icon={Boxes} tone="green" label="当前资源" value={activeResources} detail={`${resourceStats?.abnormal ?? 0} 个异常资源`} />

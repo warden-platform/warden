@@ -117,6 +117,21 @@ func (r *FederatedRepo) ConsumeAssertion(ctx context.Context, issuer, assertionI
 	return err
 }
 
+// IdentityTenant returns the tenant an OIDC identity is permanently bound to,
+// if it has logged in before. The callback uses it so returning users always
+// land in their original tenant regardless of routing rules or defaults.
+func (r *FederatedRepo) IdentityTenant(ctx context.Context, issuer, subject string) (string, bool, error) {
+	var tenantID string
+	err := r.pool.QueryRow(ctx, `SELECT tenant_id FROM federated_identities WHERE issuer=$1 AND subject=$2`, issuer, subject).Scan(&tenantID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, err
+	}
+	return tenantID, true, nil
+}
+
 // ProvisionIdentity creates a passwordless Warden user on first login and
 // refreshes its display attributes on subsequent logins. No project
 // membership is created here; a Warden tenant/project administrator must assign

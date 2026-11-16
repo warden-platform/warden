@@ -454,11 +454,17 @@ export function PoliciesPage() {
                         <DecisionBadge decision={rule.decision} />
                       </td>
                       <td>
-                        <strong>{rule.hit_count}</strong>
-                        <small>{rule.last_hit_at ? new Date(rule.last_hit_at).toLocaleString('zh-CN') : '尚未命中'}</small>
+                        <span className={`exec-led ${rule.hit_count > 0 ? 'ok' : ''}`}>
+                          <i aria-hidden="true" />
+                          <strong className="font-mono">{rule.hit_count}</strong>
+                        </span>
+                        <small className="font-mono">{rule.last_hit_at ? new Date(rule.last_hit_at).toLocaleString('zh-CN') : '尚未命中'}</small>
                       </td>
                       <td>
-                        <span className={`badge ${rule.enabled ? 'badge-success' : ''}`}>{rule.enabled ? '已启用' : '已停用'}</span>
+                        <span className={`exec-led ${rule.enabled ? 'ok' : 'deny'}`}>
+                          <i aria-hidden="true" />
+                          <span className={`badge ${rule.enabled ? 'badge-success' : ''}`}>{rule.enabled ? '已启用' : '已停用'}</span>
+                        </span>
                       </td>
                       <td>
                         <div className="row-actions">

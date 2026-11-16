@@ -136,10 +136,10 @@ make web-dev
 
 Vite 默认监听 `http://localhost:4173`，并把 `/api` 代理到 `http://localhost:8080`（可用 `WARDEN_WEB_PORT` / `WARDEN_WEB_HOST` / `WARDEN_CONTROL_TARGET` 覆盖，见 [configuration.md](configuration.md)）。
 
-打开 `http://localhost:4173/login`：
+两个登录入口，互不干扰：
 
-- 用户名：`admin`
-- 密码：`.secrets/admin_password` 的内容（`cat .secrets/admin_password`）
+- **平台运维入口** `http://localhost:4173/platform/login`：用户名 `admin`，密码为 `.secrets/admin_password` 的内容（`cat .secrets/admin_password`）。登录后落在租户管理页。
+- **组织登录页** `http://localhost:4173/login`：租户用户用 RAM 式限定名 `用户名@组织标识`（例如 `zhangsan@acme`）+ 密码登录。组织标识由租户管理员创建用户时提供。
 
 登录后能看到顶部用户信息与左侧菜单，说明密码校验、HttpOnly 会话 Cookie、`/auth/me` 能力清单下发这条链路都通了。
 

@@ -47,34 +47,50 @@ CONTROL_ENV=(
   WARDEN_ARTIFACT_ROOT="$ROOT_DIR"
 )
 
-# Optional OIDC login. Export WARDEN_OIDC_* before invoking this script (see
-# scripts/oidc-local.env.example). Leaving WARDEN_OIDC_ISSUER unset keeps OIDC
-# fully disabled, preserving the previous startup behaviour.
-if [[ -n "${WARDEN_OIDC_ISSUER:-}" ]]; then
-  : "${WARDEN_OIDC_CLIENT_ID:?WARDEN_OIDC_CLIENT_ID is required when WARDEN_OIDC_ISSUER is set}"
-  oidc_secret_file="${WARDEN_OIDC_CLIENT_SECRET_FILE:-$ROOT_DIR/.secrets/oidc_client_secret}"
-  if [[ ! -f "$oidc_secret_file" ]]; then
-    echo "missing OIDC client secret file: $oidc_secret_file" >&2
-    echo "write the client secret as a single line, with no quotes or trailing blank lines" >&2
+# Optional OIDC login. WARDEN_OIDC_ENABLED=true is the explicit master switch;
+# =false forces SSO off. With the switch unset, a configured WARDEN_OIDC_ISSUER
+# still enables OIDC (legacy contract). See scripts/oidc-local.env.example.
+oidc_switch="$(printf '%s' "${WARDEN_OIDC_ENABLED:-}" | tr '[:upper:]' '[:lower:]')"
+case "$oidc_switch" in
+  false|0|no|off)
+    echo "OIDC disabled by WARDEN_OIDC_ENABLED=$oidc_switch"
+    ;;
+  ""|true|1|yes|on)
+    if [[ -n "$oidc_switch" || -n "${WARDEN_OIDC_ISSUER:-}" ]]; then
+      : "${WARDEN_OIDC_ISSUER:?WARDEN_OIDC_ISSUER is required when OIDC is enabled}"
+      : "${WARDEN_OIDC_CLIENT_ID:?WARDEN_OIDC_CLIENT_ID is required when OIDC is enabled}"
+      oidc_secret_file="${WARDEN_OIDC_CLIENT_SECRET_FILE:-$ROOT_DIR/.secrets/oidc_client_secret}"
+      if [[ ! -f "$oidc_secret_file" ]]; then
+        echo "missing OIDC client secret file: $oidc_secret_file" >&2
+        echo "write the client secret as a single line, with no quotes or trailing blank lines" >&2
+        exit 1
+      fi
+      # The redirect URI must match the IdP's exact whitelist byte-for-byte. The
+      # default targets the Vite dev origin on :8081 (which proxies /api to
+      # warden-control on WARDEN_PORT); landing the callback directly on warden-control
+      # would 302 to / with no SPA to serve it.
+      oidc_redirect_url="${WARDEN_OIDC_REDIRECT_URL:-http://127.0.0.1:8081/api/v1/auth/oidc/callback}"
+      CONTROL_ENV+=(
+        WARDEN_OIDC_ISSUER="$WARDEN_OIDC_ISSUER"
+        WARDEN_OIDC_CLIENT_ID="$WARDEN_OIDC_CLIENT_ID"
+        WARDEN_OIDC_CLIENT_SECRET_FILE="$oidc_secret_file"
+        WARDEN_OIDC_REDIRECT_URL="$oidc_redirect_url"
+        WARDEN_OIDC_DEFAULT_TENANT_ID="${WARDEN_OIDC_DEFAULT_TENANT_ID:-platform}"
+        WARDEN_OIDC_DEFAULT_ROLE="${WARDEN_OIDC_DEFAULT_ROLE:-user}"
+      )
+      if [[ -n "$oidc_switch" ]]; then
+        CONTROL_ENV+=(WARDEN_OIDC_ENABLED="$oidc_switch")
+      fi
+      echo "OIDC enabled: issuer=$WARDEN_OIDC_ISSUER redirect=$oidc_redirect_url default_role=${WARDEN_OIDC_DEFAULT_ROLE:-user}"
+    else
+      echo "OIDC disabled (set WARDEN_OIDC_ENABLED=true plus issuer/client/secret to enable; see scripts/oidc-local.env.example)"
+    fi
+    ;;
+  *)
+    echo "WARDEN_OIDC_ENABLED must be true or false (got: $WARDEN_OIDC_ENABLED)" >&2
     exit 1
-  fi
-  # The redirect URI must match the IdP's exact whitelist byte-for-byte. The
-  # default targets the Vite dev origin on :8081 (which proxies /api to
-  # warden-control on WARDEN_PORT); landing the callback directly on warden-control
-  # would 302 to / with no SPA to serve it.
-  oidc_redirect_url="${WARDEN_OIDC_REDIRECT_URL:-http://127.0.0.1:8081/api/v1/auth/oidc/callback}"
-  CONTROL_ENV+=(
-    WARDEN_OIDC_ISSUER="$WARDEN_OIDC_ISSUER"
-    WARDEN_OIDC_CLIENT_ID="$WARDEN_OIDC_CLIENT_ID"
-    WARDEN_OIDC_CLIENT_SECRET_FILE="$oidc_secret_file"
-    WARDEN_OIDC_REDIRECT_URL="$oidc_redirect_url"
-    WARDEN_OIDC_DEFAULT_TENANT_ID="${WARDEN_OIDC_DEFAULT_TENANT_ID:-platform}"
-    WARDEN_OIDC_DEFAULT_ROLE="${WARDEN_OIDC_DEFAULT_ROLE:-user}"
-  )
-  echo "OIDC enabled: issuer=$WARDEN_OIDC_ISSUER redirect=$oidc_redirect_url default_role=${WARDEN_OIDC_DEFAULT_ROLE:-user}"
-else
-  echo "OIDC disabled (export WARDEN_OIDC_ISSUER to enable; see scripts/oidc-local.env.example)"
-fi
+    ;;
+esac
 
 if [[ -f "$ROOT_DIR/.secrets/dingtalk_webhook" && -f "$ROOT_DIR/.secrets/dingtalk_secret" ]]; then
   CONTROL_ENV+=(WARDEN_DINGTALK_WEBHOOK_FILE="$ROOT_DIR/.secrets/dingtalk_webhook")

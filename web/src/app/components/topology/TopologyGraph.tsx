@@ -56,12 +56,12 @@ function TopologyGraphInner({
       proOptions={{ hideAttribution: true }}
       defaultEdgeOptions={{ type: 'smoothstep' }}
     >
-      <Background variant={BackgroundVariant.Dots} gap={18} size={1} className="!bg-white/40 dark:!bg-surface-dark/60" />
-      <Controls className="!border-white/60 !bg-white/70 !text-content !shadow-glass !backdrop-blur-xl dark:!border-white/10 dark:!bg-surface-dark/70 dark:!text-content-dark dark:!shadow-glass-dark" />
+      <Background variant={BackgroundVariant.Dots} gap={18} size={1} className="!bg-surface-muted dark:!bg-[#0a0e15]" />
+      <Controls className="!border-border !bg-surface !text-content !shadow-card dark:!border-border-dark dark:!bg-surface-dark dark:!text-content-dark" />
       <MiniMap
         pannable
         zoomable
-        className="!border-white/60 !bg-white/70 !shadow-glass !backdrop-blur-xl dark:!border-white/10 dark:!bg-surface-dark/70 dark:!shadow-glass-dark"
+        className="!border-border !bg-surface !shadow-card dark:!border-border-dark dark:!bg-surface-dark"
         nodeColor={(n) => {
           const status = (n.data as unknown as { status?: string } | undefined)?.status
           if (status === 'active') return '#22c55e'
@@ -85,7 +85,7 @@ export function TopologyGraph(props: {
   return (
     <div
       style={style}
-      className="relative overflow-hidden rounded-lg border border-white/60 bg-white/40 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-surface-dark/60 dark:shadow-glass-dark"
+      className="relative overflow-hidden rounded-lg border border-border bg-surface-muted shadow-card dark:border-border-dark dark:bg-[#0a0e15]"
     >
       <ReactFlowProvider>
         <TopologyGraphInner {...props} />

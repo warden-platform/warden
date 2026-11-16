@@ -87,12 +87,13 @@ function TopologyNode({ data, selected }: NodeProps) {
   const Icon = iconFor(d.kind, d.entity)
   return (
     <div
-      className={`flex w-[220px] items-center gap-3 rounded-lg border bg-white/80 px-3 py-2.5 shadow-glass backdrop-blur-xl transition dark:bg-surface-dark/80 dark:shadow-glass-dark ${
+      className={`relative flex w-[220px] items-center gap-3 rounded-lg border bg-surface px-3 py-2.5 shadow-card transition dark:bg-surface-dark ${
         selected
           ? 'border-brand ring-2 ring-brand/30 dark:border-brand-dark dark:ring-brand-dark/30'
-          : 'border-white/70 dark:border-white/10'
+          : 'border-border dark:border-border-dark'
       }`}
     >
+      {d.live && <span className="topo-live-dot" title="有执行信号正在经过" aria-label="有执行信号正在经过" />}
       <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-0 !bg-gray-400" />
       <div className={`grid h-9 w-9 flex-none place-items-center rounded-lg ${statusIconBg[d.status]}`}>
         <Icon size={18} />

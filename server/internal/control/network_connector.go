@@ -18,10 +18,6 @@ func (h *Handler) CreateNetworkConnector(w http.ResponseWriter, r *http.Request)
 		databaseUnavailable(w)
 		return
 	}
-	if err := h.enforceConnectorQuota(r.Context()); err != nil {
-		jsonError(w, http.StatusTooManyRequests, "TENANT_QUOTA_EXCEEDED", "已达到该租户的 Connector 配额")
-		return
-	}
 	var req struct {
 		Name        string `json:"name"`
 		Environment string `json:"environment"`

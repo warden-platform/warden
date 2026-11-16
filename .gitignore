@@ -44,3 +44,8 @@ docs/e2e/*
 # Editor-local scratch documents (TrAE). Keep the files on disk, never commit.
 .trae/
 /Jenkinsfile
+
+# local working artifacts
+.qoder-input-images/
+.screenshots/
+design-proposals/

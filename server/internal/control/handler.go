@@ -276,11 +276,21 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("PUT /api/v1/provider-capabilities/{id}", RequireTenantAdmin(h.UpdateProviderCapability))
 	protected.HandleFunc("DELETE /api/v1/provider-capabilities/{id}", RequireTenantAdmin(h.DeleteProviderCapability))
 	protected.HandleFunc("GET /api/v1/access-requests", RequireScope("pam:approve", h.ListAccessRequests))
+	protected.HandleFunc("GET /api/v1/my/access-requests", h.ListMyAccessRequests)
 	protected.HandleFunc("POST /api/v1/access-requests/{id}/approve", RequireScope("pam:approve", h.ApproveRequest))
 	protected.HandleFunc("POST /api/v1/access-requests/{id}/reject", RequireScope("pam:approve", h.RejectRequest))
 	protected.HandleFunc("GET /api/v1/audit-events", RequireScope("pam:audit:read", h.ListAuditEvents))
 	protected.HandleFunc("GET /api/v1/accounts", RequireScope("pam:admin", RequirePlatformTenant(h.ListAccounts)))
 	protected.HandleFunc("PUT /api/v1/accounts/{id}/role", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateAccountRole)))
+	protected.HandleFunc("POST /api/v1/accounts/{id}/remove", RequireScope("pam:admin", RequirePlatformTenant(h.RemoveAccountFromOrganization)))
+	protected.HandleFunc("POST /api/v1/accounts/{id}/reenable", RequireScope("pam:admin", RequirePlatformTenant(h.ReenableAccount)))
+	protected.HandleFunc("GET /api/v1/unaffiliated-identities", RequireScope("pam:admin", RequirePlatformTenant(h.ListUnaffiliatedIdentities)))
+	protected.HandleFunc("POST /api/v1/unaffiliated-identities/{id}/assign", RequireScope("pam:admin", RequirePlatformTenant(h.AssignUnaffiliatedIdentity)))
+	protected.HandleFunc("GET /api/v1/invitations", RequireTenantAdmin(h.ListInvitations))
+	protected.HandleFunc("POST /api/v1/invitations", RequireTenantAdmin(h.CreateInvitation))
+	protected.HandleFunc("DELETE /api/v1/invitations/{id}", RequireTenantAdmin(h.RevokeInvitation))
+	protected.HandleFunc("GET /api/v1/my/invitations", h.MyInvitations)
+	protected.HandleFunc("POST /api/v1/my/invitations/{id}/accept", h.AcceptInvitation)
 	protected.HandleFunc("GET /api/v1/principals", RequireTenantAdmin(h.ListPrincipals))
 	protected.HandleFunc("POST /api/v1/principals", RequireTenantAdmin(h.CreatePrincipal))
 	protected.HandleFunc("DELETE /api/v1/principals/{id}", RequireTenantAdmin(h.DeletePrincipal))
@@ -364,7 +374,10 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("GET /api/v1/tenants/{slug}", RequireScope("pam:admin", RequirePlatformTenant(h.GetTenant)))
 	protected.HandleFunc("GET /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", RequirePlatformTenant(h.ListTenantAdmins)))
 	protected.HandleFunc("POST /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", RequirePlatformTenant(h.CreateTenantAdmin)))
+	protected.HandleFunc("GET /api/v1/tenants/{slug}/members", RequireScope("pam:admin", RequirePlatformTenant(h.ListTenantMembers)))
+	protected.HandleFunc("POST /api/v1/tenants/{slug}/members", RequireScope("pam:admin", RequirePlatformTenant(h.CreateTenantMember)))
 	protected.HandleFunc("PUT /api/v1/tenants/{slug}/quota", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateTenantQuota)))
+	protected.HandleFunc("PUT /api/v1/tenants/{slug}/settings", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateTenantSettings)))
 	protected.HandleFunc("POST /api/v1/tenants/{slug}/disable", RequireScope("pam:admin", RequirePlatformTenant(h.DisableTenant)))
 	protected.HandleFunc("POST /api/v1/auth/logout", h.Logout)
 	protected.HandleFunc("GET /api/v1/approval-rules", RequireTenantAdmin(h.ListApprovalRules))
@@ -385,7 +398,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("GET /api/v1/database/query-templates/publish-requests", RequireTenantAdmin(h.ListTemplatePublishRequests))
 	protected.HandleFunc("POST /api/v1/database/query-templates/{id}/publish-requests/{requestId}/approve", RequireTenantAdmin(h.ApproveTemplatePublish))
 	protected.HandleFunc("POST /api/v1/database/query-templates/{id}/publish-requests/{requestId}/reject", RequireTenantAdmin(h.RejectTemplatePublish))
-	mux.Handle("/api/v1/", IdentityAuthMiddleware(h.authenticate, h.authorizationAuditMiddleware(protected)))
+	mux.Handle("/api/v1/", IdentityAuthMiddleware(h.authenticate, h.tenantOverride(h.authorizationAuditMiddleware(protected))))
 }
 
 // ValidateConnectorCredentials fails startup when the configured encryption
@@ -519,15 +532,16 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			req.ActingProjectID = identity.DelegationProjectID
 		}
 	}
-	// Bound shared execution capacity per tenant. Idempotent retries are
-	// checked later; this guard only applies to new in-flight work.
+	// Concurrency safety valve: protects the shared control plane from a
+	// runaway agent flooding it with in-flight work. This is an operational
+	// guard, not a commercial meter. Idempotent retries are checked later.
 	var inFlight, maxInFlight int
 	if err := h.pool.QueryRow(ctx, `SELECT count(*) FROM executions WHERE tenant_id=$1 AND status IN ('WAITING_APPROVAL','QUEUED','DISPATCHED','RUNNING')`, identity.TenantID).Scan(&inFlight); err != nil {
-		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "检查租户执行配额失败")
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "检查在途执行失败")
 		return
 	}
 	if err := h.pool.QueryRow(ctx, `SELECT max_concurrent_tasks FROM tenant_quotas WHERE tenant_id=$1`, identity.TenantID).Scan(&maxInFlight); err == nil && inFlight >= maxInFlight {
-		jsonError(w, http.StatusTooManyRequests, "TENANT_QUOTA_EXCEEDED", "已达到该租户的并发执行配额")
+		jsonError(w, http.StatusTooManyRequests, "CONCURRENCY_LIMIT_REACHED", "并发保护：在途执行已达上限，请等待现有执行完成，或联系平台管理员调整阈值")
 		return
 	}
 
@@ -1547,16 +1561,28 @@ func (h *Handler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	statusFilter := r.URL.Query().Get("status")
-	principalID := ""
-	if identity := identityFromContext(r.Context()); !identity.HasScope("pam:admin") {
-		principalID = identity.Principal.ID
+	// Visibility ladder: super admin sees every tenant, tenant admin sees the
+	// whole organization (members + agents), members see only their own runs.
+	// The repository still applies the tenant boundary for non-platform scopes.
+	identity := identityFromContext(r.Context())
+	var execs []domain.Execution
+	var err error
+	// Without an organization switch the super admin sees every tenant; while
+	// observing one organization (X-Warden-Tenant) the view scopes to it.
+	if identity.IsPlatformAdmin && domain.TenantIDFromContext(r.Context()) == identity.TenantID {
+		execs, err = h.executions.ListAllTenants(r.Context(), statusFilter, 50, 0)
+	} else {
+		principalID := ""
+		if !identity.IsTenantAdministrator() {
+			principalID = identity.Principal.ID
+		}
+		execs, err = h.executions.List(r.Context(), principalID, statusFilter, 50, 0)
 	}
-	execs, err := h.executions.List(r.Context(), principalID, statusFilter, 50, 0)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询执行列表失败")
 		return
 	}
-	execs, err = h.filterExecutionsForProject(r.Context(), identityFromContext(r.Context()), execs, r.URL.Query().Get("projectId"))
+	execs, err = h.filterExecutionsForProject(r.Context(), identity, execs, r.URL.Query().Get("projectId"))
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "PROJECT_SCOPE_ERROR", "按项目过滤执行列表失败")
 		return
@@ -2472,21 +2498,6 @@ func h3cInterfaceActionScopeAvailability(action string, scope map[string]any) (b
 
 // --- Connectors ---
 
-func (h *Handler) enforceConnectorQuota(ctx context.Context) error {
-	tenantID := "platform"
-	if identity := identityFromContext(ctx); identity != nil && identity.TenantID != "" {
-		tenantID = identity.TenantID
-	}
-	var count, max int
-	if err := h.pool.QueryRow(ctx, `SELECT count(*) FROM connectors WHERE tenant_id=$1 AND archived_at IS NULL`, tenantID).Scan(&count); err != nil {
-		return err
-	}
-	if err := h.pool.QueryRow(ctx, `SELECT max_connectors FROM tenant_quotas WHERE tenant_id=$1`, tenantID).Scan(&max); err == nil && count >= max {
-		return fmt.Errorf("tenant connector quota exceeded")
-	}
-	return nil
-}
-
 func (h *Handler) OnboardCluster(w http.ResponseWriter, r *http.Request) {
 	if !legacyConnectorKeyEnabled() {
 		jsonError(w, http.StatusGone, "LEGACY_ONBOARDING_DISABLED", "共享任务密钥接入已停用，请使用 Operator 配对流程")
@@ -2494,10 +2505,6 @@ func (h *Handler) OnboardCluster(w http.ResponseWriter, r *http.Request) {
 	}
 	if h.pool == nil {
 		databaseUnavailable(w)
-		return
-	}
-	if err := h.enforceConnectorQuota(r.Context()); err != nil {
-		jsonError(w, http.StatusTooManyRequests, "TENANT_QUOTA_EXCEEDED", "已达到该租户的 Connector 配额")
 		return
 	}
 	var cfg OnboardConfig
@@ -3179,6 +3186,37 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 	if requests == nil {
 		requests = []domain.AccessRequest{}
 	}
+	h.enrichAccessRequests(r.Context(), requests)
+	jsonResp(w, http.StatusOK, requests)
+}
+
+// ListMyAccessRequests is the initiator-facing view: any authenticated member
+// can track the requests they raised, without holding the approve capability.
+func (h *Handler) ListMyAccessRequests(w http.ResponseWriter, r *http.Request) {
+	if h.pool == nil {
+		databaseUnavailable(w)
+		return
+	}
+	identity := identityFromContext(r.Context())
+	if identity == nil || identity.Principal == nil {
+		jsonError(w, http.StatusUnauthorized, "UNAUTHORIZED", "未认证")
+		return
+	}
+	requests, err := h.requests.ListByPrincipal(r.Context(), identity.Principal.ID, r.URL.Query().Get("status"), 50, 0)
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询我的申请失败")
+		return
+	}
+	if requests == nil {
+		requests = []domain.AccessRequest{}
+	}
+	h.enrichAccessRequests(r.Context(), requests)
+	jsonResp(w, http.StatusOK, requests)
+}
+
+// enrichAccessRequests fills display names, resource state, action metadata and
+// policy assessment context shared by the approver queue and the member view.
+func (h *Handler) enrichAccessRequests(ctx context.Context, requests []domain.AccessRequest) {
 	// Enrich with principal names so the UI shows "Warden ReadOnly" instead of UUID prefix.
 	if h.principals != nil {
 		pCache := make(map[string]string)
@@ -3188,7 +3226,7 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 				requests[i].PrincipalName = name
 				continue
 			}
-			if p, err := h.principals.GetByID(r.Context(), pid); err == nil && p != nil {
+			if p, err := h.principals.GetByID(ctx, pid); err == nil && p != nil {
 				requests[i].PrincipalName = p.Name
 				pCache[pid] = p.Name
 			}
@@ -3205,7 +3243,7 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 				resIDs = append(resIDs, req.ResourceID)
 			}
 		}
-		if rMap, err := h.resources.SummariesByIDs(r.Context(), resIDs); err == nil {
+		if rMap, err := h.resources.SummariesByIDs(ctx, resIDs); err == nil {
 			for i := range requests {
 				if s, ok := rMap[requests[i].ResourceID]; ok {
 					requests[i].ResourceName = s.Name
@@ -3224,7 +3262,7 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 				actionIDs = append(actionIDs, request.ActionID)
 			}
 		}
-		if actionMap, err := h.actions.SummariesByIDs(r.Context(), actionIDs); err == nil {
+		if actionMap, err := h.actions.SummariesByIDs(ctx, actionIDs); err == nil {
 			for i := range requests {
 				if action, ok := actionMap[requests[i].ActionID]; ok {
 					requests[i].ActionName = action.Name
@@ -3243,7 +3281,7 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 				decisionIDs = append(decisionIDs, request.DecisionID)
 			}
 		}
-		if outputs, err := h.policyDecisions.OutputsByIDs(r.Context(), decisionIDs); err == nil {
+		if outputs, err := h.policyDecisions.OutputsByIDs(ctx, decisionIDs); err == nil {
 			for i := range requests {
 				if output, ok := outputs[requests[i].DecisionID]; ok {
 					if assessment, ok := output["database_query_cost_assessment"].(map[string]any); ok {
@@ -3253,7 +3291,6 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
-	jsonResp(w, http.StatusOK, requests)
 }
 
 func (h *Handler) ApproveRequest(w http.ResponseWriter, r *http.Request) {
@@ -3503,7 +3540,7 @@ func (h *Handler) UpdateApprovalRule(w http.ResponseWriter, r *http.Request) {
 }
 
 func executionToResp(e *domain.Execution) map[string]any {
-	return map[string]any{
+	resp := map[string]any{
 		"id":                     e.ID,
 		"status":                 e.Status,
 		"principalId":            e.PrincipalID,
@@ -3530,6 +3567,10 @@ func executionToResp(e *domain.Execution) map[string]any {
 		"createdAt":              e.CreatedAt,
 		"updatedAt":              e.UpdatedAt,
 	}
+	if e.TenantID != "" {
+		resp["tenantId"] = e.TenantID
+	}
+	return resp
 }
 
 func jsonResp(w http.ResponseWriter, status int, data any) {

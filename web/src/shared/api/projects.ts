@@ -21,6 +21,8 @@ export type ApiProjectNamespaceRule = {
 }
 
 export const listProjects = () => request<ApiProject[]>('GET', '/projects')
+export type ApiMyProject = ApiProject & { my_role: 'PROJECT_ADMIN' | 'OPERATOR' | 'VIEWER' | string }
+export const listMyProjects = () => request<ApiMyProject[]>('GET', '/me/projects')
 export const createProject = (body: { name: string; description?: string }) => request<ApiProject>('POST', '/projects', body)
 export const updateProject = (id: string, body: { name: string; description?: string }) =>
   request<ApiProject>('PUT', `/projects/${encodeURIComponent(id)}`, body)

@@ -1,13 +1,12 @@
 import { request } from './core'
 import type { ApiPrincipal } from './principals'
 
+// Warden does not meter identities or connectors for commercial tiering.
+// The only per-tenant limit is the concurrency safety valve that protects the
+// shared control plane from runaway execution floods.
 export type ApiTenantQuota = {
   tenant_id: string
-  max_principals: number
-  max_connectors: number
   max_concurrent_tasks: number
-  max_requests_per_minute: number
-  audit_retention_days: number
   updated_at: string
 }
 
@@ -32,11 +31,7 @@ export type ApiTenant = {
 }
 
 export type TenantQuotaInput = {
-  maxPrincipals: number
-  maxConnectors: number
   maxConcurrentTasks: number
-  maxRequestsPerMinute: number
-  auditRetentionDays: number
 }
 
 export type BootstrapTenantInput = {
@@ -55,7 +50,70 @@ export const bootstrapTenant = (body: BootstrapTenantInput) => request<Bootstrap
 export const listTenantAdmins = (slug: string) => request<ApiPrincipal[]>('GET', `/tenants/${encodeURIComponent(slug)}/admins`)
 export const createTenantAdmin = (slug: string, body: { name: string; password: string }) =>
   request<ApiPrincipal>('POST', `/tenants/${encodeURIComponent(slug)}/admins`, body)
+
+export type TenantMemberProject = { project_id: string; project_name: string; role: string; status: string }
+export type TenantMember = {
+  id: string
+  name: string
+  display_name: string
+  email: string
+  role: string
+  status: string
+  auth_source: string
+  is_builtin_admin: boolean
+  last_login_at: string | null
+  created_at: string
+  memberships: TenantMemberProject[]
+}
+export const listTenantMembers = (slug: string) => request<TenantMember[]>('GET', `/tenants/${encodeURIComponent(slug)}/members`)
+export const createTenantMember = (slug: string, body: { name: string; password: string; role: string }) =>
+  request<{ id: string; name: string; role: string; tenant_id: string; login_name: string }>(
+    'POST',
+    `/tenants/${encodeURIComponent(slug)}/members`,
+    body,
+  )
 export const updateTenantQuota = (slug: string, body: TenantQuotaInput) =>
   request<TenantQuotaInput>('PUT', `/tenants/${encodeURIComponent(slug)}/quota`, body)
+export const updateTenantSettings = (slug: string, body: { emailDomains: string[] }) =>
+  request<{ slug: string; emailDomains: string[] }>('PUT', `/tenants/${encodeURIComponent(slug)}/settings`, body)
 export const disableTenant = (slug: string) =>
   request<{ slug: string; status: 'DISABLED' }>('POST', `/tenants/${encodeURIComponent(slug)}/disable`)
+
+export type UnaffiliatedIdentity = {
+  id: string
+  name: string
+  display_name: string
+  email: string
+  avatar_url: string
+  issuer: string
+  subject: string
+  created_at: string
+  last_login_at: string | null
+}
+export const listUnaffiliatedIdentities = () => request<UnaffiliatedIdentity[]>('GET', '/unaffiliated-identities')
+export const assignUnaffiliatedIdentity = (id: string, body: { tenant: string; role: string }) =>
+  request<{ id: string; tenant: string; role: string; revoked_sessions: number; force_relogin: boolean }>(
+    'POST',
+    `/unaffiliated-identities/${encodeURIComponent(id)}/assign`,
+    body,
+  )
+
+export type Invitation = {
+  id: string
+  tenant_id: string
+  email: string
+  role: string
+  status: 'PENDING' | 'ACCEPTED' | 'REVOKED'
+  created_at: string
+  accepted_at?: string | null
+}
+export type MyInvitation = Invitation & { tenant_name: string }
+
+// Sub-administrator side (scoped to the caller's own organization).
+export const listInvitations = () => request<Invitation[]>('GET', '/invitations')
+export const createInvitation = (body: { email: string; role: string }) => request<Invitation>('POST', '/invitations', body)
+export const revokeInvitation = (id: string) => request<{ id: string; status: string }>('DELETE', `/invitations/${encodeURIComponent(id)}`)
+// Unaffiliated-identity self-service side.
+export const myInvitations = () => request<MyInvitation[]>('GET', '/my/invitations')
+export const acceptInvitation = (id: string) =>
+  request<{ id: string; tenant: string; role: string; force_relogin: boolean }>('POST', `/my/invitations/${encodeURIComponent(id)}/accept`)

@@ -3,15 +3,17 @@ import { Building2, Gauge, Loader2, Plus, RefreshCw, ShieldCheck, Users, X } fro
 import {
   ApiError,
   bootstrapTenant,
-  createTenantAdmin,
+  createTenantMember,
   disableTenant,
   getTenant,
-  listTenantAdmins,
+  listTenantMembers,
   listTenants,
+  updateAccountRole,
   updateTenantQuota,
-  type ApiPrincipal,
+  updateTenantSettings,
   type ApiTenant,
   type BootstrapTenantInput,
+  type TenantMember,
   type TenantQuotaInput,
 } from '../../shared/api'
 import { ErrorState, LoadingState } from '../components/States'
@@ -19,11 +21,7 @@ import { Kpi } from '../components/Kpi'
 import { useApp } from '../components/Toast'
 
 const DEFAULT_QUOTA: TenantQuotaInput = {
-  maxPrincipals: 1000,
-  maxConnectors: 100,
   maxConcurrentTasks: 100,
-  maxRequestsPerMinute: 600,
-  auditRetentionDays: 365,
 }
 
 const EMPTY_TENANT: BootstrapTenantInput = {
@@ -35,13 +33,11 @@ const EMPTY_TENANT: BootstrapTenantInput = {
 }
 
 const quotaFromTenant = (tenant: ApiTenant): TenantQuotaInput => ({
-  maxPrincipals: tenant.quota.max_principals,
-  maxConnectors: tenant.quota.max_connectors,
   maxConcurrentTasks: tenant.quota.max_concurrent_tasks,
-  maxRequestsPerMinute: tenant.quota.max_requests_per_minute,
-  auditRetentionDays: tenant.quota.audit_retention_days,
 })
 
+// Warden 不做商业化计量：身份与通道数量不设上限。唯一的租户级限制是
+// 并发保护阈值——保护共享控制面不被失控执行洪峰淹没的安全阀。
 function QuotaFields({
   value,
   onChange,
@@ -51,25 +47,21 @@ function QuotaFields({
   onChange: (value: TenantQuotaInput) => void
   disabled?: boolean
 }) {
-  const field = (key: keyof TenantQuotaInput, label: string) => (
-    <label>
-      <span>{label}</span>
-      <input
-        type="number"
-        min={1}
-        disabled={disabled}
-        value={value[key]}
-        onChange={(event) => onChange({ ...value, [key]: Number(event.target.value) })}
-      />
-    </label>
-  )
   return (
-    <div className="form-grid tenant-quota-grid">
-      {field('maxPrincipals', 'Principal 上限')}
-      {field('maxConnectors', 'Connector 上限')}
-      {field('maxConcurrentTasks', '并发任务上限')}
-      {field('maxRequestsPerMinute', '每分钟请求上限')}
-      {field('auditRetentionDays', '审计保留天数')}
+    <div className="form-grid">
+      <label>
+        <span>并发保护阈值（在途执行上限）</span>
+        <input
+          type="number"
+          min={1}
+          disabled={disabled}
+          value={value.maxConcurrentTasks}
+          onChange={(event) => onChange({ maxConcurrentTasks: Number(event.target.value) })}
+        />
+        <small className="quota-hint">
+          安全阀，非商业配额：在途执行（含待审批/排队/执行中）达到该值时暂缓新执行。身份与执行通道数量不限。
+        </small>
+      </label>
     </div>
   )
 }
@@ -82,9 +74,10 @@ export function TenantsPage() {
   const [creating, setCreating] = useState(false)
   const [createForm, setCreateForm] = useState<BootstrapTenantInput>(EMPTY_TENANT)
   const [selected, setSelected] = useState<ApiTenant | null>(null)
-  const [admins, setAdmins] = useState<ApiPrincipal[]>([])
   const [quota, setQuota] = useState<TenantQuotaInput>(DEFAULT_QUOTA)
-  const [adminForm, setAdminForm] = useState({ name: '', password: '' })
+  const [emailDomains, setEmailDomains] = useState('')
+  const [members, setMembers] = useState<TenantMember[]>([])
+  const [memberForm, setMemberForm] = useState({ name: '', password: '', role: 'user' })
   const [busy, setBusy] = useState('')
 
   const load = (spinner = true) => {
@@ -103,13 +96,44 @@ export function TenantsPage() {
 
   const openTenant = (slug: string) => {
     setBusy('detail')
-    Promise.all([getTenant(slug), listTenantAdmins(slug)])
-      .then(([tenant, items]) => {
+    Promise.all([getTenant(slug), listTenantMembers(slug)])
+      .then(([tenant, memberItems]) => {
         setSelected(tenant)
         setQuota(quotaFromTenant(tenant))
-        setAdmins(items ?? [])
+        setEmailDomains((((tenant.settings?.emailDomains as string[] | undefined) ?? [])).join(', '))
+        setMembers(memberItems ?? [])
       })
       .catch((e: ApiError) => notify(e.message || '加载租户详情失败'))
+      .finally(() => setBusy(''))
+  }
+
+  const addMember = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!selected) return
+    setBusy('member')
+    createTenantMember(selected.slug, {
+      name: memberForm.name.trim(),
+      password: memberForm.password,
+      role: memberForm.role,
+    })
+      .then((res) => {
+        notify(`成员已创建，登录名 ${res.login_name}`)
+        setMemberForm({ name: '', password: '', role: 'user' })
+        return openTenant(selected.slug)
+      })
+      .catch((e: ApiError) => notify(e.message || '创建成员失败'))
+      .finally(() => setBusy(''))
+  }
+
+  const changeMemberRole = (member: TenantMember, role: string) => {
+    if (!selected || role === member.role) return
+    const label = member.display_name || member.name
+    if (!window.confirm(`确认把「${label}」的角色改为「${role === 'tenant_admin' ? '租户管理员' : '项目成员'}」？\n\n该账号会话会立即失效，需重新登录。`)) return
+    setBusy(member.id)
+    updateAccountRole(member.id, role as 'user' | 'tenant_admin')
+      .then(() => openTenant(selected.slug))
+      .then(() => notify('成员角色已更新'))
+      .catch((e: ApiError) => notify(e.message || '更新角色失败'))
       .finally(() => setBusy(''))
   }
 
@@ -137,26 +161,24 @@ export function TenantsPage() {
     setBusy('quota')
     updateTenantQuota(selected.slug, quota)
       .then(() => {
-        notify('租户配额已更新')
+        notify('并发保护阈值已更新')
         return openTenant(selected.slug)
       })
       .then(() => load(false))
-      .catch((e: ApiError) => notify(e.message || '更新配额失败'))
+      .catch((e: ApiError) => notify(e.message || '更新并发保护阈值失败'))
       .finally(() => setBusy(''))
   }
 
-  const addAdmin = (event: React.FormEvent) => {
-    event.preventDefault()
+  const saveDomains = () => {
     if (!selected) return
-    setBusy('admin')
-    createTenantAdmin(selected.slug, { name: adminForm.name.trim(), password: adminForm.password })
-      .then(() => {
-        notify('租户管理员已创建')
-        setAdminForm({ name: '', password: '' })
-        return openTenant(selected.slug)
+    setBusy('domains')
+    const domains = emailDomains.split(/[,，\s]+/).map((d) => d.trim().toLowerCase()).filter(Boolean)
+    updateTenantSettings(selected.slug, { emailDomains: domains })
+      .then((res) => {
+        setEmailDomains(res.emailDomains.join(', '))
+        notify('SSO 邮箱域名已更新')
       })
-      .then(() => load(false))
-      .catch((e: ApiError) => notify(e.message || '创建管理员失败'))
+      .catch((e: ApiError) => notify(e.message || '更新邮箱域名失败'))
       .finally(() => setBusy(''))
   }
 
@@ -182,7 +204,7 @@ export function TenantsPage() {
         <Kpi icon={Building2} tone="blue" label="租户总数" value={tenants.length} detail={`${active} 个正在使用`} />
         <Kpi icon={ShieldCheck} tone="green" label="活跃租户" value={active} detail={`${tenants.length - active} 个已停用`} />
         <Kpi icon={Users} tone="amber" label="有效 Principal" value={principalCount} detail="所有租户合计" />
-        <Kpi icon={Gauge} tone="red" label="有效 Connector" value={connectorCount} detail="未归档且未停用" />
+        <Kpi icon={Gauge} tone={connectorCount > 0 ? 'green' : 'amber'} label="有效 Connector" value={connectorCount} detail="未归档且未停用" />
       </section>
 
       <section className="panel">
@@ -243,6 +265,7 @@ export function TenantsPage() {
                   minLength={8}
                   maxLength={72}
                   autoComplete="new-password"
+                  placeholder="至少 8 位"
                   value={createForm.adminPassword}
                   onChange={(event) => setCreateForm({ ...createForm, adminPassword: event.target.value })}
                 />
@@ -268,8 +291,8 @@ export function TenantsPage() {
                 <tr>
                   <th>租户</th>
                   <th>状态</th>
-                  <th>使用量</th>
-                  <th>并发任务</th>
+                  <th>资源观测</th>
+                  <th>在途执行</th>
                   <th>管理员</th>
                   <th>创建时间</th>
                   <th>操作</th>
@@ -283,21 +306,31 @@ export function TenantsPage() {
                       <code className="cell-sub">{tenant.slug}</code>
                     </td>
                     <td>
-                      <span className={`badge ${tenant.status === 'ACTIVE' ? 'badge-success' : 'badge-neutral'}`}>
-                        {tenant.status === 'ACTIVE' ? '使用中' : '已停用'}
+                      <span className={`exec-led ${tenant.status === 'ACTIVE' ? 'ok' : 'deny'}`}>
+                        <i aria-hidden="true" />
+                        <span className={`badge ${tenant.status === 'ACTIVE' ? 'badge-success' : 'badge-neutral'}`}>
+                          {tenant.status === 'ACTIVE' ? '使用中' : '已停用'}
+                        </span>
                       </span>
                     </td>
                     <td>
-                      <span>
-                        {tenant.usage.principals} / {tenant.quota.max_principals} Principal
+                      <span className="font-mono text-xs">
+                        {tenant.usage.principals} 身份 · {tenant.usage.connectors} 通道 · {tenant.usage.projects} 项目
                       </span>
-                      <small className="cell-sub">
-                        {tenant.usage.connectors} / {tenant.quota.max_connectors} Connector · {tenant.usage.projects} 项目
-                      </small>
+                      <small className="cell-sub">数量不设上限，仅作运行观测</small>
                     </td>
                     <td>
-                      <strong>{tenant.usage.in_flight_tasks}</strong>
-                      <small className="cell-sub">上限 {tenant.quota.max_concurrent_tasks}</small>
+                      <span className={`exec-led ${tenant.usage.in_flight_tasks >= tenant.quota.max_concurrent_tasks ? 'wait' : 'ok'}`}>
+                        <i aria-hidden="true" />
+                        <strong className="font-mono">{tenant.usage.in_flight_tasks}</strong>
+                      </span>
+                      <small className="cell-sub font-mono">并发保护 {tenant.quota.max_concurrent_tasks}</small>
+                      <div
+                        className={`usage-bar ${tenant.usage.in_flight_tasks / Math.max(1, tenant.quota.max_concurrent_tasks) > 0.8 ? 'warn' : ''}`}
+                        aria-hidden="true"
+                      >
+                        <i style={{ width: `${Math.min(100, (tenant.usage.in_flight_tasks / Math.max(1, tenant.quota.max_concurrent_tasks)) * 100)}%` }} />
+                      </div>
                     </td>
                     <td>{tenant.usage.administrators}</td>
                     <td>{new Date(tenant.created_at).toLocaleDateString('zh-CN')}</td>
@@ -337,35 +370,55 @@ export function TenantsPage() {
               <section>
                 <div className="section-heading">
                   <div>
-                    <h3>管理员</h3>
-                    <p>可管理当前租户的项目、资源、策略和 Agent 身份。</p>
+                    <h3>成员</h3>
+                    <p>本租户的全部登录用户。租户管理员是子管理员，可管理本租户项目、资源、策略与 Agent；项目成员仅参与被分配的项目。</p>
                   </div>
+                  <span className="project-user-result-count">{members.length} 人</span>
                 </div>
                 <div className="tenant-admin-list">
-                  {admins.map((admin) => (
-                    <div key={admin.id}>
-                      <span className={`status-dot ${admin.status === 'ACTIVE' ? 'active' : ''}`} />
+                  {members.map((member) => (
+                    <div key={member.id}>
+                      <span className={`status-dot ${member.status === 'ACTIVE' ? 'active' : ''}`} />
                       <div>
-                        <strong>{admin.name}</strong>
+                        <strong>
+                          {member.display_name || member.name}
+                          {member.is_builtin_admin && <span className="account-self-tag">超级管理员</span>}
+                        </strong>
                         <small>
-                          {admin.last_login_at ? `最近登录 ${new Date(admin.last_login_at).toLocaleString('zh-CN')}` : '尚未登录'}
+                          {member.auth_source === 'oidc' ? 'SSO 登录' : `${member.name}@${selected.slug}`}
+                          {member.memberships.length > 0
+                            ? ` · ${member.memberships.map((mp) => mp.project_name).join('、')}`
+                            : ' · 未分配项目'}
                         </small>
                       </div>
-                      <span className={`badge ${admin.status === 'ACTIVE' ? 'badge-success' : 'badge-neutral'}`}>
-                        {admin.status === 'ACTIVE' ? '有效' : '停用'}
-                      </span>
+                      {member.is_builtin_admin ? (
+                        <span className="badge badge-info">超管</span>
+                      ) : (
+                        <select
+                          className="account-role-select"
+                          value={member.role === 'tenant_admin' ? 'tenant_admin' : 'user'}
+                          disabled={busy !== '' || selected.status !== 'ACTIVE'}
+                          aria-label={`修改 ${member.display_name || member.name} 的角色`}
+                          onChange={(event) => changeMemberRole(member, event.target.value)}
+                        >
+                          <option value="user">项目成员</option>
+                          <option value="tenant_admin">租户管理员</option>
+                        </select>
+                      )}
                     </div>
                   ))}
+                  {members.length === 0 && <div className="empty-inline">本租户暂无登录用户。</div>}
                 </div>
                 {selected.status === 'ACTIVE' && (
-                  <form className="tenant-admin-form form-grid" onSubmit={addAdmin}>
+                  <form className="tenant-admin-form form-grid" onSubmit={addMember}>
                     <label>
-                      <span>管理员名称</span>
+                      <span>成员名称</span>
                       <input
                         required
                         maxLength={255}
-                        value={adminForm.name}
-                        onChange={(event) => setAdminForm({ ...adminForm, name: event.target.value })}
+                        value={memberForm.name}
+                        onChange={(event) => setMemberForm({ ...memberForm, name: event.target.value })}
+                        placeholder="例如 zhangsan"
                       />
                     </label>
                     <label>
@@ -376,13 +429,24 @@ export function TenantsPage() {
                         minLength={8}
                         maxLength={72}
                         autoComplete="new-password"
-                        value={adminForm.password}
-                        onChange={(event) => setAdminForm({ ...adminForm, password: event.target.value })}
+                        value={memberForm.password}
+                        onChange={(event) => setMemberForm({ ...memberForm, password: event.target.value })}
                       />
                     </label>
-                    <button className="secondary-button" disabled={busy === 'admin'}>
+                    <label>
+                      <span>角色</span>
+                      <select
+                        className="account-role-select"
+                        value={memberForm.role}
+                        onChange={(event) => setMemberForm({ ...memberForm, role: event.target.value })}
+                      >
+                        <option value="user">项目成员</option>
+                        <option value="tenant_admin">租户管理员</option>
+                      </select>
+                    </label>
+                    <button className="secondary-button" disabled={busy === 'member'}>
                       <Plus size={15} />
-                      添加管理员
+                      添加成员
                     </button>
                   </form>
                 )}
@@ -390,18 +454,45 @@ export function TenantsPage() {
               <section>
                 <div className="section-heading">
                   <div>
-                    <h3>资源配额</h3>
-                    <p>配额在租户边界内限制主体、执行通道和运行负载。</p>
+                    <h3>并发保护</h3>
+                    <p>保护共享控制面的安全阀，不是商业配额；身份与通道数量不设上限。</p>
                   </div>
                   <button
                     className="primary-button compact"
                     disabled={busy === 'quota' || selected.status !== 'ACTIVE'}
                     onClick={saveQuota}
                   >
-                    {busy === 'quota' ? <Loader2 size={15} className="spin" /> : null}保存配额
+                    {busy === 'quota' ? <Loader2 size={15} className="spin" /> : null}保存阈值
                   </button>
                 </div>
                 <QuotaFields value={quota} onChange={setQuota} disabled={selected.status !== 'ACTIVE'} />
+              </section>
+              <section>
+                <div className="section-heading">
+                  <div>
+                    <h3>SSO 邮箱域名</h3>
+                    <p>新 SSO 用户的 IdP 邮箱属于这些域名时，自动归入本租户；未命中则进默认租户。仅信任 IdP 签发的邮箱。</p>
+                  </div>
+                  <button
+                    className="primary-button compact"
+                    disabled={busy === 'domains' || selected.status !== 'ACTIVE'}
+                    onClick={saveDomains}
+                  >
+                    {busy === 'domains' ? <Loader2 size={15} className="spin" /> : null}保存域名
+                  </button>
+                </div>
+                <div className="form-grid">
+                  <label>
+                    <span>邮箱域名（逗号分隔）</span>
+                    <input
+                      type="text"
+                      disabled={selected.status !== 'ACTIVE'}
+                      value={emailDomains}
+                      onChange={(event) => setEmailDomains(event.target.value)}
+                      placeholder="acme.com, acme.cn"
+                    />
+                  </label>
+                </div>
               </section>
               <section className="tenant-danger-zone">
                 <div>

@@ -1,25 +1,157 @@
 import { useEffect, useMemo, useState } from 'react'
-import { KeyRound, LogOut, Power, RefreshCw, Search, UserRoundCheck, Users, X } from 'lucide-react'
+import { KeyRound, LogOut, Mail, Power, RefreshCw, Search, UserRoundCheck, Users, X } from 'lucide-react'
 import {
   ApiError,
+  createInvitation,
+  listInvitations,
   listProjectUsers,
   projectUserDisplayName,
   resetProjectUserPassword,
+  revokeInvitation,
   revokeProjectUserSessions,
   updateProjectUserStatus,
   type ApiProjectUser,
+  type Invitation,
 } from '../../shared/api'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
 
 const roleLabels = { PROJECT_ADMIN: '项目管理员', OPERATOR: '操作员', VIEWER: '只读' } as const
 
+const invitationRoleLabels: Record<string, string> = { user: '项目成员', tenant_admin: '租户管理员' }
+const invitationStatusLabels: Record<string, string> = { PENDING: '待处理', ACCEPTED: '已加入', REVOKED: '已撤销' }
+
 function formatTime(value?: string) {
   return value ? new Date(value).toLocaleString('zh-CN') : '从未登录'
 }
 
-export function ProjectUsersPage() {
+// InvitationsPanel lets a tenant sub-administrator invite a trusted email into
+// the current organization; the invitee accepts it from the unaffiliated
+// waiting screen after their SSO login. Destination organization is the
+// caller's own tenant (server-derived), so no slug is needed here.
+function InvitationsPanel() {
   const { notify } = useApp()
+  const [invites, setInvites] = useState<Invitation[]>([])
+  const [loading, setLoading] = useState(true)
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState('user')
+  const [busy, setBusy] = useState(false)
+
+  const refresh = () => {
+    setLoading(true)
+    listInvitations()
+      .then((items) => setInvites(items ?? []))
+      .catch(() => setInvites([]))
+      .finally(() => setLoading(false))
+  }
+  useEffect(() => {
+    refresh()
+  }, [])
+
+  const submit = (event: React.FormEvent) => {
+    event.preventDefault()
+    if (!email.trim()) return
+    setBusy(true)
+    createInvitation({ email: email.trim(), role })
+      .then((created) => {
+        setInvites((items) => [created, ...items])
+        setEmail('')
+        notify(`已邀请 ${created.email}`)
+      })
+      .catch((e: ApiError) => notify(e.message || '创建邀请失败'))
+      .finally(() => setBusy(false))
+  }
+
+  const revoke = (invite: Invitation) => {
+    if (!window.confirm(`撤销对「${invite.email}」的邀请？`)) return
+    setBusy(true)
+    revokeInvitation(invite.id)
+      .then(() => {
+        setInvites((items) => items.map((item) => (item.id === invite.id ? { ...item, status: 'REVOKED' } : item)))
+        notify('邀请已撤销')
+      })
+      .catch((e: ApiError) => notify(e.message || '撤销邀请失败'))
+      .finally(() => setBusy(false))
+  }
+
+  return (
+    <section className="panel">
+      <div className="panel-header">
+        <div>
+          <h2>邀请成员</h2>
+          <p>用可信邮箱邀请成员加入本组织。对方用单点登录进来后，会在「未分配」页面看到并接受邀请。</p>
+        </div>
+        <button className="icon-button" title="刷新邀请" aria-label="刷新邀请列表" onClick={refresh}>
+          <RefreshCw size={16} />
+        </button>
+      </div>
+      <form className="invitation-form" onSubmit={submit}>
+        <label>
+          <span className="muted">邮箱</span>
+          <input type="email" required value={email} onChange={(e) => setEmail(e.target.value)} placeholder="member@company.com" />
+        </label>
+        <label>
+          <span className="muted">角色</span>
+          <select value={role} onChange={(e) => setRole(e.target.value)}>
+            <option value="user">项目成员</option>
+            <option value="tenant_admin">租户管理员</option>
+          </select>
+        </label>
+        <button className="primary-button" type="submit" disabled={busy || !email.trim()}>
+          <Mail size={15} />
+          发出邀请
+        </button>
+      </form>
+      {loading ? (
+        <div className="empty-inline">正在加载邀请…</div>
+      ) : invites.length === 0 ? (
+        <div className="empty-inline">还没有邀请记录。</div>
+      ) : (
+        <div className="table-wrap">
+          <table className="project-user-table">
+            <thead>
+              <tr>
+                <th>邮箱</th>
+                <th>角色</th>
+                <th>状态</th>
+                <th>创建时间</th>
+                <th>操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              {invites.map((invite) => (
+                <tr key={invite.id}>
+                  <td>
+                    <strong>{invite.email}</strong>
+                  </td>
+                  <td>{invitationRoleLabels[invite.role] ?? invite.role}</td>
+                  <td>
+                    <span className={`badge ${invite.status === 'PENDING' ? 'badge-info' : invite.status === 'ACCEPTED' ? 'badge-success' : 'badge-neutral'}`}>
+                      {invitationStatusLabels[invite.status] ?? invite.status}
+                    </span>
+                  </td>
+                  <td>{formatTime(invite.created_at)}</td>
+                  <td>
+                    {invite.status === 'PENDING' ? (
+                      <button className="icon-button danger" title="撤销邀请" aria-label={`撤销对 ${invite.email} 的邀请`} disabled={busy} onClick={() => revoke(invite)}>
+                        <X size={15} />
+                      </button>
+                    ) : (
+                      <span className="cell-sub">—</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
+  )
+}
+
+export function ProjectUsersPage() {
+  const { notify, auth } = useApp()
   const [users, setUsers] = useState<ApiProjectUser[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -104,6 +236,12 @@ export function ProjectUsersPage() {
 
   return (
     <div className="view-stack">
+      {auth.user?.is_platform_admin && (
+        <p className="resource-access-note">
+          超级管理员视角：本页按租户隔离，仅显示当前组织（{auth.user.tenant?.name || 'Platform'}）的项目用户。
+          业务组织的成员请在「账号与权限」跨租户管理，或以该组织管理员登录查看详情。
+        </p>
+      )}
       <section className="project-user-summary" aria-label="项目用户概况">
         <div>
           <strong>{users.length}</strong>
@@ -165,8 +303,11 @@ export function ProjectUsersPage() {
                       </small>
                     </td>
                     <td>
-                      <span className={`badge ${user.status === 'ACTIVE' ? 'badge-success' : 'badge-neutral'}`}>
-                        {user.status === 'ACTIVE' ? '可登录' : '已停用'}
+                      <span className={`exec-led ${user.status === 'ACTIVE' ? 'ok' : 'deny'}`}>
+                        <i aria-hidden="true" />
+                        <span className={`badge ${user.status === 'ACTIVE' ? 'badge-success' : 'badge-neutral'}`}>
+                          {user.status === 'ACTIVE' ? '可登录' : '已停用'}
+                        </span>
                       </span>
                     </td>
                     <td>
@@ -233,6 +374,7 @@ export function ProjectUsersPage() {
           </div>
         )}
       </section>
+      <InvitationsPanel />
       {resetUser && (
         <div className="modal-layer" role="presentation">
           <button className="modal-scrim" aria-label="关闭密码重置" onClick={() => setResetUser(null)} />

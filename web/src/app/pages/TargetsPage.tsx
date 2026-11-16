@@ -169,14 +169,17 @@ export function TargetsPage() {
                       · {mapEnvironment(connector.environment)} · {projectName(connector)}
                     </p>
                   </div>
-                  <Badge tone={healthy ? 'success' : 'warning'}>{healthy ? '目标可管理' : '连接异常'}</Badge>
+                  <span className="flex items-center gap-2">
+                    <span className={`health-dot ${healthy ? 'healthy' : 'down'}`} aria-hidden="true" />
+                    <Badge tone={healthy ? 'success' : 'warning'}>{healthy ? '目标可管理' : '连接异常'}</Badge>
+                  </span>
                 </div>
                 <div className="target-resource-counts">{summary}</div>
                 <div className="target-agent-summary">
                   <ShieldCheck size={17} />
                   <div>
                     <strong>执行代理 · {connectorHealthLabel(connector, now)}</strong>
-                    <span>
+                    <span className="font-mono">
                       v{connector.version} · 最后心跳 {heartbeatAge(connector.last_heartbeat, now)}
                     </span>
                   </div>

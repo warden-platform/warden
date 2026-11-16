@@ -98,6 +98,12 @@ func (h *Handler) issueJWTWithTTL(principal *domain.Principal, ttl time.Duration
 	scopes := defaultUserScopes()
 	if principal != nil && principal.ID == adminPrincipalID {
 		scopes = []string{ScopeAdmin}
+	} else if principal != nil && isUnaffiliated(principal.TenantID) {
+		// An unaffiliated identity is authenticated but has no organization. It
+		// receives only the self-profile scope (a session token must carry a
+		// non-empty scope) and none of the business capabilities, so every
+		// tenant-scoped endpoint is denied until a super admin assigns it.
+		scopes = []string{ScopeSelfProfile}
 	} else if principal != nil && principal.Metadata != nil {
 		switch role, _ := principal.Metadata["role"].(string); role {
 		case RolePlatformAdmin:
@@ -232,6 +238,34 @@ type loginRequest struct {
 	Tenant   string `json:"tenant,omitempty"`
 }
 
+// parseLoginIdentifier resolves a RAM-style qualified login name
+// "user@tenant-slug" into its parts. An explicit tenant (legacy API callers
+// and the platform operations login page) takes precedence. A bare "admin"
+// keeps working as the break-glass platform alias for scripts; any other bare
+// name is rejected so tenant users are never asked to guess a tenant.
+func parseLoginIdentifier(username, explicitTenant string) (string, string, bool) {
+	name := strings.TrimSpace(username)
+	if t := strings.TrimSpace(explicitTenant); t != "" {
+		return name, strings.ToLower(t), true
+	}
+	if i := strings.LastIndex(name, "@"); i > 0 && i < len(name)-1 {
+		n, t := name[:i], strings.ToLower(name[i+1:])
+		if !tenantSlugPattern.MatchString(t) {
+			return "", "", false
+		}
+		return n, t, true
+	}
+	if name == "admin" {
+		return name, "platform", true
+	}
+	return "", "", false
+}
+
+// validLoginName rejects '@' so qualified login names stay unambiguous.
+func validLoginName(name string) bool {
+	return name != "" && len([]rune(name)) <= 255 && !strings.Contains(name, "@")
+}
+
 type loginResponse struct {
 	Token     string    `json:"token"`
 	ExpiresAt time.Time `json:"expiresAt"`
@@ -341,6 +375,11 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "INVALID_CREDENTIALS", "用户名或密码格式不正确")
 		return
 	}
+	loginName, tenant, ok := parseLoginIdentifier(username, req.Tenant)
+	if !ok {
+		jsonError(w, http.StatusBadRequest, "INVALID_LOGIN_NAME", "请使用 用户名@组织标识 格式登录（例如 zhangsan@acme）")
+		return
+	}
 	clientAddress := requestClientAddress(r)
 	if !allowLoginAttempt(clientAddress, username, time.Now()) {
 		w.Header().Set("Retry-After", "300")
@@ -348,20 +387,12 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	loginCtx := r.Context()
-	if tenant := strings.TrimSpace(req.Tenant); tenant != "" {
-		if !h.tenantIsActive(loginCtx, tenant) {
-			jsonError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "用户名或密码错误")
-			return
-		}
-		loginCtx = WithTenantContext(loginCtx, tenant)
-	} else {
-		// Keep the existing Web login contract working while tenant selection
-		// is introduced in the UI. The migrated platform administrator and
-		// legacy users belong to platform; repository lookups must still carry an
-		// explicit tenant context after isolation was enabled.
-		loginCtx = WithTenantContext(loginCtx, "platform")
+	if !h.tenantIsActive(loginCtx, tenant) {
+		jsonError(w, http.StatusUnauthorized, "INVALID_CREDENTIALS", "用户名或密码错误")
+		return
 	}
-	principal, err := h.principals.GetByName(loginCtx, username)
+	loginCtx = WithTenantContext(loginCtx, tenant)
+	principal, err := h.principals.GetByName(loginCtx, loginName)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询用户失败")
 		return
@@ -472,7 +503,7 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		displayName = identity.Principal.Name
 	}
 	var tenant *domain.Tenant
-	if h.pool != nil && identity.TenantID != "" {
+	if h.pool != nil && identity.TenantID != "" && !isUnaffiliated(identity.TenantID) {
 		var current domain.Tenant
 		if err := h.pool.QueryRow(r.Context(), `SELECT id,slug,name,status,settings,created_at,updated_at FROM tenants WHERE slug=$1`, identity.TenantID).
 			Scan(&current.ID, &current.Slug, &current.Name, &current.Status, &current.Settings, &current.CreatedAt, &current.UpdatedAt); err != nil {
@@ -493,6 +524,7 @@ func (h *Handler) GetMe(w http.ResponseWriter, r *http.Request) {
 		"display_name": displayName, "email": email, "avatar_url": avatarURL,
 		"auth_source": authSource,
 		"tenant":      tenant, "role": role, "scopes": append([]string(nil), identity.Scopes...),
+		"unaffiliated":      isUnaffiliated(identity.TenantID),
 		"capabilities":      Capabilities(identity.Scopes),
 		"is_platform_admin": identity.IsPlatformAdmin, "expires_at": expiresAt,
 	})

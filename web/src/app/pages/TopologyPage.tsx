@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from '../../shared/router'
 import { RefreshCw, Search, Share2 } from 'lucide-react'
 import type { ApiAction, ApiConnector, ApiError, ApiExecution, ApiResource } from '../../shared/api'
-import { listAvailableActions, listConnectors, listIntegrations, listResources, type Integration } from '../../shared/api'
+import { listAvailableActions, listConnectors, listExecutions, listIntegrations, listResources, type Integration } from '../../shared/api'
 import { LoadingState, ErrorState, EmptyState } from '../components/States'
 import { TopologyGraph } from '../components/topology/TopologyGraph'
 import { TopologyDetails } from '../components/topology/TopologyDetails'
 import { TopologyExport } from '../components/topology/TopologyExport'
 import { buildTopology, type TopoNodeData, type TopoEntity, type TopoStatus } from '../lib/topology/buildTopology'
 import { exportTopologyText } from '../lib/topology/exportText'
+import { useAutoRefresh } from '../lib/useAutoRefresh'
 
 const TYPE_FILTERS: { key: TopoEntity; label: string }[] = [
   { key: 'connector', label: '通道' },
@@ -39,7 +40,7 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
       className={`rounded-md border px-2.5 py-1 text-xs font-semibold transition ${
         active
           ? 'border-brand bg-brand/10 text-brand dark:border-brand-dark dark:bg-brand-dark/15 dark:text-brand-dark'
-          : 'border-white/60 bg-white/60 text-content-subtle backdrop-blur-md hover:bg-white/80 dark:border-white/10 dark:bg-white/5 dark:text-content-dark-subtle dark:hover:bg-white/10'
+          : 'border-border bg-surface text-content-subtle hover:bg-surface-muted dark:border-border-dark dark:bg-transparent dark:text-content-dark-subtle dark:hover:bg-surface-dark-muted'
       }`}
     >
       {children}
@@ -62,21 +63,27 @@ export function TopologyPage() {
   const [statusOn, setStatusOn] = useState<Set<TopoStatus>>(new Set(STATUS_FILTERS.map((s) => s.key)))
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const load = () => {
-    setLoading(true)
+  const load = (showSpinner = true) => {
+    if (showSpinner) setLoading(true)
     setError('')
-    Promise.all([listConnectors(), listIntegrations(), listResources({ topology: true }), listAvailableActions()])
-      .then(([c, i, r, a]) => {
+    Promise.all([listConnectors(), listIntegrations(), listResources({ topology: true }), listAvailableActions(), listExecutions()])
+      .then(([c, i, r, a, e]) => {
         setConnectors(c ?? [])
         setIntegrations(i ?? [])
         setResources(r ?? [])
-        setExecutions([])
+        setExecutions(e ?? [])
         setActions(a ?? [])
       })
       .catch((err: ApiError) => setError(err.message || '加载失败'))
       .finally(() => setLoading(false))
   }
-  useEffect(load, [])
+  useEffect(() => load(), [])
+  useAutoRefresh(() => load(false), 15000)
+
+  const liveSignals = useMemo(
+    () => executions.filter((e) => ['QUEUED', 'DISPATCHED', 'RUNNING', 'WAITING_APPROVAL'].includes(e.status)).length,
+    [executions],
+  )
 
   const full = useMemo(
     () => buildTopology(connectors, integrations, resources, actions, executions),
@@ -123,7 +130,19 @@ export function TopologyPage() {
 
   return (
     <div className="view-stack">
-      <div className="flex flex-wrap items-center gap-2 rounded-lg border border-white/60 bg-white/70 p-3 shadow-glass backdrop-blur-xl dark:border-white/10 dark:bg-surface-dark/70 dark:shadow-glass-dark">
+      <div className="panel">
+        <div className="ops-ph">
+          <span>Topology · 组织拓扑图谱</span>
+          {liveSignals > 0 ? (
+            <span className="topbar-live" title="执行中 / 排队中 / 等待审批的动作信号">
+              <i aria-hidden="true" />
+              {liveSignals} 个执行信号
+            </span>
+          ) : (
+            <span className="font-mono text-[10px] text-content-subtle dark:text-content-dark-subtle">无执行信号</span>
+          )}
+        </div>
+        <div className="flex flex-wrap items-center gap-2 p-3">
         <div className="search-box">
           <Search size={16} />
           <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索节点..." />
@@ -157,11 +176,12 @@ export function TopologyPage() {
           <span className="text-xs text-content-subtle dark:text-content-dark-subtle">
             {filtered.nodes.length} 节点 · {filtered.edges.length} 连线
           </span>
-          <button className="quiet-button" onClick={load}>
+          <button className="quiet-button" onClick={() => load()}>
             <RefreshCw size={15} />
             刷新
           </button>
           <TopologyExport text={exportText} />
+        </div>
         </div>
       </div>
 

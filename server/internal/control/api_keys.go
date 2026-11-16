@@ -199,7 +199,11 @@ func (h *Handler) authenticate(ctx context.Context, token, remoteAddr string) (*
 }
 
 func (h *Handler) tenantIsActive(ctx context.Context, tenantID string) bool {
-	if h.pool == nil || tenantID == "" {
+	// The unaffiliated sentinel is not a real tenant row but is a valid,
+	// authenticated state (a SSO identity awaiting an organization), so it must
+	// pass the activity check. Empty means "no tenant context" and is allowed by
+	// every other guard's own tenant isolation.
+	if h.pool == nil || tenantID == "" || isUnaffiliated(tenantID) {
 		return true
 	}
 	var active bool
@@ -247,17 +251,6 @@ func (h *Handler) CreatePrincipal(w http.ResponseWriter, r *http.Request) {
 	tenantID := "platform"
 	if actor != nil && actor.TenantID != "" {
 		tenantID = actor.TenantID
-	}
-	if h.pool != nil {
-		var count, max int
-		if err := h.pool.QueryRow(r.Context(), `SELECT count(*) FROM principals WHERE tenant_id=$1 AND status='ACTIVE'`, tenantID).Scan(&count); err != nil {
-			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "检查租户配额失败")
-			return
-		}
-		if err := h.pool.QueryRow(r.Context(), `SELECT max_principals FROM tenant_quotas WHERE tenant_id=$1`, tenantID).Scan(&max); err == nil && count >= max {
-			jsonError(w, http.StatusTooManyRequests, "TENANT_QUOTA_EXCEEDED", "已达到该租户的 Principal 配额")
-			return
-		}
 	}
 	if raw, exists := req.Metadata[principalProjectIDsMetadataKey]; exists {
 		projects, _, err := principalProjectScope(&AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{principalProjectIDsMetadataKey: raw}}})

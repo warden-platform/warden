@@ -20,6 +20,19 @@ const (
 // identities that belong to it.
 const platformTenantSlug = "platform"
 
+// unaffiliatedTenant is a sentinel tenant slug stored in principals.tenant_id
+// for a federated SSO identity that has authenticated but belongs to no real
+// business organization yet. It must be a syntactically valid slug because
+// federated_identities has a foreign key to tenants(slug), so a matching
+// system tenant row exists (seeded by migration). That row is deliberately
+// hidden from the tenant list and reserved against creation, and identities in
+// it receive only the self-profile scope, never business capabilities. Only the
+// single super administrator (assign) or a tenant invitation may move such an
+// identity into a real organization.
+const unaffiliatedTenant = "unaffiliated"
+
+func isUnaffiliated(tenantID string) bool { return tenantID == unaffiliatedTenant }
+
 func validAccountRole(role string) bool {
 	switch role {
 	case RoleUser, RoleTenantAdmin, RolePlatformAdmin:
@@ -27,6 +40,14 @@ func validAccountRole(role string) bool {
 	default:
 		return false
 	}
+}
+
+// validAssignableRole is the set of roles an administrator may grant. The
+// platform_admin role is reserved for the single built-in break-glass super
+// administrator and can never be assigned to another account. Everyone else
+// is either a tenant sub-administrator (tenant_admin) or a member (user).
+func validAssignableRole(role string) bool {
+	return role == RoleUser || role == RoleTenantAdmin
 }
 
 // validOIDCDefaultRole is deliberately narrower than validAccountRole.
@@ -53,6 +74,11 @@ const (
 	ScopeRegistrationRead     = "pam:registration:read"
 	ScopeRegistrationWrite    = "pam:registration:write"
 	ScopeDelegationExchange   = "pam:delegation:exchange"
+	// ScopeSelfProfile is the sole scope issued to an unaffiliated SSO identity.
+	// It is intentionally not required by any business endpoint; it exists only
+	// because a session token must carry a non-empty scope, and it lets the
+	// console render the "no organization yet" self-service view.
+	ScopeSelfProfile = "pam:self:profile"
 )
 
 var allScopes = []string{

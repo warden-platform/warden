@@ -1,8 +1,8 @@
 import { useEffect, useDeferredValue, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from '../../shared/router'
 import { AlertTriangle, FolderKanban, History, RefreshCw, Search } from 'lucide-react'
-import type { ApiConnector, ApiError, ApiProject, ApiResource, ApiResourceStats, Integration } from '../../shared/api'
-import { canUser, getResourceStats, listConnectors, listIntegrations, listProjects, listResources } from '../../shared/api'
+import type { ApiConnector, ApiError, ApiMyProject, ApiProject, ApiResource, ApiResourceStats, Integration } from '../../shared/api'
+import { canUser, getProjectMembershipPolicy, getResourceStats, listConnectors, listIntegrations, listMyProjects, listProjects, listResources } from '../../shared/api'
 import { ErrorState, LoadingState } from '../components/States'
 import { ActionPanel } from '../components/ActionPanel'
 import { KubernetesResources } from '../components/resources/KubernetesResources'
@@ -102,6 +102,11 @@ export function ResourcesPage() {
   const [selectedResource, setSelectedResource] = useState<ApiResource | null>(null)
   const [selectedAction, setSelectedAction] = useState<string | undefined>()
   const [projectResource, setProjectResource] = useState<ApiResource | null>(null)
+  // Member visibility: which projects the caller may actually execute in, and
+  // whether project membership is enforced at all. Used to explain "view-only"
+  // resources up front instead of letting members discover it via API errors.
+  const [myProjects, setMyProjects] = useState<ApiMyProject[]>([])
+  const [membershipEnforced, setMembershipEnforced] = useState(false)
 
   const load = (showSpinner = true) => {
     const request = ++loadRequest.current
@@ -113,14 +118,18 @@ export function ResourcesPage() {
       listProjects(),
       isTenantAdmin ? listIntegrations() : Promise.resolve([]),
       getResourceStats(),
+      isTenantAdmin ? Promise.resolve([] as ApiMyProject[]) : listMyProjects(),
+      isTenantAdmin ? Promise.resolve({ enforced: false }) : getProjectMembershipPolicy(),
     ])
-      .then(([res, conns, projs, integrationItems, resourceStats]) => {
+      .then(([res, conns, projs, integrationItems, resourceStats, myProjs, policy]) => {
         if (request !== loadRequest.current) return
         setApiResources(res ?? [])
         setConnectors(conns ?? [])
         setProjects(projs ?? [])
         setIntegrations(integrationItems ?? [])
         setStats(resourceStats)
+        setMyProjects(myProjs ?? [])
+        setMembershipEnforced(Boolean(policy?.enforced))
       })
       .catch((e: ApiError) => {
         if (request === loadRequest.current) setError(e.message || '加载失败')
@@ -230,7 +239,16 @@ export function ResourcesPage() {
   if (loading) return <LoadingState />
   if (error) return <ErrorState message={error} onRetry={() => load()} />
 
+  const executableProjectIds = new Set(myProjects.filter((p) => p.my_role !== 'VIEWER').map((p) => p.id))
+  const resourceExecutable = (resource: ApiResource) => {
+    const ids = resource.project_ids?.length ? resource.project_ids : resource.project_id ? [resource.project_id] : []
+    return ids.some((id) => executableProjectIds.has(id))
+  }
   const openAction = (resource: ApiResource, action?: string) => {
+    if (!isTenantAdmin && membershipEnforced && !resourceExecutable(resource)) {
+      notify('该资源所属项目你只有查看权限（VIEWER 或未加入），不能发起执行。请联系组织管理员调整项目角色。')
+      return
+    }
     setSelectedResource(resource)
     setSelectedAction(action)
     setPanelOpen(true)
@@ -246,6 +264,12 @@ export function ResourcesPage() {
   return (
     <div className="view-stack">
       <div className="panel">
+        <div className="ops-ph">
+          <span>Resource Catalog · 资源目录</span>
+          <span className="font-mono text-[10px] text-content-subtle dark:text-content-dark-subtle">
+            {activeCount} 正常 · {abnormalCount} 异常 · {historyCount} 历史
+          </span>
+        </div>
         <div className="toolbar">
           <div className="search-box">
             <Search size={17} />
@@ -321,6 +345,11 @@ export function ResourcesPage() {
         </div>
       </div>
 
+      {!isTenantAdmin && membershipEnforced && (
+        <p className="resource-access-note">
+          成员视图：可浏览本组织全部资源；仅当你以「操作员 / 项目管理员」身份加入资源所属项目时才能发起执行，其余资源为仅查看。
+        </p>
+      )}
       <div className="panel resources-panel">
         {domain === 'kubernetes' && (
           <KubernetesResources

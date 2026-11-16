@@ -106,10 +106,6 @@ func (h *Handler) ConfirmLinuxPairing(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusForbidden, "TENANT_REQUIRED", "缺少租户上下文")
 		return
 	}
-	if err := h.enforceConnectorQuota(r.Context()); err != nil {
-		jsonError(w, http.StatusTooManyRequests, "TENANT_QUOTA_EXCEEDED", "已达到该租户的 Connector 配额")
-		return
-	}
 	var req struct {
 		Code              string   `json:"code"`
 		Name              string   `json:"name"`
