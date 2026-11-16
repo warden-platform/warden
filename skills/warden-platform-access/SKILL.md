@@ -1,5 +1,5 @@
 ---
-name: pam-platform-access
+name: warden-platform-access
 description: Discover Warden-managed infrastructure, inspect live action contracts, run governed read or change executions, and report approval and safety results. Use for Kubernetes, Linux, Docker, databases, Jenkins, Grafana, Huawei Cloud, Alibaba Cloud, resource inventory, operational diagnosis, or any request that must access infrastructure through Warden instead of direct credentials.
 ---
 
@@ -21,6 +21,14 @@ Project / Environment
 - An Execution binds one principal, resource, action version, parameter hash, reason, and idempotency key.
 - Policy decides whether the Execution runs directly or waits for approval. The Connector executes with scoped credentials and returns structured evidence.
 - Warden is not a general remote shell or raw API proxy. If an operation is absent from the selected Resource's action catalog, it is unsupported for that target.
+
+## Identity, organizations, and visibility
+
+- The injected Agent API Key belongs to one agent principal inside one organization (tenant). Its scope is fixed at issuance; it can never see or act in another organization, and it is not a human login.
+- Project membership governs execution rights: `PROJECT_ADMIN` and `OPERATOR` may execute in that project; `VIEWER` is read-only. When project-membership enforcement is on, an execution must name an acting project where the principal holds an active non-VIEWER membership.
+- Execution visibility follows the role ladder: an agent or member sees only its own executions; an organization administrator (`tenant_admin`) sees the whole organization including agents; the single built-in super administrator sees every organization (rows carry `tenantId`).
+- Track approvals you initiated with `my-requests [status]` (`GET /my/access-requests`). For a `WAITING_APPROVAL` execution, report the Execution ID and poll `my-requests PENDING` instead of blocking the turn.
+- Human identity context (for reports only): members belong to one organization; SSO identities with no organization wait in an unaffiliated hall until assigned or invited; the platform management domain is not a business organization. None of this changes the agent chain above.
 
 ## Boundary
 
@@ -66,7 +74,7 @@ ${WARDEN_HOME:-.}/scripts/warden-agent.sh create-aiops-execution ACTION RESOURCE
 ${WARDEN_HOME:-.}/scripts/warden-agent.sh wait-result EXECUTION_ID 300
 ```
 
-Inspect the create response before waiting. If it is `WAITING_APPROVAL`, report it and call `wait-result` only after approval is confirmed; never keep a turn blocked waiting for an approval that has not happened.
+Inspect the create response before waiting. If it is `WAITING_APPROVAL`, report it, track it with `my-requests PENDING`, and call `wait-result` only after approval is confirmed; never keep a turn blocked waiting for an approval that has not happened.
 
 Reuse `WARDEN_IDEMPOTENCY_KEY` only when retrying the same HTTP request. Never create a new idempotency key to replay an `UNKNOWN` change.
 

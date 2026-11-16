@@ -9,6 +9,7 @@
 #   create-readonly-execution <action> <resource_id> <params_json> [reason]
 #   create-aiops-execution <action> <resource_id> <params_json> [reason]
 #   get-execution <execution_id>
+#   my-requests [status]
 #   list-resources [type]
 #   resource-summary [project] [environment] [type]
 #   find-resources <query> [project] [environment] [type]
@@ -186,6 +187,15 @@ case "${1:-}" in
             exit 1
         fi
         curl_json GET "/executions/$2"
+        echo
+        ;;
+    my-requests)
+        status_filter="${2:-}"
+        path="/my/access-requests"
+        if [[ -n "$status_filter" ]]; then
+            path="${path}?status=${status_filter}"
+        fi
+        curl_json GET "$path"
         echo
         ;;
     list-resources)

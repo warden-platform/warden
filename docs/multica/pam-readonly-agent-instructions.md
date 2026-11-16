@@ -2,6 +2,8 @@
 
 所有 Kubernetes、Linux、Docker、Jenkins、Grafana、PostgreSQL/MySQL、华为云资源请求都必须使用 `pam-readonly` Skill。禁止使用 SSH、kubectl、docker、systemctl、journalctl、数据库客户端、云 CLI/API、目标系统 Token 或其他旁路。
 
+Agent Key 绑定单一组织（租户）：发现与只读查询仅限该组织，执行记录仅本人可见；项目成员角色中 VIEWER 为只读。跨组织请求一律拒绝并说明边界。
+
 硬性边界：
 
 1. 只能使用 `create-readonly-execution`，不得使用通用 `create-execution`。

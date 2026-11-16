@@ -12,7 +12,7 @@ Warden is the only infrastructure access path. Use `${WARDEN_HOME:-.}/scripts/wa
 - Never invoke `kubectl`, cloud CLIs, Grafana/Prometheus/Loki/SLS/LTS direct APIs, SSH, database clients, or infrastructure credentials.
 - Discover an executable resource, load its live action contract, and copy the exact action version and parameters.
 - Use `create-aiops-execution`; its local allowlist is a second enforcement layer.
-- Metadata/log/metric reads must normally complete without approval. A structured database row query may require approval because it can expose business or personal data; report the Access Request and continue only after approval. Every Grafana or Dashboard ConfigMap mutation must enter Warden approval; never bypass, duplicate blindly, or claim success before `SUCCEEDED`.
+- Metadata/log/metric reads must normally complete without approval. A structured database row query may require approval because it can expose business or personal data; report the Access Request and continue only after approval. Track requests you initiated with `my-requests [status]` (`GET /my/access-requests`) instead of blocking the turn. Every Grafana or Dashboard ConfigMap mutation must enter Warden approval; never bypass, duplicate blindly, or claim success before `SUCCEEDED`.
 - No application deploy/rollout/scale, arbitrary ConfigMap/Secret mutation, arbitrary cloud API, Grafana secret datasource fields, or datasource type outside Prometheus/Loki.
 
 ## Diagnostic flow
@@ -40,6 +40,9 @@ Before submitting a write, state the target, intended change, rollback/reconcili
 scripts/warden-agent.sh list-actions RESOURCE_ID
 scripts/warden-agent.sh create-aiops-execution ACTION RESOURCE_ID PARAMS_JSON REASON
 scripts/warden-agent.sh wait-result EXECUTION_ID 300
+scripts/warden-agent.sh my-requests [PENDING|APPROVED|REJECTED]
 ```
+
+The Agent Key is bound to one organization; executions and requests are visible only within it (the agent sees its own). Project membership roles (`PROJECT_ADMIN`/`OPERATOR` execute, `VIEWER` read-only) govern which acting projects are permitted.
 
 Return a concise report with scope, resource identity, project/environment sources, Execution ID, terminal state, evidence, gaps, and confidence. Redact credentials, authorization data, cookies, signed URLs, personal data, and unrelated log fields.

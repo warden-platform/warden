@@ -7,6 +7,8 @@ description: Register Jenkins, Grafana, database, and cloud Integrations into Wa
 
 Use `scripts/pam-registration.sh`. Credentials are injected as `WARDEN_API_ENDPOINT` and `WARDEN_REGISTRATION_API_KEY`.
 
+The Registration Key belongs to one organization (tenant): projects, Connectors, and Integrations listed or created are scoped to that organization. Never attempt to enumerate or modify another organization's objects.
+
 ## Hard boundary
 
 - Require a `pam_rgk_` Registration Key. Never request, accept, read, copy, or use `WARDEN_ADMIN_API_KEY`, admin passwords, login cookies, ordinary `pam_agk_` Agent Keys, Connector task keys, or signing keys.

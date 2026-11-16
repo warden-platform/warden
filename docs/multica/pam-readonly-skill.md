@@ -15,6 +15,8 @@ ${WARDEN_HOME:-.}/scripts/warden-agent.sh
 
 `WARDEN_API_ENDPOINT` and `WARDEN_AGENT_API_KEY` are injected. Never print, persist, forward, or inspect their values.
 
+The Key is bound to one organization (tenant): discovery and reads are scoped to it, and the agent sees only its own executions. Project membership roles govern execution rights (`VIEWER` is read-only); reads never require a non-VIEWER role.
+
 ## Absolute safety boundary
 
 - Never run `kubectl`, `ssh`, `docker`, `systemctl`, `journalctl`, `psql`, `mysql`, cloud CLIs, Jenkins/Grafana direct APIs, `sudo`, container exec, raw SQL, or direct infrastructure `curl`.
