@@ -595,6 +595,23 @@ ECS 实例支持 `huawei.ecs.start@v1`、`huawei.ecs.stop@v1`、`huawei.ecs.rebo
 
 AIOps 新增动作均为结构化契约：`pod.metrics`、`node.metrics` 读取 Metrics API；华为云自动发现 `huawei_lts_log_group` 和 `huawei_lts_log_stream`，`huawei.lts.logs.query` 直接绑定日志流，由 Connector 从授权资源身份推导日志组/日志流 ID；`aliyun.sls.logs.query` 直接绑定 Logstore。两类云日志查询不限制云端历史范围，但单次最多 500 条/4 MiB，原始结果在 Warden 中仅保留 10 分钟；Grafana 增加 `grafana.folder.update` 与只返回非敏感配置的 `grafana.datasource.get`，Folder 更新必须携带只读预取到的当前 `version` 以执行乐观锁校验，Folder/Dashboard/Datasource 更新均把 UID 固定为授权资源，并递归拒绝 `secureJsonData`、密码、Token、API Key 和 Authorization 字段；Dashboard ConfigMap 只接受 `grafana-dashboard-*` 名称和单个 `.json` Dashboard，并始终进入审批。
 
+## AI 只读助手
+
+| 方法 | 路径 | 调用方 | 说明 |
+|---|---|---|---|
+| POST | `/api/v1/ai/chat` | 已登录用户 | 创建或延续 AI 会话，使用 SSE 返回回答 |
+
+请求体为 `{"conversationId":"<可选会话 UUID>","message":"分析最近失败的执行"}`。不传
+`conversationId` 时创建新会话；已有会话必须属于当前登录 Principal 和当前租户。响应事件包括
+`meta`（会话与 Run ID）、`delta`（回答增量）、`tool`（只读工具完成状态）、`done` 和 `error`。
+
+第一阶段由 Eino ADK 单 Agent 提供 `query_resources`、`query_executions`、`query_audit_events`
+三个只读工具。每个工具在服务端重新检查当前身份的 Scope，并复用租户、Principal、项目成员及项目范围过滤；
+模型不能指定租户或绕过可见性。AI Run 与业务 Execution 是不同状态机，当前版本不会代表模型创建 Execution、
+审批或变更资源。工具输出作为不可信数据处理，模型密钥不会写入会话表。
+
+模型未配置时返回 `503 AI_NOT_CONFIGURED`，停用时返回 `503 AI_DISABLED`，不会返回模拟回答。
+
 ## Operator 与 Linux 配对
 
 | 方法 | 路径 | 调用方 | 说明 |

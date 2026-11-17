@@ -64,3 +64,4 @@
 102_principal_invitations.sql
 103_account_removed_audit.sql
 104_account_reenabled_audit.sql
+105_ai_assistant.sql

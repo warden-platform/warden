@@ -13,6 +13,7 @@ import (
 	"strings"
 	"time"
 
+	"gitee.com/pam-platform/warden/server/internal/ai"
 	"gitee.com/pam-platform/warden/server/internal/config"
 	"gitee.com/pam-platform/warden/server/internal/domain"
 	"gitee.com/pam-platform/warden/server/internal/policy"
@@ -61,6 +62,18 @@ type Handler struct {
 	notificationChannels NotificationChannelStore
 	dingTalkRepo         *postgres.DingTalkRepo
 	outbox               *postgres.OutboxRepo
+	aiConfig             *ai.Config
+	aiStore              AIStore
+}
+
+type AIStore interface {
+	CreateConversation(context.Context, string, string) (*domain.AIConversation, error)
+	GetConversation(context.Context, string, string) (*domain.AIConversation, error)
+	CreateRun(context.Context, string) (*domain.AIRun, error)
+	FinishRun(context.Context, string, string, string) error
+	AddMessage(context.Context, string, string, string, string) (*domain.AIMessage, error)
+	ListMessages(context.Context, string, string, int) ([]domain.AIMessage, error)
+	AddToolCall(context.Context, *domain.AIToolCall) error
 }
 
 type NotificationChannelStore interface {
@@ -157,6 +170,11 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 		dingTalkCoolApp:      dingTalkCoolApp,
 		dingTalkCard:         dingTalkCard,
 	}
+	aiConfig, err := ai.LoadConfig()
+	if err != nil {
+		return nil, fmt.Errorf("invalid AI configuration: %w", err)
+	}
+	h.aiConfig = aiConfig
 	if pool != nil {
 		h.principals = postgres.NewPrincipalRepo(pool)
 		h.apiKeys = postgres.NewAPIKeyRepo(pool)
@@ -183,6 +201,7 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 		h.notificationChannels = postgres.NewNotificationChannelRepo(pool)
 		h.dingTalkRepo = postgres.NewDingTalkRepo(pool)
 		h.outbox = postgres.NewOutboxRepo(pool)
+		h.aiStore = postgres.NewAIRepo(pool)
 		if err := h.EnsureAdminPassword(context.Background()); err != nil {
 			return nil, fmt.Errorf("initialize admin password: %w", err)
 		}
@@ -280,6 +299,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("POST /api/v1/access-requests/{id}/approve", RequireScope("pam:approve", h.ApproveRequest))
 	protected.HandleFunc("POST /api/v1/access-requests/{id}/reject", RequireScope("pam:approve", h.RejectRequest))
 	protected.HandleFunc("GET /api/v1/audit-events", RequireScope("pam:audit:read", h.ListAuditEvents))
+	protected.HandleFunc("POST /api/v1/ai/chat", h.AIChat)
 	protected.HandleFunc("GET /api/v1/accounts", RequireScope("pam:admin", RequirePlatformTenant(h.ListAccounts)))
 	protected.HandleFunc("PUT /api/v1/accounts/{id}/role", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateAccountRole)))
 	protected.HandleFunc("POST /api/v1/accounts/{id}/remove", RequireScope("pam:admin", RequirePlatformTenant(h.RemoveAccountFromOrganization)))

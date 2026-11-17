@@ -22,6 +22,14 @@ type gzipResponseWriter struct {
 	compressed  bool
 }
 
+func (w *gzipResponseWriter) Flush() {
+	if !w.compressed {
+		if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+			flusher.Flush()
+		}
+	}
+}
+
 func (w *gzipResponseWriter) WriteHeader(status int) {
 	if w.wroteHeader {
 		return

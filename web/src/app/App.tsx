@@ -6,6 +6,7 @@ import { AppProvider, useApp } from './components/Toast'
 import { LoadingState } from './components/States'
 import { LoginPage } from './pages/LoginPage'
 import { PlatformLoginPage } from './pages/PlatformLoginPage'
+import { AIAssistant } from './components/AIAssistant'
 import { canUser, getObservedTenant } from '../shared/api'
 
 // 路由级代码分割：除登录页外全部懒加载，首屏只保留 shell + 登录逻辑
@@ -109,6 +110,7 @@ function AppShell() {
           </Suspense>
         </div>
       </main>
+      <AIAssistant />
     </div>
   )
 }

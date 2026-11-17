@@ -74,6 +74,12 @@ func (w *authorizationStatusWriter) Write(body []byte) (int, error) {
 	return w.ResponseWriter.Write(body)
 }
 
+func (w *authorizationStatusWriter) Flush() {
+	if flusher, ok := w.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
 // authorizationAuditMiddleware records authenticated authorization failures.
 // Invalid bearer tokens remain anonymous 401s; a recognized credential that
 // lacks scope is attributable to its Principal and immutable credential ID.
