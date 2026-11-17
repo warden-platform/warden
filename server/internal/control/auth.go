@@ -163,8 +163,14 @@ func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
 		return nil
 	}
 	username := strings.TrimSpace(os.Getenv("WARDEN_ADMIN_USERNAME"))
+	if username == "" {
+		// Legacy env-only deployments never set this; the bootstrap login has
+		// always been "admin". Keep that default instead of requiring a new
+		// variable from existing production installations.
+		username = "admin"
+	}
 	if !validLoginName(username) {
-		return fmt.Errorf("WARDEN_ADMIN_USERNAME is required and must be a valid login name without @")
+		return fmt.Errorf("WARDEN_ADMIN_USERNAME must be a valid login name without @")
 	}
 	password, err := config.Secret("WARDEN_ADMIN_PASSWORD")
 	if err != nil {

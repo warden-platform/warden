@@ -274,6 +274,23 @@ func TestEnsureAdminPasswordSeedsWhenEmpty(t *testing.T) {
 	}
 }
 
+func TestEnsureAdminPasswordDefaultsUsernameForEnvOnlyDeployments(t *testing.T) {
+	store := newFakePrincipalStore()
+	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: ""}
+	h := &Handler{principals: store}
+	t.Setenv("WARDEN_ADMIN_PASSWORD", "supersecret1")
+	t.Setenv("WARDEN_ADMIN_USERNAME", "")
+	if err := h.EnsureAdminPassword(context.Background()); err != nil {
+		t.Fatalf("env-only deployment without WARDEN_ADMIN_USERNAME must start: %v", err)
+	}
+	if _, ok := store.passwordUpdates[adminPrincipalID]; !ok {
+		t.Fatal("password was not seeded with the default admin username")
+	}
+	if store.nameUpdates[adminPrincipalID] != "" {
+		t.Fatal("default username must not rewrite the existing admin name")
+	}
+}
+
 func TestEnsureAdminPasswordRotatesWhenConfiguredSecretChanges(t *testing.T) {
 	existing, _ := hashPassword("original-password")
 	store := newFakePrincipalStore()
