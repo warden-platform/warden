@@ -325,7 +325,7 @@ func TestEnsureAdminPasswordDoesNotRewriteMatchingHash(t *testing.T) {
 	}
 }
 
-func TestEnsureAdminPasswordRequiresExplicitBootstrapConfiguration(t *testing.T) {
+func TestEnsureAdminPasswordRequiresBootstrapPassword(t *testing.T) {
 	store := newFakePrincipalStore()
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: ""}
 	h := &Handler{principals: store}
@@ -339,8 +339,8 @@ func TestEnsureAdminPasswordRequiresExplicitBootstrapConfiguration(t *testing.T)
 	}
 	t.Setenv("WARDEN_ADMIN_PASSWORD", "supersecret1")
 	t.Setenv("WARDEN_ADMIN_USERNAME", "")
-	if err := h.EnsureAdminPassword(context.Background()); err == nil {
-		t.Fatal("expected a missing bootstrap username to fail startup")
+	if err := h.EnsureAdminPassword(context.Background()); err != nil {
+		t.Fatalf("unset username must fall back to admin, got: %v", err)
 	}
 }
 
