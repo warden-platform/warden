@@ -8,8 +8,8 @@
 | 术语 | 含义 |
 |---|---|
 | **Principal** | 身份主体。类型有 `user` / `agent_type` / `agent_instance` / `workload`。用户、SSO 账号、Agent 机器账号都是 Principal |
-| **内置 admin** | `002_seed.sql` 写入的固定 ID `00000000-0000-0000-0000-000000000003` 的应急超管。特权来自固定 ID 判定，不来自 `metadata.role` |
-| **break-glass** | IdP 故障或配置错误时的应急登录通道，即内置 `admin` 密码登录。日常不建议使用 |
+| **启动管理员** | 固定 ID `00000000-0000-0000-0000-000000000003` 的应急超管，登录名由启动配置提供。特权来自固定 ID 判定，不来自 `metadata.role` |
+| **break-glass** | IdP 故障或配置错误时的应急登录通道，即启动管理员密码登录。日常不建议使用 |
 | **Tenant / 租户** | 客户 / 组织级数据隔离边界。业务表带 `tenant_id`，值为租户 slug |
 | **Tenant slug** | 租户的字符串标识（如 `platform`），是 `tenant_id` 实际存的值，也是 `/tenants/{slug}` 的路径参数 |
 | **Platform tenant** | 初始租户 `platform`。平台级接口额外要求身份属于该租户 |

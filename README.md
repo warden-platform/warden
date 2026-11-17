@@ -41,14 +41,13 @@ Warden 的答案是「不交凭据，只交付一次受约束的执行」：
 前置：Docker、Go（版本见 `server/go.mod`）、Node.js（版本见 `web/Dockerfile`）、`openssl`、`curl`。
 
 ```bash
-# 1) 生成本地密钥（示例，详见教程）
-mkdir -p .secrets
-for f in task_signing_key jwt_signing_key credential_encryption_key agent_api_key; do
-  printf '%s' "$(openssl rand -hex 32)" > ".secrets/$f"
-done
+# 1) 初始化内部密钥，并准备用户配置
+scripts/init-local-secrets.sh
+cp .env.example .env
+# 按 docs/quickstart.md 设置管理员密码和数据库凭据
 
 # 2) 启动 PostgreSQL 并执行迁移
-docker compose -f deploy/docker-compose.yaml up -d
+docker compose --env-file .env -f deploy/docker-compose.yaml up -d
 
 # 3) 构建并启动控制面（默认 :8080）
 make server-build
@@ -135,7 +134,7 @@ flowchart LR
 
 - 支持管理员密码会话、**企业 OIDC/SSO**（授权码 + PKCE S256）、Agent / Registration API Key、Connector 独立签名凭据、委托令牌与联邦断言登录。
 - 认证与授权分离：**IdP 只证明"你是谁"，Warden 决定"你能做什么"**。首次 SSO 登录一律按最小权限 `user` 建档；提权只能在「平台管理 → 账号与权限」由超级管理员手工指派，且会立即撤销目标会话强制重登。
-- 内置 `admin` 密码账号是 IdP 故障时的 break-glass 应急入口，保留但不应日常使用。
+- 启动管理员密码账号是 IdP 故障时的 break-glass 应急入口，登录名由部署者配置，不应日常使用。
 - 后端接口守卫与前端菜单读同一份 `capabilities` 能力清单，不再按角色名硬编码门控。
 
 详见 [docs/authorization.md](docs/authorization.md) 与 [docs/oidc-setup.md](docs/oidc-setup.md)。

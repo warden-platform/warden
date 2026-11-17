@@ -9,7 +9,7 @@
 - IdP 可访问 `/.well-known/openid-configuration`，且能给 Warden 注册 RP client。
 - 如果 IdP 上游还接了飞书等企业身份源，**上游回调地址也必须加入该平台的白名单**（见「故障速查」）。
 - 已有一套可用的 HTTPS 部署（本地 HTTP 联调除外），见 [installation.md](installation.md)。
-- 保留内置 `admin` 密码登录作为 break-glass 通道。
+- 保留启动管理员密码登录作为 break-glass 通道。
 
 ## 拓扑与地址一致性
 
@@ -30,7 +30,7 @@ flowchart LR
 - 回调 URI 必须与 IdP 注册值**逐字符一致**（协议、host、端口、路径、结尾斜杠）；
 - 生产环境反向代理必须传 `X-Forwarded-Proto`，否则 Secure Cookie 在 HTTPS 站点上会异常。
 
-本地联调推荐三端口拓扑（模板见 `scripts/oidc-local.env.example`）：
+本地联调推荐三端口拓扑（普通配置写入根目录 `config.yaml`）：
 
 | 服务 | 地址 | 说明 |
 |---|---|---|
@@ -50,7 +50,7 @@ flowchart LR
 | post_logout_redirect_uri | `https://<warden.example.com>/` |
 | scope | `openid profile email` |
 | id_token claims | 必须包含稳定的 `sub`；建议提供 `name` / `email` / `picture` |
-| client_secret | 生成后只写入 Warden 的 Secret 文件，不要贴进文档或日志 |
+| client_secret | 生成后只写入本地 `.env` 或生产 Secret 管理系统，不要贴进文档或日志 |
 
 **上游身份源白名单**：若 IdP 自身通过飞书等平台登录，还要把 IdP 的回调（例如 `https://<idp.example.com>/api/auth/callback`）加入该平台后台的重定向 URL 白名单。缺这一步会报 `20029 redirect_uri 请求不合法`，且错误发生在 IdP 侧，Warden 日志里看不到。
 
@@ -84,7 +84,8 @@ WARDEN_OIDC_DEFAULT_ROLE=user
 - `DEFAULT_ROLE` 只允许 `user` / `tenant_admin`；**填 `platform_admin` 会让服务启动失败**——超级管理员只能在页面手工指派。
 - Discovery 在首次请求时懒加载，启动不依赖 IdP 可用。
 
-完整变量表见 [configuration.md](configuration.md)。本地联调可直接复制 `scripts/oidc-local.env.example` 到 `.secrets/oidc-local.env` 后 `source` 使用。
+完整变量表见 [configuration.md](configuration.md)。本地联调将上述非敏感配置写入根目录
+`config.yaml`，将 `WARDEN_OIDC_CLIENT_SECRET` 写入 `.env`，不需要再 `source` 其他 env 文件。
 
 ## 步骤 3：前端契约
 
@@ -139,7 +140,7 @@ curl -sS -b /tmp/oidc.cookies "$BASE/api/v1/auth/me"
 3. 变更会立即撤销该账号的全部活跃会话，**对方必须退出并重新 SSO 登录**才能拿到新 scope；刷新页面无效。
 4. 每次变更写审计 `account.role_updated`，与角色变更在同一事务提交。
 
-保护规则：内置 `admin` 不可修改、不能给自己降权、必须保留至少一个非内置 `platform_admin`、跨租户目标返回 404。完整说明见 [authorization.md](authorization.md)。
+保护规则：启动管理员不可在页面修改、不能给自己降权、必须保留至少一个非内置 `platform_admin`、跨租户目标返回 404。完整说明见 [authorization.md](authorization.md)。
 
 ## SSO 用户的租户归属
 
@@ -172,7 +173,7 @@ SSO 认证解决「你是谁」，租户归属按以下顺序决定（仅对**�
 1. `WARDEN_OIDC_DEFAULT_ROLE=user`，绝不配成 `platform_admin`。
 2. client secret 用 `_FILE`，权限 600，不进镜像、日志或文档。
 3. 全站 HTTPS，`WARDEN_COOKIE_SECURE=true`。
-4. 保留内置 `admin` 密码登录作为应急通道。
+4. 保留启动管理员密码登录作为应急通道。
 5. 回调地址与登出回跳地址在 IdP 侧精确登记，变更前先备份 IdP 配置。
 
 ## 下一步

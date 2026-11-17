@@ -5,30 +5,76 @@
 
 **权威来源**：配置读取分散在 `server/internal/config/`、`server/internal/control/`、`server/internal/storage/postgres/`、`server/internal/policy/`、`server/cmd/`。本页是汇总；冲突时以代码为准。
 
-## Secret 文件约定
+## 本地配置约定
 
 `server/internal/config/secret.go` 提供统一的 `Secret(name)` / `RequiredSecret(name, minLength)`：
 
 - 每个敏感项支持 `NAME`（明文）与 `NAME_FILE`（文件路径）两种写法，**两者同时设置会直接报错**。
 - `_FILE` 文件必须存在、可读、内容 trim 后非空。
-- 生产环境一律用 `*_FILE` 挂载 Secret 文件；明文变量只用于本地调试。
+- 本地开发将用户提供的外部凭据写入根目录 `.env`；生产可由 Secret 管理系统通过 `*_FILE` 挂载。
 - 控制面启动时校验 4 个必需 Secret：**任务签名 Key、JWT 签名 Key、凭据加密 Key、Admin API Key 各 ≥32 字节且两两不同**，否则启动失败。
 - 管理员密码 8–72 字节，bcrypt cost 12；同一配置不能同时设明文与 `*_FILE`。
 
-本地 `.secrets/` 建议文件（已被 `.gitignore` 排除）：
+| 文件 | 内容 | 是否提交 |
+|---|---|---|
+| `config.yaml` | 端口、URL、管理员用户名、OIDC 地址、AI 模型等非敏感配置 | 是 |
+| `.env` | 管理员密码、数据库密码、AI/OIDC 等外部凭据，也可放本机配置覆盖项 | **否** |
+| `.env.example` | 只有占位值的 `.env` 模板 | 是 |
+| `var/warden/secrets.json` | 初始化生成的四个内部签名/加密密钥，用户无需编辑 | **否** |
 
-| 文件 | 对应变量 |
-|---|---|
-| `database_url` | `WARDEN_DATABASE_URL_FILE` |
-| `task_signing_key` | `WARDEN_TASK_SIGNING_KEY_FILE` |
-| `jwt_signing_key` | `WARDEN_JWT_SIGNING_KEY_FILE` |
-| `credential_encryption_key` | `WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE` |
-| `agent_api_key` | `WARDEN_ADMIN_API_KEY_FILE` |
-| `admin_password` | `WARDEN_ADMIN_PASSWORD_FILE` |
-| `postgres_password` | Compose 的 `postgres_password` Docker secret |
-| `oidc_client_secret` | `WARDEN_OIDC_CLIENT_SECRET_FILE` |
+首次安装运行 `scripts/init-local-secrets.sh` 生成内部密钥。该命令拒绝覆盖已有文件；
+`server/internal/config/config.go` 负责读取 `config.yaml`、`.env` 和 `var/warden/secrets.json`，
+并把结果映射为后端现有的 `WARDEN_*` 环境变量。`scripts/start-local-control.sh` 只负责启动二进制，
+不再做配置翻译，也不会生成或改写密钥。
+**优先级：进程环境变量 > `.env` > `config.yaml` > 内置默认。** Vite 同样读取 `config.yaml` 与根目录 `.env`。
+`config.yaml` 可以不存在：此时控制面完全由 `WARDEN_*` 环境变量驱动（生产部署的遗留契约，
+镜像内不打包 `config.yaml`）。注意 `oidc.enabled` 是显式开关——文件里写 `false` 会强制关闭 SSO；
+删除整个 `oidc` 段则保留「配了 issuer 即启用」的遗留行为。
+从 `.env.example` 创建 `.env` 并替换所有占位值，权限建议设为 `0600`。不要把真实密钥写入
+`config.yaml`、`.env.example`、源码或启动脚本。
 
-`deploy/docker-compose.yaml` 还引用 `.secrets/openbao_root_token`（仅在 `--profile optional` 启用 OpenBao 时需要）。钉钉可选 7 个文件见下文「钉钉（可选）」。
+YAML 使用面向部署者的分组和小写字段，不直接暴露后端的 `WARDEN_*` 环境变量：
+
+```yaml
+server:
+  port: 8080
+  public_url: http://localhost:8080
+  cors_origin: http://localhost:4173
+  cookie_secure: false
+
+database:
+  url: postgres://localhost:5432/pam
+  username: pam
+  password: ${WARDEN_DATABASE_PASSWORD}
+
+admin:
+  username: admin
+  password: ${WARDEN_ADMIN_PASSWORD}
+
+web:
+  host: localhost
+  port: 4173
+  control_target: http://localhost:8080
+
+oidc:
+  enabled: false
+
+ai:
+  enabled: false
+  model: ""
+  base_url: https://api.openai.com/v1
+  timeout: 90s
+  max_tokens: 1600
+```
+
+加载器再将这些字段映射为后端现有的环境变量。下方变量表描述内部接口和生产部署方式，
+本地用户只需维护上述 YAML 结构。
+
+`database.url` 不包含凭据；加载器会组合 `username` 和 `.env` 中的密码生成后端使用的 DSN。
+生产部署仍可使用 `WARDEN_DATABASE_URL_FILE`，它与 `WARDEN_DATABASE_URL` 不能同时设置。
+
+Compose 通过 `docker compose --env-file .env -f deploy/docker-compose.yaml ...` 读取
+`WARDEN_DATABASE_PASSWORD`；可选 OpenBao 使用 `WARDEN_OPENBAO_ROOT_TOKEN`。其他集成密钥见对应章节。
 
 ---
 
@@ -42,7 +88,8 @@
 | `WARDEN_CREDENTIAL_ENCRYPTION_KEY` / `_FILE` | 无 | AES-GCM 加密每 Connector 任务 Key 的主密钥，≥32 字节 | 是 |
 | `WARDEN_ADMIN_API_KEY` / `_FILE` | 空 | 管理端引导 Bearer Key，≥32 字节；为空时回退旧 `WARDEN_AGENT_API_KEY` | 是 |
 | `WARDEN_AGENT_API_KEY` / `_FILE` | 空 | 旧版兼容变量，仅迁移期使用 | 条件 |
-| `WARDEN_ADMIN_PASSWORD` / `_FILE` | 空 | 内置 `admin` 密码哈希同步源；Web 登录必需，未设置时会警告并禁用 Web 登录 | Web 登录必需 |
+| `WARDEN_ADMIN_USERNAME` | 无 | 启动管理员登录名，不含 `@`；启动时同步到固定权限锚点 | 是 |
+| `WARDEN_ADMIN_PASSWORD` / `_FILE` | 无 | 启动管理员密码哈希同步源；未配置会拒绝启动，不会回退默认账号或密码 | 是 |
 
 ## 运行、网络与会话
 
@@ -115,6 +162,20 @@ WARDEN_OIDC_CLIENT_SECRET_FILE=/etc/warden/secrets/oidc_client_secret
 | `WARDEN_DINGTALK_APP_KEY` + `WARDEN_DINGTALK_APP_SECRET` | 成对出现；Secret ≥16 字节 |
 | `WARDEN_DINGTALK_CARD_TEMPLATE_ID` + `WARDEN_DINGTALK_OPEN_CONVERSATION_ID` + `WARDEN_DINGTALK_ROBOT_CODE` | 三者必须同时配置，且依赖 CoolApp 配置 |
 
+## AI 只读助手（可选）
+
+| 变量 | 默认值 / 约束 |
+|---|---|
+| `WARDEN_AI_ENABLED` | `true`；设为 `false` 时接口返回 `AI_DISABLED` |
+| `WARDEN_AI_MODEL` | 与 `WARDEN_AI_API_KEY` 成对配置；为空时返回 `AI_NOT_CONFIGURED` |
+| `WARDEN_AI_BASE_URL` | `https://api.openai.com/v1`，可替换为 OpenAI 兼容服务地址 |
+| `WARDEN_AI_API_KEY` / `_FILE` | 模型服务密钥，本地写入 `.env`；不会持久化到 AI 会话 |
+| `WARDEN_AI_TIMEOUT` | `90s`，允许 `5s` 至 `5m` |
+| `WARDEN_AI_MAX_TOKENS` | `1600`，允许 128 至 8192 |
+
+当前只开放资源、执行和审计只读工具，模型配置不会扩大用户权限。SSE 反向代理必须关闭响应缓冲；
+服务已发送 `X-Accel-Buffering: no`。
+
 ## 发布 / UI 覆盖项
 
 未设置时读取随发布附带的 `deploy/helm/warden-operator/Chart.yaml` 与 `values.yaml`；Chart 不可用时 UI 会报错并禁止复制安装命令，不回退到写死的旧版本。
@@ -179,7 +240,7 @@ WARDEN_OIDC_CLIENT_SECRET_FILE=/etc/warden/secrets/oidc_client_secret
 | `5433` | 本地 compose 映射的 PostgreSQL（容器内 5432） |
 | `8181` | 可选独立 OPA |
 | `8200` | 可选 OpenBao |
-| `8090` / `8081` | 本地 OIDC 联调时的控制面 / Vite 端口（见 `scripts/oidc-local.env.example`） |
+| `8090` / `8081` | 本地 OIDC 联调时的控制面 / Vite 端口（在 `config.yaml` 配置） |
 
 ## 健康检查
 

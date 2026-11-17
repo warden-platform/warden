@@ -4,14 +4,12 @@ services:
     environment:
       POSTGRES_DB: pam
       POSTGRES_USER: pam
-      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+      POSTGRES_PASSWORD: "${WARDEN_DATABASE_PASSWORD:?set WARDEN_DATABASE_PASSWORD in the root .env file}"
     ports:
       - "5433:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
       - ../server/migrations:/migrations
-    secrets:
-      - postgres_password
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U pam"]
       interval: 3s
@@ -42,7 +40,7 @@ services:
       BAO_API_ADDR: "http://0.0.0.0:8200"
     entrypoint: ["/bin/sh", "-ec"]
     command:
-      - exec bao server -dev -dev-root-token-id="$$(cat /run/secrets/openbao_root_token)"
+      - exec bao server -dev -dev-root-token-id="${WARDEN_OPENBAO_ROOT_TOKEN:?set WARDEN_OPENBAO_ROOT_TOKEN in the root .env file}"
     ports:
       - "8200:8200"
     healthcheck:
@@ -50,14 +48,6 @@ services:
       interval: 3s
       timeout: 3s
       retries: 10
-    secrets:
-      - openbao_root_token
 
 volumes:
   pgdata:
-
-secrets:
-  postgres_password:
-    file: ../.secrets/postgres_password
-  openbao_root_token:
-    file: ../.secrets/openbao_root_token

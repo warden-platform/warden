@@ -9,7 +9,6 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -37,6 +36,7 @@ type PrincipalStore interface {
 	List(ctx context.Context, kind string) ([]domain.Principal, error)
 	Create(ctx context.Context, p *domain.Principal) error
 	UpdatePassword(ctx context.Context, id, hash string) error
+	UpdateName(ctx context.Context, id, name string) error
 	UpdateLastLogin(ctx context.Context, id string) error
 	Delete(ctx context.Context, id string) error
 }
@@ -155,27 +155,23 @@ func (h *Handler) parseJWT(raw string) (*wardenClaims, error) {
 
 // --- Admin password seeding ---
 
-// EnsureAdminPassword synchronizes the admin principal's password_hash from
-// WARDEN_ADMIN_PASSWORD. This makes the configured Secret the source of truth and
-// allows password rotation by updating the Secret and restarting warden-control.
-// If the setting is absent, an existing database password remains unchanged.
+// EnsureAdminPassword synchronizes the bootstrap administrator's login name and
+// password hash from explicit startup configuration. The fixed principal ID is
+// only an internal authorization anchor; deployments choose their own login.
 func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
 	if h.principals == nil {
 		return nil
+	}
+	username := strings.TrimSpace(os.Getenv("WARDEN_ADMIN_USERNAME"))
+	if !validLoginName(username) {
+		return fmt.Errorf("WARDEN_ADMIN_USERNAME is required and must be a valid login name without @")
 	}
 	password, err := config.Secret("WARDEN_ADMIN_PASSWORD")
 	if err != nil {
 		return fmt.Errorf("read WARDEN_ADMIN_PASSWORD: %w", err)
 	}
 	if password == "" {
-		password, err = localDevelopmentAdminPassword()
-		if err != nil {
-			return fmt.Errorf("read local admin password: %w", err)
-		}
-		if password == "" {
-			log.Println("警告: WARDEN_ADMIN_PASSWORD 未设置，Web 登录不可用")
-			return nil
-		}
+		return fmt.Errorf("WARDEN_ADMIN_PASSWORD or WARDEN_ADMIN_PASSWORD_FILE is required")
 	}
 	if len(password) < 8 || len(password) > 72 {
 		return fmt.Errorf("WARDEN_ADMIN_PASSWORD must contain 8-72 bytes")
@@ -190,6 +186,11 @@ func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
 	if principal == nil {
 		return fmt.Errorf("admin principal %s does not exist", adminPrincipalID)
 	}
+	if principal.Name != username {
+		if err := h.principals.UpdateName(domain.WithTenantID(ctx, "platform"), adminPrincipalID, username); err != nil {
+			return fmt.Errorf("save admin username: %w", err)
+		}
+	}
 	if principal.PasswordHash != "" && verifyPassword(password, principal.PasswordHash) {
 		return nil
 	}
@@ -200,34 +201,8 @@ func (h *Handler) EnsureAdminPassword(ctx context.Context) error {
 	if err := h.principals.UpdatePassword(ctx, adminPrincipalID, hash); err != nil {
 		return fmt.Errorf("save admin password hash: %w", err)
 	}
-	log.Println("admin 密码已同步，Web 登录已启用")
+	log.Println("启动管理员账号已同步，Web 登录已启用")
 	return nil
-}
-
-// localDevelopmentAdminPassword supports the repository-local launchd setup.
-// Packaged deployments should continue to configure WARDEN_ADMIN_PASSWORD_FILE;
-// the fallback is only active when .secrets/admin_password exists next to the
-// source tree containing the running binary.
-func localDevelopmentAdminPassword() (string, error) {
-	executable, err := os.Executable()
-	if err != nil {
-		return "", nil
-	}
-	candidates := []string{filepath.Join(filepath.Dir(executable), "..", "..", ".secrets", "admin_password")}
-	if root := strings.TrimSpace(os.Getenv("WARDEN_ARTIFACT_ROOT")); root != "" {
-		candidates = append([]string{filepath.Join(root, ".secrets", "admin_password")}, candidates...)
-	}
-	for _, candidate := range candidates {
-		data, readErr := os.ReadFile(filepath.Clean(candidate))
-		if os.IsNotExist(readErr) {
-			continue
-		}
-		if readErr != nil {
-			return "", readErr
-		}
-		return strings.TrimSpace(string(data)), nil
-	}
-	return "", nil
 }
 
 // --- HTTP handlers ---

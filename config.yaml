@@ -1,0 +1,36 @@
+# 用户维护的非敏感配置；外部凭据放在 .env（.env 可覆盖本文件的同名项）。
+# 优先级：进程环境变量 > .env > config.yaml > 内置默认。
+# 生产部署可不提供本文件，完全由 WARDEN_* 环境变量驱动（遗留契约）。
+server:
+  port: 8080
+  public_url: http://localhost:8080
+  cors_origin: http://localhost:4173
+  cookie_secure: false
+
+database:
+  # 不要在这里写账号密码；用 username/password 字段，密码指向 .env。
+  url: postgres://localhost:5432/pam
+  username: pam
+  password: ${WARDEN_DATABASE_PASSWORD}
+
+admin:
+  username: admin
+  password: ${WARDEN_ADMIN_PASSWORD}
+
+web:
+  host: localhost
+  port: 4173
+  control_target: http://localhost:8080
+
+# 显式开关：true 启用（缺 issuer/client_id/secret 会启动失败）；
+# false 强制关闭；删除整个 oidc 段则回到「配了 issuer 即启用」的遗留契约。
+oidc:
+  enabled: false
+
+# AI 助手默认关闭；启用需同时配置 model 与 .env 中的 WARDEN_AI_API_KEY。
+ai:
+  enabled: false
+  model: ""
+  base_url: https://api.openai.com/v1
+  timeout: 90s
+  max_tokens: 1600

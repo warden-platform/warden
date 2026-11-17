@@ -4,7 +4,7 @@
 
 - 产品文档：`README.md`
 - 用例：`docs/e2e/02-test.md`
-- Auth：优先复用认证文件声明的 state/session；本地密码登录使用权限为 `0600` 的 `.secrets/admin_password`，任何 Secret 不写入命令输出、测试报告或仓库
+- Auth：优先复用认证文件声明的 state/session；本地密码登录从权限为 `0600` 的根目录 `.env` 读取 `WARDEN_ADMIN_PASSWORD`，任何 Secret 不写入命令输出、测试报告或仓库
 - Target：本地真实 control/Web 用于完整回归；生产 `https://warden-admin.example.com` 用于当前已发布版本冒烟与发布后验收
 
 ## 顺序

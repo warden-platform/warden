@@ -6,7 +6,7 @@
 ## 基本要求
 
 - 基于最新的主开发分支，提交前先同步。
-- 提交中**不得包含**：凭据、kubeconfig、内网主机名、生成的二进制、`node_modules`、构建产物、`.secrets/`、本地测试报告或截图。
+- 提交中**不得包含**：凭据、kubeconfig、内网主机名、生成的二进制、`node_modules`、构建产物、`.env`、`var/warden/secrets.json`、本地测试报告或截图。
 - 命令示例使用 `<placeholder>`；不要把可直接工作的弱默认凭据写进代码或文档。
 
 ## 本地验证

@@ -26,61 +26,55 @@
 
 以下所有命令都在仓库根目录执行。
 
-## 1. 生成一套本地密钥
+## 1. 初始化本地配置
 
-控制面启动时强制校验 4 个 Secret：**至少 32 字节、两两不同、不可复用**（`server/internal/control/handler.go`）。生产环境请用独立的密钥管理方案；这里只为本地生成。
+内部签名与加密密钥由显式初始化命令生成，不属于用户配置。命令只在文件不存在时创建，
+拒绝覆盖已有密钥；控制面启动只读取，不会生成或改写它们。
 
 ```bash
-mkdir -p .secrets
-chmod 700 .secrets
+scripts/init-local-secrets.sh
+cp .env.example .env
+chmod 600 .env
 
-# 4 个必需 Secret（无换行，避免文件内容比对出现偏差）
-for f in task_signing_key jwt_signing_key credential_encryption_key agent_api_key; do
-  printf '%s' "$(openssl rand -hex 32)" > ".secrets/$f"
-done
+# 启动管理员密码：8–72 字节
+sed -i '' "s|^WARDEN_ADMIN_PASSWORD=.*|WARDEN_ADMIN_PASSWORD=$(openssl rand -hex 24)|" .env
 
-# 内置 admin 登录密码：8–72 字节
-printf '%s' "$(openssl rand -hex 24)" > .secrets/admin_password
-
-# PostgreSQL 密码 + 连接串，两者必须一致
-printf '%s' "$(openssl rand -hex 24)" > .secrets/postgres_password
-printf 'postgres://pam:%s@127.0.0.1:5433/pam?sslmode=disable' \
-  "$(cat .secrets/postgres_password)" > .secrets/database_url
-
-chmod 600 .secrets/*
+# PostgreSQL 密码；config.yaml 通过 ${WARDEN_DATABASE_PASSWORD} 引用
+sed -i '' "s|^WARDEN_DATABASE_PASSWORD=.*|WARDEN_DATABASE_PASSWORD=$(openssl rand -hex 24)|" .env
 ```
 
-`.secrets/` 已被 `.gitignore` 排除，不要提交。文件对应关系：
+`.env` 已被 `.gitignore` 排除，不要提交。普通配置统一放 `config.yaml`，包括端口、数据库地址、
+管理员用户名、OIDC 地址和 AI 模型参数；管理员密码、数据库密码和外部服务凭据放 `.env`。
+`var/warden/secrets.json` 保存初始化生成的四个内部密钥，同样被 Git 忽略且权限为 `0600`，
+升级时复用，备份时必须包含。生产环境请用独立的密钥管理方案。
+`config.yaml` 中 `database.url` 不包含账号密码，`database.username` 和 `database.password`
+分别负责连接身份；密码用 `${WARDEN_DATABASE_PASSWORD}` 指向 `.env`。使用本教程的 Compose
+数据库时，把 `database.url` 改为 `postgres://127.0.0.1:5433/pam`。
 
-| 文件 | 对应变量 |
+| 用途 | `.env` 变量 |
 |---|---|
-| `database_url` | `WARDEN_DATABASE_URL_FILE` |
-| `task_signing_key` | `WARDEN_TASK_SIGNING_KEY_FILE` |
-| `jwt_signing_key` | `WARDEN_JWT_SIGNING_KEY_FILE` |
-| `credential_encryption_key` | `WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE` |
-| `agent_api_key` | `WARDEN_ADMIN_API_KEY_FILE`（引导用管理 Key） |
-| `admin_password` | `WARDEN_ADMIN_PASSWORD_FILE` |
-| `postgres_password` | Compose 的 `postgres_password` Docker secret |
+| 数据库密码 | `WARDEN_DATABASE_PASSWORD` |
+| 启动管理员密码 | `WARDEN_ADMIN_PASSWORD` |
 
 ## 2. 启动数据库
 
 ```bash
-docker compose -f deploy/docker-compose.yaml up -d
-docker compose -f deploy/docker-compose.yaml ps
+docker compose --env-file .env -f deploy/docker-compose.yaml up -d
+docker compose --env-file .env -f deploy/docker-compose.yaml ps
 ```
 
 `postgresql` 健康后即可继续。可选组件（独立 OPA / OpenBao）本教程不需要；如需启用，用 `--profile optional up -d`。
 
 ## 3. 执行数据库迁移
 
-> **重要**：`warden-control` **不会在启动时自动跑迁移**，内置 `admin` 账号也不是运行时创建的，而是 `002_seed.sql` 写入的。必须先手工执行迁移。
+> **重要**：`warden-control` **不会在启动时自动跑迁移**，必须先手工执行迁移。`002_seed.sql` 只保留固定权限锚点，实际登录名由启动时的 `admin.username` 同步。
 
 全新空库按文件名顺序执行全部迁移：
 
 ```bash
 for f in server/migrations/*.sql; do
   echo "==> $(basename "$f")"
-  docker compose -f deploy/docker-compose.yaml exec -T postgresql \
+  docker compose --env-file .env -f deploy/docker-compose.yaml exec -T postgresql \
     psql -v ON_ERROR_STOP=1 -U pam -d pam -f "/migrations/$(basename "$f")" >/dev/null || break
 done
 ```
@@ -88,7 +82,7 @@ done
 验证：
 
 ```bash
-docker compose -f deploy/docker-compose.yaml exec -T postgresql \
+docker compose --env-file .env -f deploy/docker-compose.yaml exec -T postgresql \
   psql -U pam -d pam -tAc "select count(*) from information_schema.tables where table_schema='public';"
 ```
 
@@ -96,16 +90,26 @@ docker compose -f deploy/docker-compose.yaml exec -T postgresql \
 
 ## 4. 构建并启动控制面
 
+本地普通配置统一放在根目录 `config.yaml`，用户凭据放在 `.env`，不要修改启动脚本：
+
 ```bash
 make server-build
 WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 ```
 
-`start-local-control.sh` 会读取 `.secrets/` 并组装环境变量；`WARDEN_FOREGROUND=1` 让进程留在当前终端，方便看日志（`Ctrl-C` 结束）。不加这个变量时脚本后台运行，日志写到 `/tmp/warden-control-direct.log`。
+`config.yaml` 可覆盖整个本地项目的非敏感设置，包括控制面、前端开发服务器、API 代理、OIDC 和 AI，
+完整清单见 [configuration.md](configuration.md)。AI 的模型名、地址放 `config.yaml`，
+`WARDEN_AI_API_KEY` 放 `.env`。启动管理员用户名放 `config.yaml` 的 `admin.username`，
+密码在 YAML 中同样有字段，但值是 `${WARDEN_ADMIN_PASSWORD}`，真实密码只放在 `.env`。
+两者均为启动必需项，没有默认密码或隐式文件兜底。
+
+`warden-control` 启动时由 `server/internal/config` 读取 `config.yaml`、`.env` 和
+`var/warden/secrets.json`；显式传入的进程环境变量优先级最高。
+`WARDEN_FOREGROUND=1` 让进程留在当前终端，方便看日志（`Ctrl-C` 结束）。不加这个变量时脚本后台运行，日志写到 `/tmp/warden-control-direct.log`。
 
 注意两点：
 
-- 脚本会**清理占用 `WARDEN_PORT`（默认 8080）的已有进程**；如该端口有别的服务，先设 `WARDEN_PORT=8090`。
+- 脚本会**清理占用 `server.port`（默认 8080）的已有进程**；如该端口有别的服务，先在 `config.yaml` 中改成 `8090`。
 - 脚本为本地 HTTP 自动设 `WARDEN_COOKIE_SECURE=false`。**生产环境永远不要关掉它**（见 [installation.md](installation.md)）。
 
 保持这个终端运行，另开一个终端继续。
@@ -121,7 +125,7 @@ curl -sS -o /dev/null -w '%{http_code}\n' http://127.0.0.1:8080/api/v1/auth/me
 
 # 带管理 Key 应返回 200
 curl -sS -o /dev/null -w '%{http_code}\n' \
-  -H "Authorization: Bearer $(cat .secrets/agent_api_key)" \
+  -H "Authorization: Bearer $(python3 -c "import json;print(json.load(open('var/warden/secrets.json'))['WARDEN_ADMIN_API_KEY'])")" \
   http://127.0.0.1:8080/api/v1/resources
 ```
 
@@ -134,22 +138,22 @@ make web-install
 make web-dev
 ```
 
-Vite 默认监听 `http://localhost:4173`，并把 `/api` 代理到 `http://localhost:8080`（可用 `WARDEN_WEB_PORT` / `WARDEN_WEB_HOST` / `WARDEN_CONTROL_TARGET` 覆盖，见 [configuration.md](configuration.md)）。
+Vite 同样读取根目录 `config.yaml`，默认监听 `http://localhost:4173`，并把 `/api` 代理到 `http://localhost:8080`（可用 `web.host` / `web.port` / `web.control_target` 覆盖，见 [configuration.md](configuration.md)）。
 
 两个登录入口，互不干扰：
 
-- **平台运维入口** `http://localhost:4173/platform/login`：用户名 `admin`，密码为 `.secrets/admin_password` 的内容（`cat .secrets/admin_password`）。登录后落在租户管理页。
+- **平台运维入口** `http://localhost:4173/platform/login`：用户名为 `config.yaml` 的 `admin.username`，密码为 `.env` 的 `WARDEN_ADMIN_PASSWORD`。登录后落在租户管理页。
 - **组织登录页** `http://localhost:4173/login`：租户用户用 RAM 式限定名 `用户名@组织标识`（例如 `zhangsan@acme`）+ 密码登录。组织标识由租户管理员创建用户时提供。
 
 登录后能看到顶部用户信息与左侧菜单，说明密码校验、HttpOnly 会话 Cookie、`/auth/me` 能力清单下发这条链路都通了。
 
-> 如果菜单只有 4 项，通常意味着当前会话不是超级管理员。内置 `admin` 按固定 ID 判定为超管；若你用的是 SSO 账号，请先读 [authorization.md](authorization.md)。
+> 如果菜单只有 4 项，通常意味着当前会话不是超级管理员。启动管理员按固定 ID 判定为超管；若你用的是 SSO 账号，请先读 [authorization.md](authorization.md)。
 
 ## 7. 收尾与清理
 
 ```bash
 # 停止：控制面终端 Ctrl-C；前端终端 Ctrl-C
-docker compose -f deploy/docker-compose.yaml down     # 保留数据卷
+docker compose --env-file .env -f deploy/docker-compose.yaml down     # 保留数据卷
 make clean                                           # 删除 server/bin、web/dist、缓存
 ```
 
@@ -159,8 +163,8 @@ make clean                                           # 删除 server/bin、web/d
 
 ## 你刚刚跑通了什么
 
-- 文件型 Secret → 控制面启动校验 → PostgreSQL 连接池 → 路由注册 → 会话签发
-- 内置 `admin` 的 bcrypt 密码哈希在启动时与 `WARDEN_ADMIN_PASSWORD_FILE` 同步
+- 初始化生成内部密钥 → 控制面启动校验 → PostgreSQL 连接池 → 路由注册 → 会话签发
+- 启动管理员的用户名与 bcrypt 密码哈希在启动时与显式配置同步
 - 前端通过 `/api` 代理、HttpOnly Cookie 与 `capabilities` 渲染菜单
 
 ## 下一步

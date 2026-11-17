@@ -198,6 +198,7 @@ type fakePrincipalStore struct {
 	byID            map[string]*domain.Principal
 	byName          map[string]*domain.Principal
 	passwordUpdates map[string]string
+	nameUpdates     map[string]string
 	lastLoginCalls  int
 	createCalls     int
 }
@@ -207,7 +208,16 @@ func newFakePrincipalStore() *fakePrincipalStore {
 		byID:            make(map[string]*domain.Principal),
 		byName:          make(map[string]*domain.Principal),
 		passwordUpdates: make(map[string]string),
+		nameUpdates:     make(map[string]string),
 	}
+}
+
+func (f *fakePrincipalStore) UpdateName(_ context.Context, id, name string) error {
+	f.nameUpdates[id] = name
+	if p, ok := f.byID[id]; ok {
+		p.Name = name
+	}
+	return nil
 }
 
 func (f *fakePrincipalStore) GetByID(_ context.Context, id string) (*domain.Principal, error) {
@@ -248,6 +258,7 @@ func TestEnsureAdminPasswordSeedsWhenEmpty(t *testing.T) {
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: ""}
 	h := &Handler{principals: store}
 	t.Setenv("WARDEN_ADMIN_PASSWORD", "supersecret1")
+	t.Setenv("WARDEN_ADMIN_USERNAME", "root-operator")
 	if err := h.EnsureAdminPassword(context.Background()); err != nil {
 		t.Fatalf("EnsureAdminPassword: %v", err)
 	}
@@ -258,6 +269,9 @@ func TestEnsureAdminPasswordSeedsWhenEmpty(t *testing.T) {
 	if !verifyPassword("supersecret1", hash) {
 		t.Fatal("seeded hash does not verify the configured password")
 	}
+	if store.nameUpdates[adminPrincipalID] != "root-operator" {
+		t.Fatal("configured bootstrap username was not saved")
+	}
 }
 
 func TestEnsureAdminPasswordRotatesWhenConfiguredSecretChanges(t *testing.T) {
@@ -266,6 +280,7 @@ func TestEnsureAdminPasswordRotatesWhenConfiguredSecretChanges(t *testing.T) {
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: existing}
 	h := &Handler{principals: store}
 	t.Setenv("WARDEN_ADMIN_PASSWORD", "new-password")
+	t.Setenv("WARDEN_ADMIN_USERNAME", "admin")
 	if err := h.EnsureAdminPassword(context.Background()); err != nil {
 		t.Fatalf("EnsureAdminPassword: %v", err)
 	}
@@ -284,6 +299,7 @@ func TestEnsureAdminPasswordDoesNotRewriteMatchingHash(t *testing.T) {
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: existing}
 	h := &Handler{principals: store}
 	t.Setenv("WARDEN_ADMIN_PASSWORD", "same-password")
+	t.Setenv("WARDEN_ADMIN_USERNAME", "admin")
 	if err := h.EnsureAdminPassword(context.Background()); err != nil {
 		t.Fatalf("EnsureAdminPassword: %v", err)
 	}
@@ -292,16 +308,22 @@ func TestEnsureAdminPasswordDoesNotRewriteMatchingHash(t *testing.T) {
 	}
 }
 
-func TestEnsureAdminPasswordSkipsWhenEnvUnset(t *testing.T) {
+func TestEnsureAdminPasswordRequiresExplicitBootstrapConfiguration(t *testing.T) {
 	store := newFakePrincipalStore()
 	store.byID[adminPrincipalID] = &domain.Principal{ID: adminPrincipalID, Name: "admin", Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive, PasswordHash: ""}
 	h := &Handler{principals: store}
 	t.Setenv("WARDEN_ADMIN_PASSWORD", "")
-	if err := h.EnsureAdminPassword(context.Background()); err != nil {
-		t.Fatalf("EnsureAdminPassword: %v", err)
+	t.Setenv("WARDEN_ADMIN_USERNAME", "admin")
+	if err := h.EnsureAdminPassword(context.Background()); err == nil {
+		t.Fatal("expected a missing bootstrap password to fail startup")
 	}
 	if _, ok := store.passwordUpdates[adminPrincipalID]; ok {
 		t.Fatal("password was seeded despite unset env var")
+	}
+	t.Setenv("WARDEN_ADMIN_PASSWORD", "supersecret1")
+	t.Setenv("WARDEN_ADMIN_USERNAME", "")
+	if err := h.EnsureAdminPassword(context.Background()); err == nil {
+		t.Fatal("expected a missing bootstrap username to fail startup")
 	}
 }
 

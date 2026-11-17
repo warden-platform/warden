@@ -5,16 +5,22 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
+	"gitee.com/pam-platform/warden/server/internal/config"
 	"gitee.com/pam-platform/warden/server/internal/control"
 	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
 )
 
 func main() {
+	cfg, err := config.LoadRuntime()
+	if err != nil {
+		log.Fatalf("加载配置失败: %v", err)
+	}
+
 	startupCtx, startupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer startupCancel()
 
@@ -38,17 +44,14 @@ func main() {
 	defer stop()
 	handler.StartBackground(appCtx)
 
-	port := os.Getenv("WARDEN_PORT")
-	if port == "" {
-		port = "8080"
-	}
+	port := strconv.Itoa(cfg.Server.Port)
 
 	server := &http.Server{
 		Addr:              fmt.Sprintf(":%s", port),
 		Handler:           wrappedMux,
 		ReadTimeout:       15 * time.Second,
 		ReadHeaderTimeout: 5 * time.Second,
-		WriteTimeout:      60 * time.Second,
+		WriteTimeout:      5 * time.Minute,
 		IdleTimeout:       120 * time.Second,
 	}
 

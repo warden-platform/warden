@@ -58,11 +58,11 @@ erDiagram
 
 ### Principal（主体）
 
-用户、Agent 实例、Agent 类型或工作负载的统一身份。内置 `admin`、SSO 用户、Agent 机器账号都是 Principal，但**来源不同、特权来源也不同**：
+用户、Agent 实例、Agent 类型或工作负载的统一身份。启动管理员、SSO 用户、Agent 机器账号都是 Principal，但**来源不同、特权来源也不同**：
 
 | 来源 | 角色怎么来 | 说明 |
 |---|---|---|
-| 内置 `admin` | 固定 ID 判定，直接获得 `pam:admin` | IdP 故障时的应急入口，`metadata.role` 反而是空的 |
+| 启动管理员 | 固定 ID 判定，直接获得 `pam:admin` | IdP 故障时的应急入口，登录名由部署者配置 |
 | OIDC/SSO 用户 | 首次登录按 `WARDEN_OIDC_DEFAULT_ROLE` 建档，默认 `user` | 之后由超级管理员在页面手工指派；登录不会覆盖已指派的角色 |
 | 本地密码用户 | 管理员创建 | 常规账号 |
 | Agent / 机器人 | 独立 API Key，Scope 最小权限 | 不走 Web 会话，不算员工账号 |

@@ -12,7 +12,8 @@ Usage:
 
 Demo logins (tenant "acme"): demo / zhangsan / lisi, all with password
 "12345678" — deliberately independent of the built-in admin password.
-Requires psql (Homebrew keg path is auto-detected) and .secrets/database_url.
+Requires psql (Homebrew keg path is auto-detected) and database settings in
+config.yaml.
 """
 import hashlib
 import json
@@ -24,7 +25,8 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from urllib.parse import urlparse
 
-ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from local_config import ROOT, database_url, local_setting
+
 NS = uuid.UUID('decafbad-0000-4000-8000-000000000001')  # deterministic demo namespace
 
 
@@ -413,7 +415,7 @@ insert('audit_events', ['id', 'action', 'actor_id', 'actor_type', 'resource_id',
 
 
 # ---------------------------------------------------------------- apply
-url = urlparse(open(os.path.join(ROOT, '.secrets', 'database_url')).read().strip())
+url = urlparse(database_url())
 env = dict(os.environ, PGPASSWORD=url.password or '')
 psql = find_psql()
 sql = '\n'.join(out)

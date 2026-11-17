@@ -1,6 +1,9 @@
-.PHONY: verify server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-build clean
+.PHONY: init-local verify server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-build clean
 
 GO_CACHE ?= $(CURDIR)/.cache/go-build
+
+init-local:
+	scripts/init-local-secrets.sh
 
 verify: server-test server-vet server-build web-build
 

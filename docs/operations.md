@@ -69,7 +69,7 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 
 | 密钥 | 轮换影响 | 建议 |
 |---|---|---|
-| `WARDEN_ADMIN_PASSWORD_FILE` | 重启时同步内置 `admin` 的 bcrypt 哈希，旧密码立即失效 | 改文件 → 重启 → 用新密码验证 break-glass |
+| `WARDEN_ADMIN_USERNAME` / `WARDEN_ADMIN_PASSWORD_FILE` | 重启时同步启动管理员登录名与 bcrypt 哈希，旧密码立即失效 | 改配置 → 重启 → 用新账号验证 break-glass |
 | `WARDEN_ADMIN_API_KEY_FILE` | 静态超管 Key；所有使用旧 Key 的自动化脚本会 401 | 先更新调用方再切，或安排停机窗口；当前版本不支持在线轮换 |
 | `WARDEN_JWT_SIGNING_KEY_FILE` | 所有 Web 会话 JWT 失效，用户需重新登录 | 低峰期执行，提前通知 |
 | `WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE` | 已加密的 Connector 任务 Key 无法解密，Connector 会失联 | **不要单独轮换**，除非有完整的重新配对方案 |

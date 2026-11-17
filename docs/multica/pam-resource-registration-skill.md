@@ -13,7 +13,7 @@ The Registration Key belongs to one organization (tenant): projects, Connectors,
 
 - Require a `pam_rgk_` Registration Key. Never request, accept, read, copy, or use `WARDEN_ADMIN_API_KEY`, admin passwords, login cookies, ordinary `pam_agk_` Agent Keys, Connector task keys, or signing keys.
 - Never call policy, approval, execution, audit, Principal/credential, pairing, Connector mutation, resource mutation, or delete APIs.
-- Never access the Warden database, Kubernetes Secrets, local `.secrets`, source-code credentials, browser storage, or target-system Secret values.
+- Never access the Warden database, Kubernetes Secrets, local `.env`, source-code credentials, browser storage, or target-system Secret values.
 - Integration requests contain only a `credentialRef`; the referenced Secret must already exist in the selected Connector runtime. If it does not exist, stop and give the user the exact Secret name and target namespace/path to prepare through an authorized credential workflow.
 - Do not invoke direct Jenkins, Grafana, database, cloud, SSH, or Kubernetes admin APIs from this Skill.
 - Do not broaden `scope.allowAll` without explicit user confirmation. Prefer explicit Jobs, Dashboards, schemas, services, projects, or Regions.

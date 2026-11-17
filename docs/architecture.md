@@ -218,7 +218,7 @@ stateDiagram-v2
 
 - `server/migrations/` 是按编号排序的 SQL（001–097，其中 068–071 无文件），编号唯一性有单测保障。
 - **启动不跑迁移**：全新库按文件名顺序手工执行；发布流水线按 `deploy/release/migrations.txt` 重放编号 ≥ 035 的幂等迁移。新增此类迁移必须登记清单，否则单测失败。
-- 内置 `admin` 由 `002_seed.sql` 写入固定 ID；运行时 `EnsureAdminPassword` 只把密码哈希与 `WARDEN_ADMIN_PASSWORD_FILE` 同步。
+- `002_seed.sql` 写入固定权限锚点；运行时 `EnsureAdminPassword` 将登录名与 `WARDEN_ADMIN_USERNAME`、密码哈希与 `WARDEN_ADMIN_PASSWORD_FILE` 同步。
 - `audit_events.action` 是 PostgreSQL 枚举，新增动作名必须补 `ALTER TYPE audit_action ADD VALUE` 迁移。
 - Outbox 写入可开关（`WARDEN_OUTBOX_ENABLED`），Publisher 后台循环尚未实现。
 
@@ -234,7 +234,7 @@ stateDiagram-v2
 | Web 会话 | HttpOnly + Secure + SameSite=Strict Cookie；JWT 默认 8h；登录响应不下发可用 token；写操作校验 Origin |
 | SSO | 授权码 + PKCE S256 + state/nonce（HttpOnly Cookie）+ id_token 校验 + RP-initiated logout |
 | 最小权限 | 默认 `user` 只有 4 个 Scope；OIDC 默认角色禁止配置成 `platform_admin` |
-| 应急入口 | 内置 `admin` 按固定 ID 判定，日常不用，IdP 故障时兜底 |
+| 应急入口 | 启动管理员按固定 ID 判定，登录名由部署者配置，日常不用，IdP 故障时兜底 |
 
 ## 关键设计取舍
 

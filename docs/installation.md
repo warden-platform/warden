@@ -33,7 +33,7 @@ openssl rand -hex 24   # admin_password（8–72 字节）
 
 - 4 个必需 Secret 两两不得相同，否则控制面启动失败。
 - 文件权限 `600`，仅控制面进程可读。
-- `WARDEN_ADMIN_PASSWORD_FILE` 是内置 `admin` 密码哈希的同步源，改文件并重启会轮换哈希；妥善保管。
+- `WARDEN_ADMIN_USERNAME` 与 `WARDEN_ADMIN_PASSWORD_FILE` 是启动管理员的同步源；改文件并重启会轮换哈希，妥善保管。
 - OIDC client secret 单独存放，见 [oidc-setup.md](oidc-setup.md)。
 
 ## 3. 准备 PostgreSQL
@@ -60,7 +60,7 @@ done < deploy/release/migrations.txt
 
 要点：
 
-- 内置 `admin` 由 `002_seed.sql` 写入，运行时只同步密码哈希。
+- `002_seed.sql` 保留固定权限锚点，运行时同步用户提供的管理员登录名和密码哈希。
 - `deploy/release/migrations.txt` 收录编号 ≥ 035 的幂等迁移；**新增此类迁移必须登记**，否则 `internal/control` 的单测会失败。
 - `audit_events.action` 是 PostgreSQL 枚举，新增审计动作名必须配套 `ALTER TYPE audit_action ADD VALUE` 迁移。
 
@@ -112,6 +112,7 @@ WARDEN_TASK_SIGNING_KEY_FILE
 WARDEN_JWT_SIGNING_KEY_FILE
 WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE
 WARDEN_ADMIN_API_KEY_FILE
+WARDEN_ADMIN_USERNAME
 WARDEN_ADMIN_PASSWORD_FILE
 WARDEN_PUBLIC_CONTROL_URL
 WARDEN_COOKIE_SECURE=true
@@ -119,11 +120,14 @@ WARDEN_COOKIE_SECURE=true
 
 其余按需配置，见 [configuration.md](configuration.md)。启动顺序：
 
+本地开发用的 `config.yaml` 与 `.env` 不参与生产启动。生产部署应在容器 / Kubernetes 的环境配置中设置
+`WARDEN_AI_MODEL`、`WARDEN_AI_BASE_URL` 等值，并通过 Secret 挂载设置 `WARDEN_AI_API_KEY_FILE`。
+
 1. 校验所有 Secret 文件存在且非空、权限正确；
 2. 启动控制面容器；
 3. 确认 `GET /api/v1/health`、`/livez`、`/readyz` 返回 200；
 4. 部署前端静态产物；
-5. 用内置 `admin` 登录一次，确认会话与 `/auth/me` 正常。
+5. 用配置的启动管理员登录一次，确认会话与 `/auth/me` 正常。
 
 > **注意**：`/healthz` 是前端 nginx 容器的探针，后端没有这个路由。健康检查请用 `/api/v1/health` 或 `/readyz`。
 
@@ -141,7 +145,7 @@ WARDEN_COOKIE_SECURE=true
 - [ ] `WARDEN_PUBLIC_CONTROL_URL` 与实际访问地址一致；安装命令里的地址可被目标机器访问
 - [ ] `/downloads/SHA256SUMS`、Helm Chart、各平台 Connector 二进制可下载
 - [ ] `GET /api/v1/auth/oidc/config` 返回预期的 `enabled` 与绝对 URL
-- [ ] 内置 `admin` 密码可用（break-glass），但日常不使用
+- [ ] 启动管理员密码可用（break-glass），但日常不使用
 - [ ] `WARDEN_OIDC_DEFAULT_ROLE=user`，`WARDEN_ENABLE_LEGACY_*` 保持关闭
 - [ ] 反向代理 CIDR 白名单已收紧，未对公网开放数据库与 OPA
 - [ ] 保留上一版镜像 ID、前端产物目录、数据库备份，随时可回滚
@@ -151,7 +155,7 @@ WARDEN_COOKIE_SECURE=true
 1. 停止并切回上一版控制面镜像 ID（无需重建）。
 2. 把上一版前端 `dist` 目录移回静态站点根路径。
 3. 若本次包含数据库迁移，先确认迁移是幂等的、不需要反向 DDL；确需回退时用备份恢复。
-4. 用内置 `admin` 密码登录验证，密码登录链路独立于 IdP，不会把人锁在外面。
+4. 用启动管理员密码登录验证，密码登录链路独立于 IdP，不会把人锁在外面。
 
 详细运维流程见 [operations.md](operations.md)。
 

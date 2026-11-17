@@ -1,6 +1,7 @@
 .git
 .gitignore
-.secrets
+.env
+/var/warden/
 .cache
 **/node_modules
 web/dist

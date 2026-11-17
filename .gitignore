@@ -6,7 +6,8 @@ web/vite.config.d.ts
 server/bin/
 server/warden-control
 .cache/
-.secrets/
+.env
+/var/warden/
 # Local workbench data (session memory, work logs). Never commit.
 .workbuddy/
 .DS_Store

@@ -77,6 +77,11 @@ func (r *PrincipalRepo) UpdatePassword(ctx context.Context, id, hash string) err
 	return err
 }
 
+func (r *PrincipalRepo) UpdateName(ctx context.Context, id, name string) error {
+	_, err := r.pool.Exec(ctx, `UPDATE principals SET name=$2,updated_at=now() WHERE id=$1 AND tenant_id=$3`, id, name, principalTenant(ctx))
+	return err
+}
+
 // UpdateLastLogin stamps last_login_at to now() for the given principal.
 func (r *PrincipalRepo) UpdateLastLogin(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE principals SET last_login_at = now() WHERE id = $1`, id)

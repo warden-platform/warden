@@ -41,16 +41,14 @@ make server-build
 
 构建产物写入 `server/bin/`，包括 `warden-control`、`warden-connector`、`warden-operator`、`warden-linux-connector`、`warden-network-connector` 和 `warden-linux-helper` 共 6 个；macOS / Windows 的 `warden-host-connector` 由 `make server-build-hosts` 单独交叉编译。
 
-本地运行控制面：
+本地普通配置统一写在仓库根目录 `config.yaml`，用户提供的外部凭据写在已被 Git 忽略的 `.env`。
+内部签名与加密密钥由初始化命令写入独立的 `var/warden/secrets.json`，不与用户配置混放。
+配置解析集中在 `server/internal/config/config.go`，启动脚本只负责拉起二进制。
+从根目录初始化并启动控制面：
 
 ```bash
-WARDEN_DATABASE_URL_FILE=../.secrets/database_url \
-WARDEN_TASK_SIGNING_KEY_FILE=../.secrets/task_signing_key \
-WARDEN_JWT_SIGNING_KEY_FILE=../.secrets/jwt_signing_key \
-WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE=../.secrets/credential_encryption_key \
-WARDEN_ADMIN_API_KEY_FILE=../.secrets/agent_api_key \
-WARDEN_ADMIN_PASSWORD_FILE=../.secrets/admin_password \
-go run ./cmd/warden-control
+scripts/init-local-secrets.sh  # 仅首次安装；已有文件会拒绝覆盖
+WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 ```
 
 所有 Secret 文件必须为非空文件；任务签名、JWT 签名、凭据加密和 Admin API Key
