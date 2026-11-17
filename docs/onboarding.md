@@ -150,8 +150,6 @@ POST /api/v1/principals/{id}/api-keys     # 明文只返回一次，DB 只存 SH
 
 每个 Agent 用自己独立的 Key；`WARDEN_ADMIN_API_KEY` 只用于平台初始化与应急，**不要注入 Agent**。资源注册机器人使用 audience 绑定、可轮换撤销的 Registration Key（`pam_rgk_` 前缀），由「Agent 身份 → 新增注册机器人」创建。
 
-向 Multica 注入配置用 `scripts/configure-multica-agent-pam.sh`，脚本用 `****` 保留已有 `custom_env`，不会把 Key 放进命令参数或打印到终端。
-
 ### 2. 配置客户端
 
 ```text
