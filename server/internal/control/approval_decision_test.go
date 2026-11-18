@@ -1,0 +1,226 @@
+package control
+
+import (
+	"context"
+	"errors"
+	"sync"
+	"testing"
+
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
+	"github.com/jackc/pgx/v5/pgxpool"
+)
+
+// --- DB-gated integration tests (WARDEN_TEST_DATABASE_URL) ---
+//
+// decideApproval is the single transaction boundary for Web and DingTalk
+// decisions. These tests cover the safety properties that boundary must
+// guarantee: one-time grants, reject closing the execution, cross-channel
+// approve/reject races, scope enforcement and tenant boundaries.
+
+// seedDecisionFixture creates a member principal, connector, resource,
+// WAITING_APPROVAL execution and its PENDING request inside one tenant.
+func seedDecisionFixture(t *testing.T, pool *pgxpool.Pool, tenant, trace string) (requestID, executionID, connectorID string) {
+	t.Helper()
+	ctx := context.Background()
+	var applicantID, resourceID string
+	if err := pool.QueryRow(ctx, `INSERT INTO principals(kind,name,status,tenant_id,metadata) VALUES ('user',$1,'ACTIVE',$2,'{}') RETURNING id`, "applicant-"+trace, tenant).Scan(&applicantID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO connectors(name,connector_type,status,environment,version,capabilities,last_heartbeat,tenant_id)
+		VALUES ($1,'kubernetes','ACTIVE','staging','1.0.0','["provider.request@v1"]'::jsonb,now(),$2) RETURNING id`, "conn-"+trace, tenant).Scan(&connectorID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO resources(resource_type,external_id,name,namespace,connector_id,environment,status,tenant_id)
+		VALUES ('deployment',$1,$2,'default',$3,'staging','ACTIVE',$4) RETURNING id`, "ext-"+trace, "res-"+trace, connectorID, tenant).Scan(&resourceID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO executions(tenant_id,principal_id,resource_id,action_id,parameters,parameter_hash,status,trace_id,connector_id)
+		VALUES ($1,$2,$3,'a0000000-0000-0000-0000-000000000001','{}'::jsonb,'decision-hash','WAITING_APPROVAL',$4,$5) RETURNING id`,
+		tenant, applicantID, resourceID, trace, connectorID).Scan(&executionID); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `INSERT INTO access_requests(tenant_id,principal_id,resource_id,action_id,execution_id,parameters,parameter_hash,reason,status,expires_at)
+		VALUES ($1,$2,$3,'a0000000-0000-0000-0000-000000000001',$4,'{}'::jsonb,'decision-hash','decision test','PENDING',now()+interval '1 hour') RETURNING id`,
+		tenant, applicantID, resourceID, executionID).Scan(&requestID); err != nil {
+		t.Fatal(err)
+	}
+	return requestID, executionID, connectorID
+}
+
+func decisionActor(t *testing.T, pool *pgxpool.Pool, tenant string, scopes ...string) *AuthenticatedIdentity {
+	t.Helper()
+	principal, err := postgres.NewPrincipalRepo(pool).GetByID(domain.WithTenantID(context.Background(), "platform"), adminPrincipalID)
+	if err != nil || principal == nil {
+		t.Fatalf("load admin principal: %v", err)
+	}
+	return &AuthenticatedIdentity{Principal: principal, TenantID: tenant, Scopes: scopes, Kind: "TEST"}
+}
+
+func TestDecideApprovalApproveIssuesOneTimeGrant(t *testing.T) {
+	pool := newTestDatabasePool(t)
+	h, _ := newTestDatabaseHandler(t, pool)
+	requestID, executionID, connectorID := seedDecisionFixture(t, pool, "acme", "trace-grant-once")
+	ctx := domain.WithTenantID(context.Background(), "acme")
+	actor := decisionActor(t, pool, "acme", "warden:approve")
+
+	if _, err := h.decideApproval(ctx, requestID, true, actor); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+
+	var grantID, grantStatus string
+	var maxUses int
+	if err := pool.QueryRow(ctx, `SELECT g.id, g.status, g.max_uses FROM access_grants g WHERE g.request_id=$1`, requestID).Scan(&grantID, &grantStatus, &maxUses); err != nil {
+		t.Fatalf("grant after approve: %v", err)
+	}
+	if grantStatus != string(domain.GrantActive) || maxUses != 1 {
+		t.Fatalf("grant status=%s max_uses=%d, want ACTIVE/1", grantStatus, maxUses)
+	}
+	var execStatus string
+	if err := pool.QueryRow(ctx, `SELECT status FROM executions WHERE id=$1`, executionID).Scan(&execStatus); err != nil {
+		t.Fatal(err)
+	}
+	if execStatus != string(domain.ExecQueued) {
+		t.Fatalf("execution status=%s, want QUEUED", execStatus)
+	}
+
+	// The connector claim consumes the single use; a second claim gets nothing.
+	tasks, err := h.executions.ClaimTasks(ctx, connectorID, 10)
+	if err != nil {
+		t.Fatalf("first claim: %v", err)
+	}
+	if len(tasks) != 1 {
+		t.Fatalf("first claim tasks=%d, want 1", len(tasks))
+	}
+	if err := pool.QueryRow(ctx, `SELECT status FROM access_grants WHERE id=$1`, grantID).Scan(&grantStatus); err != nil {
+		t.Fatal(err)
+	}
+	if grantStatus != string(domain.GrantUsed) {
+		t.Fatalf("grant status after claim=%s, want USED", grantStatus)
+	}
+	tasks, err = h.executions.ClaimTasks(ctx, connectorID, 10)
+	if err != nil {
+		t.Fatalf("second claim: %v", err)
+	}
+	if len(tasks) != 0 {
+		t.Fatalf("second claim tasks=%d, want 0 (one-time grant)", len(tasks))
+	}
+
+	// A repeated decision is rejected.
+	_, err = h.decideApproval(ctx, requestID, true, actor)
+	var decisionErr *approvalDecisionError
+	if !errors.As(err, &decisionErr) || decisionErr.Status != 409 || decisionErr.Code != "ALREADY_PROCESSED" {
+		t.Fatalf("repeat approve err=%v, want 409 ALREADY_PROCESSED", err)
+	}
+}
+
+func TestDecideApprovalRejectClosesExecution(t *testing.T) {
+	pool := newTestDatabasePool(t)
+	h, _ := newTestDatabaseHandler(t, pool)
+	requestID, executionID, _ := seedDecisionFixture(t, pool, "acme", "trace-reject-close")
+	ctx := domain.WithTenantID(context.Background(), "acme")
+	actor := decisionActor(t, pool, "acme", "warden:approve")
+
+	if _, err := h.decideApproval(ctx, requestID, false, actor); err != nil {
+		t.Fatalf("reject: %v", err)
+	}
+	var requestStatus, execStatus, execErrorCode string
+	if err := pool.QueryRow(ctx, `SELECT status FROM access_requests WHERE id=$1`, requestID).Scan(&requestStatus); err != nil {
+		t.Fatal(err)
+	}
+	if err := pool.QueryRow(ctx, `SELECT status, COALESCE(error_code,'') FROM executions WHERE id=$1`, executionID).Scan(&execStatus, &execErrorCode); err != nil {
+		t.Fatal(err)
+	}
+	if requestStatus != string(domain.RequestRejected) || execStatus != string(domain.ExecFailed) || execErrorCode != "APPROVAL_REJECTED" {
+		t.Fatalf("request=%s execution=%s/%s, want REJECTED/FAILED/APPROVAL_REJECTED", requestStatus, execStatus, execErrorCode)
+	}
+	var grantCount int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM access_grants WHERE request_id=$1`, requestID).Scan(&grantCount); err != nil {
+		t.Fatal(err)
+	}
+	if grantCount != 0 {
+		t.Fatalf("reject issued %d grants, want 0", grantCount)
+	}
+}
+
+func TestDecideApprovalConcurrentRace(t *testing.T) {
+	pool := newTestDatabasePool(t)
+	h, _ := newTestDatabaseHandler(t, pool)
+	actor := decisionActor(t, pool, "acme", "warden:approve")
+
+	// approve vs reject on the same request, repeated: exactly one side may
+	// win; the loser must get a 409 and the database must stay consistent.
+	for round := 0; round < 10; round++ {
+		requestID, executionID, _ := seedDecisionFixture(t, pool, "acme", "trace-race-"+string(rune('a'+round)))
+		ctx := domain.WithTenantID(context.Background(), "acme")
+		start := make(chan struct{})
+		results := make([]error, 2)
+		var wg sync.WaitGroup
+		for i, approve := range []bool{true, false} {
+			wg.Add(1)
+			go func(index int, approve bool) {
+				defer wg.Done()
+				<-start
+				_, results[index] = h.decideApproval(ctx, requestID, approve, actor)
+			}(i, approve)
+		}
+		close(start)
+		wg.Wait()
+
+		winners := 0
+		for _, err := range results {
+			if err == nil {
+				winners++
+				continue
+			}
+			var decisionErr *approvalDecisionError
+			if !errors.As(err, &decisionErr) || decisionErr.Status != 409 {
+				t.Fatalf("round %d loser err=%v, want 409", round, err)
+			}
+		}
+		if winners != 1 {
+			t.Fatalf("round %d winners=%d, want exactly 1", round, winners)
+		}
+		var requestStatus, execStatus string
+		if err := pool.QueryRow(ctx, `SELECT status FROM access_requests WHERE id=$1`, requestID).Scan(&requestStatus); err != nil {
+			t.Fatal(err)
+		}
+		if err := pool.QueryRow(ctx, `SELECT status FROM executions WHERE id=$1`, executionID).Scan(&execStatus); err != nil {
+			t.Fatal(err)
+		}
+		switch requestStatus {
+		case string(domain.RequestApproved):
+			if execStatus != string(domain.ExecQueued) {
+				t.Fatalf("round %d approved but execution=%s", round, execStatus)
+			}
+		case string(domain.RequestRejected):
+			if execStatus != string(domain.ExecFailed) {
+				t.Fatalf("round %d rejected but execution=%s", round, execStatus)
+			}
+		default:
+			t.Fatalf("round %d request left in status %s", round, requestStatus)
+		}
+	}
+}
+
+func TestDecideApprovalGuards(t *testing.T) {
+	pool := newTestDatabasePool(t)
+	h, _ := newTestDatabaseHandler(t, pool)
+	requestID, _, _ := seedDecisionFixture(t, pool, "acme", "trace-guards")
+	ctx := domain.WithTenantID(context.Background(), "acme")
+
+	// No approve scope -> 403.
+	_, err := h.decideApproval(ctx, requestID, true, decisionActor(t, pool, "acme", "warden:executions:read:self"))
+	var decisionErr *approvalDecisionError
+	if !errors.As(err, &decisionErr) || decisionErr.Status != 403 {
+		t.Fatalf("scope guard err=%v, want 403", err)
+	}
+
+	// A request in another tenant is invisible even to a platform admin
+	// principal when the context tenant does not match.
+	otherRequest, _, _ := seedDecisionFixture(t, pool, "chunf", "trace-guards-chunf")
+	_, err = h.decideApproval(ctx, otherRequest, true, decisionActor(t, pool, "acme", "warden:approve"))
+	if !errors.As(err, &decisionErr) || decisionErr.Status != 404 {
+		t.Fatalf("tenant guard err=%v, want 404", err)
+	}
+}
