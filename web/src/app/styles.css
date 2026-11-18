@@ -1,4 +1,6 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
+/* 自托管字体（web/public/fonts，OFL 许可见该目录 OFL.txt）：
+   私有化/内网部署不依赖 Google Fonts，也不向第三方泄露访问行为。 */
+@import './fonts.css';
 
 @tailwind base;
 @tailwind components;
