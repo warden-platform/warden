@@ -203,7 +203,7 @@ func TestResourceStatsCatalogCountsByProjectDomainAndStatus(t *testing.T) {
 		t.Fatalf("all-project Kubernetes active = %d, want unique shared deployment", got)
 	}
 
-	resources, err := postgres.NewResourceRepo(pool).List(ctx, "", "network", "", "", "", 0)
+	resources, err := postgres.NewResourceRepo(pool).List(ctx, "", "network", "", "", "", 0, 0)
 	if err != nil {
 		t.Fatalf("list network resources: %v", err)
 	}

@@ -832,7 +832,7 @@ func scanResourceWithProjects(rows pgx.Rows) (domain.Resource, error) {
 	return res, err
 }
 
-func (r *ResourceRepo) List(ctx context.Context, resourceType, domainFilter, excludeType, namespace, integrationID string, limit int) ([]domain.Resource, error) {
+func (r *ResourceRepo) List(ctx context.Context, resourceType, domainFilter, excludeType, namespace, integrationID string, limit, offset int) ([]domain.Resource, error) {
 	tenantID := repositoryTenant(ctx)
 	query := resourceSelectWithProjects + `
 		WHERE res.tenant_id=$7 AND (res.management_type='control_plane' OR (c.tenant_id=$7 AND c.archived_at IS NULL)) AND ($1 = '' OR res.resource_type = $1)
@@ -852,8 +852,8 @@ func (r *ResourceRepo) List(ctx context.Context, resourceType, domainFilter, exc
 		AND (res.resource_type !~ '^(jenkins_|grafana_|database_|huawei_|aliyun_sls_)' OR res.integration_id IS NOT NULL)
 		ORDER BY CASE WHEN res.resource_type = 'jenkins_build' AND res.metadata->>'number' ~ '^[0-9]+$'
 			THEN (res.metadata->>'number')::bigint END DESC NULLS LAST,
-			res.created_at DESC LIMIT NULLIF($6, 0)`
-	rows, err := r.pool.Query(ctx, query, resourceType, domainFilter, excludeType, namespace, integrationID, limit, tenantID)
+			res.created_at DESC LIMIT NULLIF($6, 0) OFFSET $8`
+	rows, err := r.pool.Query(ctx, query, resourceType, domainFilter, excludeType, namespace, integrationID, limit, tenantID, offset)
 	if err != nil {
 		return nil, err
 	}

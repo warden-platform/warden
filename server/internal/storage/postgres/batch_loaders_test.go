@@ -28,12 +28,24 @@ func TestBatchLoadersRespectTenantBoundary(t *testing.T) {
 	if _, err := pool.Exec(ctx, `INSERT INTO tenants(slug,name) VALUES ($1,$1) ON CONFLICT (slug) DO NOTHING`, tenant); err != nil {
 		t.Fatal(err)
 	}
+	var platformPrincipalIDs, platformConnectorIDs, platformResourceIDs []string
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), `DELETE FROM principal_api_keys WHERE principal_id IN (SELECT id FROM principals WHERE tenant_id=$1)`, tenant)
-		_, _ = pool.Exec(context.Background(), `DELETE FROM resources WHERE tenant_id=$1`, tenant)
-		_, _ = pool.Exec(context.Background(), `DELETE FROM connectors WHERE tenant_id=$1`, tenant)
-		_, _ = pool.Exec(context.Background(), `DELETE FROM principals WHERE tenant_id=$1`, tenant)
-		_, _ = pool.Exec(context.Background(), `DELETE FROM tenants WHERE slug=$1`, tenant)
+		bg := context.Background()
+		_, _ = pool.Exec(bg, `DELETE FROM principal_api_keys WHERE principal_id IN (SELECT id FROM principals WHERE tenant_id=$1)`, tenant)
+		_, _ = pool.Exec(bg, `DELETE FROM resources WHERE tenant_id=$1`, tenant)
+		_, _ = pool.Exec(bg, `DELETE FROM connectors WHERE tenant_id=$1`, tenant)
+		_, _ = pool.Exec(bg, `DELETE FROM principals WHERE tenant_id=$1`, tenant)
+		_, _ = pool.Exec(bg, `DELETE FROM tenants WHERE slug=$1`, tenant)
+		for _, id := range platformResourceIDs {
+			_, _ = pool.Exec(bg, `DELETE FROM resources WHERE id=$1`, id)
+		}
+		for _, id := range platformConnectorIDs {
+			_, _ = pool.Exec(bg, `DELETE FROM connectors WHERE id=$1`, id)
+		}
+		for _, id := range platformPrincipalIDs {
+			_, _ = pool.Exec(bg, `DELETE FROM principal_api_keys WHERE principal_id=$1`, id)
+			_, _ = pool.Exec(bg, `DELETE FROM principals WHERE id=$1`, id)
+		}
 	})
 
 	insertPrincipal := func(tenantID, name string) string {
@@ -46,6 +58,7 @@ func TestBatchLoadersRespectTenantBoundary(t *testing.T) {
 	tenantPrincipalA := insertPrincipal(tenant, "batch-a")
 	tenantPrincipalB := insertPrincipal(tenant, "batch-b")
 	platformPrincipal := insertPrincipal("platform", "batch-platform")
+	platformPrincipalIDs = append(platformPrincipalIDs, platformPrincipal)
 
 	tenantCtx := domain.WithTenantID(ctx, tenant)
 	principals := NewPrincipalRepo(pool)
@@ -70,6 +83,7 @@ func TestBatchLoadersRespectTenantBoundary(t *testing.T) {
 	}
 	tenantConnector := insertConnector(tenant, "batch-conn")
 	platformConnector := insertConnector("platform", "batch-conn-platform")
+	platformConnectorIDs = append(platformConnectorIDs, platformConnector)
 	insertResource := func(tenantID, connectorID, name string) string {
 		var id string
 		if err := pool.QueryRow(ctx, `INSERT INTO resources(resource_type,external_id,name,connector_id,status,tenant_id)
@@ -81,6 +95,7 @@ func TestBatchLoadersRespectTenantBoundary(t *testing.T) {
 	tenantResourceA := insertResource(tenant, tenantConnector, "batch-res-a")
 	tenantResourceB := insertResource(tenant, tenantConnector, "batch-res-b")
 	platformResource := insertResource("platform", platformConnector, "batch-res-platform")
+	platformResourceIDs = append(platformResourceIDs, platformResource)
 
 	resources := NewResourceRepo(pool)
 	byIDs, err := resources.ByIDs(tenantCtx, []string{tenantResourceA, tenantResourceB, platformResource})

@@ -1591,30 +1591,11 @@ func (h *Handler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	statusFilter := r.URL.Query().Get("status")
-	// Visibility ladder: super admin sees every tenant, tenant admin sees the
-	// whole organization (members + agents), members see only their own runs.
-	// The repository still applies the tenant boundary for non-platform scopes.
+	limit, offset := listLimitOffset(r, 50)
 	identity := identityFromContext(r.Context())
-	var execs []domain.Execution
-	var err error
-	// Without an organization switch the super admin sees every tenant; while
-	// observing one organization (X-Warden-Tenant) the view scopes to it.
-	if identity.IsPlatformAdmin && domain.TenantIDFromContext(r.Context()) == identity.TenantID {
-		execs, err = h.executions.ListAllTenants(r.Context(), statusFilter, 50, 0)
-	} else {
-		principalID := ""
-		if !identity.IsTenantAdministrator() {
-			principalID = identity.Principal.ID
-		}
-		execs, err = h.executions.List(r.Context(), principalID, statusFilter, 50, 0)
-	}
+	execs, err := h.listExecutionsPage(r.Context(), identity, statusFilter, r.URL.Query().Get("projectId"), limit, offset)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询执行列表失败")
-		return
-	}
-	execs, err = h.filterExecutionsForProject(r.Context(), identity, execs, r.URL.Query().Get("projectId"))
-	if err != nil {
-		jsonError(w, http.StatusInternalServerError, "PROJECT_SCOPE_ERROR", "按项目过滤执行列表失败")
 		return
 	}
 	h.enrichExecutions(r.Context(), execs)
@@ -1623,6 +1604,64 @@ func (h *Handler) ListExecutions(w http.ResponseWriter, r *http.Request) {
 		result[i] = executionToResp(&e)
 	}
 	jsonResp(w, http.StatusOK, result)
+}
+
+// listExecutionsPage applies the visibility ladder (super admin cross-tenant,
+// tenant admin whole-org, member own runs) plus project filtering with honest
+// pagination: offset/limit count rows of the FILTERED view. Without an active
+// project filter the repository's own LIMIT/OFFSET is used; otherwise source
+// pages are scanned in order and filtered batch by batch, instead of the old
+// "fetch 50 then filter" which silently shrank pages and could not continue.
+func (h *Handler) listExecutionsPage(ctx context.Context, identity *AuthenticatedIdentity, statusFilter, projectID string, limit, offset int) ([]domain.Execution, error) {
+	listAll := identity.IsPlatformAdmin && domain.TenantIDFromContext(ctx) == identity.TenantID
+	fetch := func(l, o int) ([]domain.Execution, error) {
+		if listAll {
+			return h.executions.ListAllTenants(ctx, statusFilter, l, o)
+		}
+		principalID := ""
+		if !identity.IsTenantAdministrator() {
+			principalID = identity.Principal.ID
+		}
+		return h.executions.List(ctx, principalID, statusFilter, l, o)
+	}
+	_, scoped, err := principalProjectScope(identity)
+	if err != nil {
+		return nil, err
+	}
+	if strings.TrimSpace(projectID) == "" && !scoped {
+		return fetch(limit, offset)
+	}
+	const chunk = 200
+	out := make([]domain.Execution, 0, limit)
+	skipped, sourceOffset := 0, 0
+	for len(out) < limit {
+		batch, err := fetch(chunk, sourceOffset)
+		if err != nil {
+			return nil, err
+		}
+		if len(batch) == 0 {
+			break
+		}
+		filtered, err := h.filterExecutionsForProject(ctx, identity, batch, projectID)
+		if err != nil {
+			return nil, err
+		}
+		for _, e := range filtered {
+			if skipped < offset {
+				skipped++
+				continue
+			}
+			out = append(out, e)
+			if len(out) == limit {
+				break
+			}
+		}
+		sourceOffset += len(batch)
+		if len(batch) < chunk {
+			break
+		}
+	}
+	return out, nil
 }
 
 // enrichExecutions batch-loads principal names and API key names for a list of
@@ -1761,6 +1800,12 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 			listLimit = parsed
 		}
 	}
+	listOffset := 0
+	if rawOffset := r.URL.Query().Get("offset"); rawOffset != "" {
+		if parsed, parseErr := strconv.Atoi(rawOffset); parseErr == nil && parsed >= 0 {
+			listOffset = parsed
+		}
+	}
 	if domainFilter != "" && domainFilter != "kubernetes" && domainFilter != "linux" && domainFilter != "jenkins" &&
 		domainFilter != "grafana" && domainFilter != "database" && domainFilter != "huawei" && domainFilter != "network" {
 		jsonError(w, http.StatusBadRequest, "INVALID_RESOURCE_DOMAIN", "资源域参数无效")
@@ -1783,7 +1828,7 @@ func (h *Handler) ListResources(w http.ResponseWriter, r *http.Request) {
 		if topology && !restrictedTopology {
 			resources, err = h.resources.ListTopology(r.Context())
 		} else {
-			resources, err = h.resources.List(r.Context(), typeFilter, domainFilter, excludeType, namespaceFilter, integrationFilter, listLimit)
+			resources, err = h.resources.List(r.Context(), typeFilter, domainFilter, excludeType, namespaceFilter, integrationFilter, listLimit, listOffset)
 		}
 	}
 	if err != nil {
@@ -2221,7 +2266,7 @@ func (h *Handler) ResourceStats(w http.ResponseWriter, r *http.Request) {
 		jsonResp(w, http.StatusOK, stats)
 		return
 	}
-	resources, err := h.resources.List(r.Context(), "", "", "", "", "", 0)
+	resources, err := h.resources.List(r.Context(), "", "", "", "", "", 0, 0)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询资源统计失败")
 		return
@@ -3209,7 +3254,8 @@ func (h *Handler) ListAccessRequests(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	statusFilter := r.URL.Query().Get("status")
-	requests, err := h.requests.List(r.Context(), statusFilter, 50, 0)
+	limit, offset := listLimitOffset(r, 50)
+	requests, err := h.requests.List(r.Context(), statusFilter, limit, offset)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询审批请求失败")
 		return
@@ -3233,7 +3279,8 @@ func (h *Handler) ListMyAccessRequests(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusUnauthorized, "UNAUTHORIZED", "未认证")
 		return
 	}
-	requests, err := h.requests.ListByPrincipal(r.Context(), identity.Principal.ID, r.URL.Query().Get("status"), 50, 0)
+	limit, offset := listLimitOffset(r, 50)
+	requests, err := h.requests.ListByPrincipal(r.Context(), identity.Principal.ID, r.URL.Query().Get("status"), limit, offset)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询我的申请失败")
 		return

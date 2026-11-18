@@ -247,7 +247,7 @@ func (h *Handler) queryAIResources(ctx context.Context, input *aiResourceQuery) 
 	if input.Domain != "" && !validAIResourceDomain(input.Domain) {
 		return "", errors.New("资源域参数无效")
 	}
-	resources, err := h.resources.List(ctx, input.Type, input.Domain, "", "", "", 200)
+	resources, err := h.resources.List(ctx, input.Type, input.Domain, "", "", "", 200, 0)
 	if err != nil {
 		return "", errors.New("查询资源失败")
 	}
