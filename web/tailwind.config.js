@@ -43,11 +43,6 @@ export default {
         card: '0 1px 2px 0 rgb(2 8 20 / 0.06)',
         lift: '0 8px 28px rgb(2 8 20 / 0.16)',
         'lift-dark': '0 12px 36px rgb(0 0 0 / 0.5)',
-        // Legacy aliases kept so existing markup resolves to flat shadows.
-        glass: '0 1px 2px 0 rgb(2 8 20 / 0.06)',
-        'glass-strong': '0 8px 28px rgb(2 8 20 / 0.16)',
-        'glass-dark': '0 1px 2px 0 rgb(0 0 0 / 0.4)',
-        'glass-dark-strong': '0 12px 36px rgb(0 0 0 / 0.5)',
       },
     },
   },

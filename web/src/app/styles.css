@@ -274,7 +274,7 @@
     @apply text-brand-dark;
   }
 
-  /* ---------- Surfaces (frosted glass) ---------- */
+  /* ---------- Surfaces (flat, 1px borders) ---------- */
   .card {
     @apply rounded-lg border border-border bg-surface p-5 shadow-card;
   }
@@ -761,52 +761,6 @@
   }
   :root.dark .resource-icon.linux {
     @apply bg-emerald-950 text-emerald-400;
-  }
-  .connector-stats {
-    @apply my-4 grid grid-cols-3 overflow-hidden rounded-lg border border-border bg-surface-muted;
-  }
-  :root.dark .connector-stats {
-    @apply border-border-dark bg-surface-dark-muted;
-  }
-  .connector-stats div {
-    @apply border-r border-border p-3;
-  }
-  :root.dark .connector-stats div {
-    @apply border-border-dark;
-  }
-  .connector-stats div:last-child {
-    @apply border-r-0;
-  }
-  .connector-stats strong,
-  .connector-stats span {
-    @apply block;
-  }
-  .connector-stats strong {
-    @apply text-base font-semibold text-content;
-  }
-  :root.dark .connector-stats strong {
-    @apply text-content-dark;
-  }
-  .connector-stats span {
-    @apply mt-1 text-[10px] text-content-subtle;
-  }
-  :root.dark .connector-stats span {
-    @apply text-content-dark-subtle;
-  }
-  .connector-drift {
-    @apply flex items-center justify-between text-xs text-content-subtle;
-  }
-  :root.dark .connector-drift {
-    @apply text-content-dark-subtle;
-  }
-  .connector-drift strong {
-    @apply flex items-center gap-1.5;
-  }
-  .connector-drift .good {
-    @apply text-green-600;
-  }
-  .connector-drift .warn {
-    @apply text-amber-600;
   }
   .connector-footer {
     @apply mt-3 flex items-center justify-between border-t border-border pt-3;
@@ -2151,35 +2105,6 @@
     @apply text-content-dark;
   }
 
-  /* ---------- Policy banner ---------- */
-  .policy-banner {
-    @apply flex min-h-[72px] items-center gap-4 rounded-lg border border-green-200 bg-green-50 p-4;
-  }
-  :root.dark .policy-banner {
-    @apply border-green-900 bg-green-950;
-  }
-  .policy-banner-icon {
-    @apply grid h-10 w-10 place-items-center rounded-lg border border-green-200 bg-surface text-green-600;
-  }
-  :root.dark .policy-banner-icon {
-    @apply border-green-900 bg-surface-dark text-green-400;
-  }
-  .policy-banner > div:nth-child(2) {
-    @apply flex-1;
-  }
-  .policy-banner strong {
-    @apply block text-xs font-semibold text-green-800;
-  }
-  :root.dark .policy-banner strong {
-    @apply text-green-300;
-  }
-  .policy-banner span {
-    @apply mt-1 block text-[10px] text-green-700;
-  }
-  :root.dark .policy-banner span {
-    @apply text-green-400;
-  }
-
   /* ---------- Approvals ---------- */
   .approval-list {
     @apply grid max-w-[1000px] gap-4;
@@ -2198,36 +2123,6 @@
   }
   :root.dark .approval-top p {
     @apply text-content-dark-subtle;
-  }
-  .approval-expire {
-    @apply flex items-center gap-1.5 whitespace-nowrap text-xs text-amber-600;
-  }
-  .approval-context {
-    @apply my-4 grid grid-cols-[0.8fr_1.4fr_1fr] overflow-hidden rounded-lg border border-border bg-surface-muted;
-  }
-  :root.dark .approval-context {
-    @apply border-border-dark bg-surface-dark-muted;
-  }
-  .approval-context > div {
-    @apply border-r border-border p-3;
-  }
-  :root.dark .approval-context > div {
-    @apply border-border-dark;
-  }
-  .approval-context > div:last-child {
-    @apply border-r-0;
-  }
-  .approval-context span {
-    @apply block text-[10px] text-content-subtle;
-  }
-  :root.dark .approval-context span {
-    @apply text-content-dark-subtle;
-  }
-  .approval-context strong {
-    @apply mt-1 block text-xs text-content;
-  }
-  :root.dark .approval-context strong {
-    @apply text-content-dark;
   }
   .decision-note,
   .credential-note {
@@ -2315,39 +2210,6 @@
   .overview-grid {
     @apply grid grid-cols-[minmax(0,1.7fr)_minmax(280px,0.8fr)] gap-4;
   }
-  .activity-panel {
-    @apply min-h-[280px];
-  }
-  .connector-health-list {
-    @apply px-4 pb-3 pt-1.5;
-  }
-  .connector-health-row {
-    @apply flex cursor-pointer items-center gap-3 border-b border-border py-2 text-xs;
-  }
-  :root.dark .connector-health-row {
-    @apply border-border-dark;
-  }
-  .connector-health-row:last-child {
-    @apply border-b-0;
-  }
-  .connector-health-row:hover {
-    @apply bg-surface-muted;
-  }
-  :root.dark .connector-health-row:hover {
-    @apply bg-surface-dark-muted;
-  }
-  .connector-health-row strong {
-    @apply flex-1 text-xs text-content;
-  }
-  :root.dark .connector-health-row strong {
-    @apply text-content-dark;
-  }
-  .connector-health-row small {
-    @apply text-[10px] text-content-subtle;
-  }
-  :root.dark .connector-health-row small {
-    @apply text-content-dark-subtle;
-  }
   .health-dot {
     @apply h-2 w-2 flex-none rounded-full;
   }
@@ -2357,27 +2219,6 @@
   }
   .health-dot.down {
     @apply bg-amber-500;
-  }
-  .approval-mini {
-    @apply flex items-center justify-between gap-3 border-b border-border px-4 py-2.5;
-  }
-  :root.dark .approval-mini {
-    @apply border-border-dark;
-  }
-  .approval-mini:last-child {
-    @apply border-b-0;
-  }
-  .approval-mini > div {
-    @apply flex items-center gap-2;
-  }
-  .approval-mini strong {
-    @apply text-xs;
-  }
-  .approval-mini span {
-    @apply text-[10px] text-content-subtle;
-  }
-  :root.dark .approval-mini span {
-    @apply text-content-dark-subtle;
   }
 
   /* ---------- Detail page ---------- */
@@ -2390,7 +2231,6 @@
   :root.dark .detail-page-header {
     @apply border-border-dark bg-surface-dark shadow-card;
   }
-  .detail-page-header .btn-quiet,
   .detail-page-header .quiet-button {
     @apply mb-2;
   }
@@ -2802,12 +2642,6 @@
   .coolapp-state p,
   .coolapp-state small {
     @apply text-xs leading-relaxed text-slate-500;
-  }
-  .coolapp-user-id {
-    @apply flex max-w-full items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-blue-700;
-  }
-  .coolapp-user-id code {
-    @apply truncate text-xs;
   }
   .coolapp-alert {
     @apply mx-auto mb-3 max-w-2xl rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800;
@@ -3441,7 +3275,6 @@
   :root.dark .job-scope-title {
     @apply text-content-dark-subtle;
   }
-  .job-scope-head .btn-quiet,
   .job-scope-head .quiet-button {
     @apply px-2 py-0.5 text-[10px];
   }
@@ -3659,7 +3492,6 @@
   .credential-guide-command code {
     @apply text-[10px] leading-relaxed text-slate-100;
   }
-  .credential-guide-command .btn-quiet,
   .credential-guide-command .quiet-button {
     @apply absolute right-1.5 top-1.5 px-2 py-0.5 text-[10px];
   }
@@ -3783,7 +3615,6 @@
   .command-block code {
     @apply block break-words text-[10px] leading-relaxed;
   }
-  .command-block .btn-icon,
   .command-block .icon-button {
     @apply absolute right-2 top-2 border-slate-700 bg-slate-800 text-slate-200;
   }
@@ -4287,30 +4118,6 @@
     @apply mt-1 text-[10px] leading-relaxed;
   }
 
-  .external-identity-summary {
-    @apply grid-cols-4;
-  }
-  .external-identity-actions {
-    @apply flex items-center justify-between gap-4;
-  }
-  .external-identity-form-panel {
-    @apply border-blue-200;
-  }
-  :root.dark .external-identity-form-panel {
-    @apply border-blue-900;
-  }
-  .external-identity-form {
-    @apply grid-cols-2 p-5;
-  }
-  .external-identity-form-hint {
-    @apply col-span-2 rounded-lg bg-surface-muted px-3 py-2 text-xs text-content-subtle;
-  }
-  :root.dark .external-identity-form-hint {
-    @apply bg-surface-dark-muted text-content-dark-subtle;
-  }
-  .external-identity-form .form-actions {
-    @apply col-span-2;
-  }
   .text-muted {
     @apply text-content-subtle;
   }
@@ -5439,17 +5246,6 @@
   .agent-management-grid {
     grid-template-columns: 1fr;
   }
-  .external-identity-actions {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-  .external-identity-form {
-    grid-template-columns: 1fr;
-  }
-  .external-identity-form-hint,
-  .external-identity-form .form-actions {
-    grid-column: auto;
-  }
   .audit-filter-panel {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
@@ -5488,7 +5284,7 @@
     border-right: 0;
   }
   .project-user-summary > div:nth-child(-n + 2) {
-    border-bottom: 1px solid var(--border, #e5e7eb);
+    border-bottom: 1px solid #d8dee9;
   }
 }
 
@@ -5590,7 +5386,7 @@
   }
   .summary-strip > div {
     border-right: 0;
-    border-bottom: 1px solid var(--border, #e5e7eb);
+    border-bottom: 1px solid #d8dee9;
   }
   .summary-strip > div:last-child {
     border-bottom: 0;
@@ -5669,7 +5465,7 @@
   }
   .approval-context > div {
     border-right: 0;
-    border-bottom: 1px solid var(--border, #e5e7eb);
+    border-bottom: 1px solid #d8dee9;
   }
   .approval-context > div:last-child {
     border-bottom: 0;
@@ -5767,7 +5563,7 @@
     grid-template-columns: 1fr 1fr;
   }
   .agent-metadata > div {
-    border-bottom: 1px solid var(--border, #e5e7eb);
+    border-bottom: 1px solid #d8dee9;
   }
   .credential-row {
     grid-template-columns: 36px minmax(0, 1fr);
@@ -5879,55 +5675,6 @@
   }
 }
 
-/* ---------- Glassmorphism fallback (no backdrop-filter support) ---------- */
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .sidebar,
-  .topbar,
-  .card,
-  .panel,
-  .kpi,
-  .connector-card,
-  .connector-channel-row,
-  .cloud-account-card,
-  .cloud-resource-tree,
-  .empty-state,
-  .login-card,
-  .drawer,
-  .secret-dialog,
-  .tenant-detail-dialog,
-  .detail-page-header,
-  .detail-page-body,
-  .detail-tabs,
-  .summary-strip,
-  .project-user-summary,
-  .secondary-button,
-  .icon-button {
-    background-color: #ffffff;
-  }
-  :root.dark .sidebar,
-  :root.dark .topbar,
-  :root.dark .card,
-  :root.dark .panel,
-  :root.dark .kpi,
-  :root.dark .connector-card,
-  :root.dark .connector-channel-row,
-  :root.dark .cloud-account-card,
-  :root.dark .cloud-resource-tree,
-  :root.dark .empty-state,
-  :root.dark .login-card,
-  :root.dark .drawer,
-  :root.dark .secret-dialog,
-  :root.dark .tenant-detail-dialog,
-  :root.dark .detail-page-header,
-  :root.dark .detail-page-body,
-  :root.dark .detail-tabs,
-  :root.dark .summary-strip,
-  :root.dark .project-user-summary,
-  :root.dark .secondary-button,
-  :root.dark .icon-button {
-    background-color: #101722;
-  }
-}
 
 /* ---------- Unaffiliated waiting screen ---------- */
 .unaffiliated-screen {
@@ -5956,7 +5703,7 @@
   margin: 0;
 }
 .unaffiliated-lede {
-  color: var(--text-muted, #5b6675);
+  color: #5b6b82;
   margin: 0;
   line-height: 1.6;
 }
@@ -5966,7 +5713,7 @@
   gap: 4px;
   padding: 12px 14px;
   border-radius: 10px;
-  border: 1px solid var(--border, #d5dae2);
+  border: 1px solid #d8dee9;
 }
 .unaffiliated-who strong {
   font-size: 15px;
@@ -6004,7 +5751,7 @@
 .invitation-form select {
   padding: 8px 10px;
   border-radius: 8px;
-  border: 1px solid var(--border, #d5dae2);
+  border: 1px solid #d8dee9;
   background: transparent;
   color: inherit;
 }
@@ -6020,7 +5767,7 @@
   justify-content: space-between;
   gap: 12px;
   padding: 10px 12px;
-  border: 1px solid var(--border, #d5dae2);
+  border: 1px solid #d8dee9;
   border-radius: 10px;
 }
 .unaffiliated-invite-row > div {
