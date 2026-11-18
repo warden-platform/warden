@@ -229,6 +229,15 @@ func (f *fakePrincipalStore) GetByName(_ context.Context, name string) (*domain.
 func (f *fakePrincipalStore) List(_ context.Context, _ string) ([]domain.Principal, error) {
 	return nil, nil
 }
+func (f *fakePrincipalStore) SummariesByIDs(_ context.Context, ids []string) (map[string]domain.Principal, error) {
+	out := make(map[string]domain.Principal, len(ids))
+	for _, id := range ids {
+		if p, ok := f.byID[id]; ok && p != nil {
+			out[id] = *p
+		}
+	}
+	return out, nil
+}
 func (f *fakePrincipalStore) Create(_ context.Context, p *domain.Principal) error {
 	f.createCalls++
 	return nil

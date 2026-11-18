@@ -192,16 +192,37 @@ func (h *Handler) filterExecutionsForProject(ctx context.Context, identity *Auth
 	if projectID == "" && !scoped {
 		return executions, nil
 	}
+	// Batch-load the referenced resources with their effective primary project
+	// and expanded scope, instead of up to three queries per execution.
+	seen := make(map[string]bool, len(executions))
+	resourceIDs := make([]string, 0, len(executions))
+	for _, execution := range executions {
+		if execution.ResourceID != "" && !seen[execution.ResourceID] {
+			seen[execution.ResourceID] = true
+			resourceIDs = append(resourceIDs, execution.ResourceID)
+		}
+	}
+	resourceMap, err := h.resources.ByIDs(ctx, resourceIDs)
+	if err != nil {
+		return nil, err
+	}
+	resources := make([]domain.Resource, 0, len(resourceMap))
+	for _, resource := range resourceMap {
+		resources = append(resources, resource)
+	}
+	if err := h.resources.EnrichProjectScopes(ctx, resources); err != nil {
+		return nil, err
+	}
+	for _, resource := range resources {
+		resourceMap[resource.ID] = resource
+	}
 	filtered := make([]domain.Execution, 0, len(executions))
 	for _, execution := range executions {
-		resource, err := h.resources.GetByID(ctx, execution.ResourceID)
-		if err != nil {
-			return nil, err
-		}
-		if resource == nil {
+		resource, ok := resourceMap[execution.ResourceID]
+		if !ok {
 			continue
 		}
-		allowed, err := h.identityCanAccessResource(ctx, identity, resource, projectID)
+		allowed, err := h.identityCanAccessResource(ctx, identity, &resource, projectID)
 		if err != nil {
 			return nil, err
 		}

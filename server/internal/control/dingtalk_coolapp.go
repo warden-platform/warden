@@ -425,22 +425,46 @@ func (h *Handler) DingTalkListAccessRequests(w http.ResponseWriter, r *http.Requ
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询审批请求失败")
 		return
 	}
+	// Batch-load display context: one query per entity kind instead of four
+	// queries per request.
+	uniqueIDs := func(values []string) []string {
+		seen := make(map[string]bool, len(values))
+		out := make([]string, 0, len(values))
+		for _, id := range values {
+			if id != "" && !seen[id] {
+				seen[id] = true
+				out = append(out, id)
+			}
+		}
+		return out
+	}
+	principalIDs := make([]string, 0, len(requests))
+	resourceIDs := make([]string, 0, len(requests))
+	actionIDs := make([]string, 0, len(requests))
+	for _, request := range requests {
+		principalIDs = append(principalIDs, request.PrincipalID)
+		resourceIDs = append(resourceIDs, request.ResourceID)
+		actionIDs = append(actionIDs, request.ActionID)
+	}
+	pMap, _ := h.principals.SummariesByIDs(ctx, uniqueIDs(principalIDs))
+	// Full rows (not summaries) so the effective environment inheritance is
+	// preserved exactly as the previous per-request GetByID provided.
+	rMap, _ := h.resources.ByIDs(ctx, uniqueIDs(resourceIDs))
+	aMap, _ := h.actions.SummariesByIDs(ctx, uniqueIDs(actionIDs))
 	result := make([]map[string]any, 0, len(requests))
 	for _, request := range requests {
 		item := map[string]any{"id": request.ID, "status": request.Status, "reason": request.Reason, "parameters": request.Parameters, "expires_at": request.ExpiresAt, "created_at": request.CreatedAt}
-		if principal, _ := h.principals.GetByID(ctx, request.PrincipalID); principal != nil {
+		if principal, ok := pMap[request.PrincipalID]; ok {
 			item["applicant"] = principal.Name
 		}
-		if resource, _ := h.resources.GetByID(ctx, request.ResourceID); resource != nil {
+		if resource, ok := rMap[request.ResourceID]; ok {
 			item["resource_name"] = resource.Name
 			item["resource_type"] = resource.ResourceType
 			item["environment"] = resource.Environment
 		}
-		if actionName := actionNameFromID(ctx, h.pool, request.ActionID); actionName != "" {
-			item["action_name"] = actionName
-			if action, _ := h.actions.GetByName(ctx, actionName); action != nil {
-				item["risk_level"] = action.RiskLevel
-			}
+		if action, ok := aMap[request.ActionID]; ok {
+			item["action_name"] = action.Name
+			item["risk_level"] = action.RiskLevel
 		}
 		result = append(result, item)
 	}

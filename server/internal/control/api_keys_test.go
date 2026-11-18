@@ -35,6 +35,17 @@ func (f *fakeAPIKeyStore) ListByPrincipal(context.Context, string) ([]domain.Pri
 func (f *fakeAPIKeyStore) GetByID(context.Context, string) (*domain.PrincipalAPIKey, error) {
 	return f.key, nil
 }
+func (f *fakeAPIKeyStore) NamesByIDs(_ context.Context, ids []string) (map[string]string, error) {
+	out := make(map[string]string, len(ids))
+	if f.key != nil {
+		for _, id := range ids {
+			if id == f.key.ID {
+				out[id] = f.key.Name
+			}
+		}
+	}
+	return out, nil
+}
 func (f *fakeAPIKeyStore) MarkUsed(context.Context, string, string) error {
 	f.used = true
 	return nil

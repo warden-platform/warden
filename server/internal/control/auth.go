@@ -34,6 +34,7 @@ type PrincipalStore interface {
 	GetByID(ctx context.Context, id string) (*domain.Principal, error)
 	GetByName(ctx context.Context, name string) (*domain.Principal, error)
 	List(ctx context.Context, kind string) ([]domain.Principal, error)
+	SummariesByIDs(ctx context.Context, ids []string) (map[string]domain.Principal, error)
 	Create(ctx context.Context, p *domain.Principal) error
 	UpdatePassword(ctx context.Context, id, hash string) error
 	UpdateName(ctx context.Context, id, name string) error

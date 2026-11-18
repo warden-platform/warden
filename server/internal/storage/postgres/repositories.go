@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"gitee.com/warden-platform/warden/server/internal/domain"
@@ -156,6 +157,31 @@ func (r *PrincipalRepo) List(ctx context.Context, kind string) ([]domain.Princip
 	return result, rows.Err()
 }
 
+// SummariesByIDs batch-loads display fields (name/kind/status) for the given
+// principal ids within the tenant boundary, replacing per-id GetByID loops in
+// list enrichment paths.
+func (r *PrincipalRepo) SummariesByIDs(ctx context.Context, ids []string) (map[string]domain.Principal, error) {
+	out := make(map[string]domain.Principal, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	tenantID := principalTenant(ctx)
+	rows, err := r.pool.Query(ctx,
+		`SELECT id, kind, name, status, tenant_id FROM principals WHERE id = ANY($1) AND tenant_id=$2`, ids, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var p domain.Principal
+		if err := rows.Scan(&p.ID, &p.Kind, &p.Name, &p.Status, &p.TenantID); err != nil {
+			return nil, err
+		}
+		out[p.ID] = p
+	}
+	return out, rows.Err()
+}
+
 func (r *PrincipalRepo) Create(ctx context.Context, p *domain.Principal) error {
 	if p.Kind == "" {
 		p.Kind = domain.PrincipalKindAgentInstance
@@ -250,6 +276,32 @@ func (r *APIKeyRepo) GetByID(ctx context.Context, id string) (*domain.PrincipalA
 		return nil, err
 	}
 	return &key, nil
+}
+
+// NamesByIDs batch-loads key display names for list enrichment. API keys have
+// no tenant column of their own; the owning principal enforces the boundary.
+func (r *APIKeyRepo) NamesByIDs(ctx context.Context, ids []string) (map[string]string, error) {
+	out := make(map[string]string, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	tenantID := repositoryTenant(ctx)
+	rows, err := r.pool.Query(ctx,
+		`SELECT k.id, k.name FROM principal_api_keys k
+		JOIN principals p ON p.id = k.principal_id
+		WHERE k.id = ANY($1) AND p.tenant_id=$2`, ids, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, name string
+		if err := rows.Scan(&id, &name); err != nil {
+			return nil, err
+		}
+		out[id] = name
+	}
+	return out, rows.Err()
 }
 
 func (r *APIKeyRepo) MarkUsed(ctx context.Context, id, remoteIP string) error {
@@ -719,58 +771,70 @@ func (r *ResourceRepo) Stats(ctx context.Context) (map[string]any, error) {
 	}, nil
 }
 
+// resourceSelectWithProjects is the shared SELECT + join chain resolving the
+// effective project (resource override > integration route/cloud tag >
+// namespace rule > integration > connector > default) and environment for a
+// resource row. $7 is always the tenant slug. List and ByIDs append their own
+// WHERE/ORDER clauses; keep the parameter positions stable.
+const resourceSelectWithProjects = `SELECT res.id, res.resource_type, res.external_id, res.name, COALESCE(res.namespace,''), COALESCE(res.connector_id::text,''), res.management_type,
+	COALESCE(res.integration_id::text,''), COALESCE(res.owner_team,''),
+	COALESCE(reo.environment, sreo.environment, ireo.environment, NULLIF(ig.environment,''), c.environment, res.environment), res.status,
+	res.labels, res.annotations, res.metadata, res.tenant_id, res.created_at, res.updated_at,
+	COALESCE(op.id::text, rr.project_id::text, tp.id::text, rp.id::text, ip.id::text, cp.id::text, dp.id::text, ''),
+	COALESCE(op.name, rrp.name, tp.name, rp.name, ip.name, cp.name, dp.name, ''),
+	CASE WHEN op.id IS NOT NULL THEN 'RESOURCE' WHEN rr.project_id IS NOT NULL THEN 'INTEGRATION_RULE'
+		WHEN tp.id IS NOT NULL THEN 'CLOUD_TAG' WHEN rp.id IS NOT NULL THEN 'NAMESPACE'
+		WHEN ip.id IS NOT NULL THEN 'INTEGRATION' WHEN cp.id IS NOT NULL THEN 'CONNECTOR' ELSE 'DEFAULT' END,
+	CASE WHEN reo.resource_id IS NOT NULL THEN 'RESOURCE'
+		WHEN sreo.resource_id IS NOT NULL THEN 'DATABASE_SCHEMA'
+		WHEN ireo.resource_id IS NOT NULL THEN 'DATABASE_INSTANCE'
+		WHEN NULLIF(ig.environment,'') IS NOT NULL THEN 'INTEGRATION' ELSE 'CONNECTOR' END
+	FROM resources res LEFT JOIN connectors c ON c.id=res.connector_id
+	LEFT JOIN resource_project_overrides rpo ON rpo.resource_id=res.id
+	LEFT JOIN projects op ON op.id=rpo.project_id
+	LEFT JOIN LATERAL (
+		SELECT rule.project_id FROM integration_project_rules rule
+		WHERE rule.integration_id=res.integration_id AND res.resource_type IN ('jenkins_job','jenkins_build','jenkins_queue_item')
+			AND left(CASE WHEN res.resource_type='jenkins_job' THEN regexp_replace(res.external_id, '^job/', '')
+				ELSE res.namespace END, length(rule.pattern)) = rule.pattern
+		ORDER BY rule.priority ASC, length(rule.pattern) DESC, rule.id ASC LIMIT 1
+	) rr ON true
+	LEFT JOIN projects rrp ON rrp.id=rr.project_id
+	LEFT JOIN integrations ig ON ig.id=res.integration_id
+	LEFT JOIN resource_environment_overrides reo ON reo.resource_id=res.id
+	LEFT JOIN resources schema_parent ON res.resource_type='database_table'
+		AND schema_parent.integration_id=res.integration_id AND schema_parent.resource_type='database_schema'
+		AND schema_parent.name=COALESCE(res.metadata->>'schema',res.namespace) AND schema_parent.status<>'ORPHANED'
+	LEFT JOIN resource_environment_overrides sreo ON sreo.resource_id=schema_parent.id
+	LEFT JOIN resources instance_parent ON res.resource_type IN ('database_schema','database_table')
+		AND instance_parent.integration_id=res.integration_id AND instance_parent.resource_type='database_instance'
+		AND instance_parent.status<>'ORPHANED'
+	LEFT JOIN resource_environment_overrides ireo ON ireo.resource_id=instance_parent.id
+	LEFT JOIN projects tp ON tp.id=CASE
+		WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'warden-project-id', res.metadata->>'warden-project-id', '')
+			~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
+		THEN COALESCE(res.labels->>'warden-project-id', res.metadata->>'warden-project-id')::uuid ELSE NULL END
+		AND (tp.id=ig.project_id OR EXISTS (SELECT 1 FROM integration_project_bindings binding
+			WHERE binding.integration_id=ig.id AND binding.project_id=tp.id))
+	LEFT JOIN project_namespace_rules pnr ON res.integration_id IS NULL
+		AND c.connector_type='kubernetes' AND pnr.connector_id=res.connector_id AND pnr.namespace=res.namespace
+	LEFT JOIN projects rp ON rp.id=pnr.project_id
+	LEFT JOIN projects ip ON ip.id=ig.project_id
+	LEFT JOIN projects cp ON cp.id=c.project_id AND res.integration_id IS NULL
+	LEFT JOIN projects dp ON dp.is_default AND dp.tenant_id=$7`
+
+func scanResourceWithProjects(rows pgx.Rows) (domain.Resource, error) {
+	var res domain.Resource
+	err := rows.Scan(&res.ID, &res.ResourceType, &res.ExternalID, &res.Name, &res.Namespace,
+		&res.ConnectorID, &res.ManagementType, &res.IntegrationID, &res.OwnerTeam, &res.Environment, &res.Status,
+		&res.Labels, &res.Annotations, &res.Metadata, &res.TenantID, &res.CreatedAt, &res.UpdatedAt,
+		&res.ProjectID, &res.ProjectName, &res.ProjectSource, &res.EnvironmentSource)
+	return res, err
+}
+
 func (r *ResourceRepo) List(ctx context.Context, resourceType, domainFilter, excludeType, namespace, integrationID string, limit int) ([]domain.Resource, error) {
 	tenantID := repositoryTenant(ctx)
-	// Effective project: resource override > integration route/cloud tag >
-	// namespace rule (native Kubernetes only) > integration > connector (native
-	// resources only) > default.
-	// project. Derived at read time so resource sync stays project-agnostic.
-	query := `SELECT res.id, res.resource_type, res.external_id, res.name, COALESCE(res.namespace,''), COALESCE(res.connector_id::text,''), res.management_type,
-		COALESCE(res.integration_id::text,''), COALESCE(res.owner_team,''),
-		COALESCE(reo.environment, sreo.environment, ireo.environment, NULLIF(ig.environment,''), c.environment, res.environment), res.status,
-		res.labels, res.annotations, res.metadata, res.tenant_id, res.created_at, res.updated_at,
-		COALESCE(op.id::text, rr.project_id::text, tp.id::text, rp.id::text, ip.id::text, cp.id::text, dp.id::text, ''),
-		COALESCE(op.name, rrp.name, tp.name, rp.name, ip.name, cp.name, dp.name, ''),
-		CASE WHEN op.id IS NOT NULL THEN 'RESOURCE' WHEN rr.project_id IS NOT NULL THEN 'INTEGRATION_RULE'
-			WHEN tp.id IS NOT NULL THEN 'CLOUD_TAG' WHEN rp.id IS NOT NULL THEN 'NAMESPACE'
-			WHEN ip.id IS NOT NULL THEN 'INTEGRATION' WHEN cp.id IS NOT NULL THEN 'CONNECTOR' ELSE 'DEFAULT' END,
-		CASE WHEN reo.resource_id IS NOT NULL THEN 'RESOURCE'
-			WHEN sreo.resource_id IS NOT NULL THEN 'DATABASE_SCHEMA'
-			WHEN ireo.resource_id IS NOT NULL THEN 'DATABASE_INSTANCE'
-			WHEN NULLIF(ig.environment,'') IS NOT NULL THEN 'INTEGRATION' ELSE 'CONNECTOR' END
-		FROM resources res LEFT JOIN connectors c ON c.id=res.connector_id
-		LEFT JOIN resource_project_overrides rpo ON rpo.resource_id=res.id
-		LEFT JOIN projects op ON op.id=rpo.project_id
-		LEFT JOIN LATERAL (
-			SELECT rule.project_id FROM integration_project_rules rule
-			WHERE rule.integration_id=res.integration_id AND res.resource_type IN ('jenkins_job','jenkins_build','jenkins_queue_item')
-				AND left(CASE WHEN res.resource_type='jenkins_job' THEN regexp_replace(res.external_id, '^job/', '')
-					ELSE res.namespace END, length(rule.pattern)) = rule.pattern
-			ORDER BY rule.priority ASC, length(rule.pattern) DESC, rule.id ASC LIMIT 1
-		) rr ON true
-		LEFT JOIN projects rrp ON rrp.id=rr.project_id
-		LEFT JOIN integrations ig ON ig.id=res.integration_id
-		LEFT JOIN resource_environment_overrides reo ON reo.resource_id=res.id
-		LEFT JOIN resources schema_parent ON res.resource_type='database_table'
-			AND schema_parent.integration_id=res.integration_id AND schema_parent.resource_type='database_schema'
-			AND schema_parent.name=COALESCE(res.metadata->>'schema',res.namespace) AND schema_parent.status<>'ORPHANED'
-		LEFT JOIN resource_environment_overrides sreo ON sreo.resource_id=schema_parent.id
-		LEFT JOIN resources instance_parent ON res.resource_type IN ('database_schema','database_table')
-			AND instance_parent.integration_id=res.integration_id AND instance_parent.resource_type='database_instance'
-			AND instance_parent.status<>'ORPHANED'
-		LEFT JOIN resource_environment_overrides ireo ON ireo.resource_id=instance_parent.id
-		LEFT JOIN projects tp ON tp.id=CASE
-			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'warden-project-id', res.metadata->>'warden-project-id', '')
-				~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-			THEN COALESCE(res.labels->>'warden-project-id', res.metadata->>'warden-project-id')::uuid ELSE NULL END
-			AND (tp.id=ig.project_id OR EXISTS (SELECT 1 FROM integration_project_bindings binding
-				WHERE binding.integration_id=ig.id AND binding.project_id=tp.id))
-		LEFT JOIN project_namespace_rules pnr ON res.integration_id IS NULL
-			AND c.connector_type='kubernetes' AND pnr.connector_id=res.connector_id AND pnr.namespace=res.namespace
-		LEFT JOIN projects rp ON rp.id=pnr.project_id
-		LEFT JOIN projects ip ON ip.id=ig.project_id
-		LEFT JOIN projects cp ON cp.id=c.project_id AND res.integration_id IS NULL
-		LEFT JOIN projects dp ON dp.is_default AND dp.tenant_id=$7
+	query := resourceSelectWithProjects + `
 		WHERE res.tenant_id=$7 AND (res.management_type='control_plane' OR (c.tenant_id=$7 AND c.archived_at IS NULL)) AND ($1 = '' OR res.resource_type = $1)
 		AND ($2 = '' OR CASE
 			WHEN res.resource_type IN ('pod','deployment','statefulset','daemonset','replicaset','job','cronjob','service','endpoints','ingress','configmap','secret','event','node','namespace') THEN 'kubernetes'
@@ -797,16 +861,42 @@ func (r *ResourceRepo) List(ctx context.Context, resourceType, domainFilter, exc
 
 	var result []domain.Resource
 	for rows.Next() {
-		var res domain.Resource
-		if err := rows.Scan(&res.ID, &res.ResourceType, &res.ExternalID, &res.Name, &res.Namespace,
-			&res.ConnectorID, &res.ManagementType, &res.IntegrationID, &res.OwnerTeam, &res.Environment, &res.Status,
-			&res.Labels, &res.Annotations, &res.Metadata, &res.TenantID, &res.CreatedAt, &res.UpdatedAt,
-			&res.ProjectID, &res.ProjectName, &res.ProjectSource, &res.EnvironmentSource); err != nil {
+		res, err := scanResourceWithProjects(rows)
+		if err != nil {
 			return nil, err
 		}
 		result = append(result, res)
 	}
 	return result, rows.Err()
+}
+
+// ByIDs batch-loads full resource rows (including the effective primary
+// project) for the given ids within the tenant boundary. Callers that need
+// ProjectIDs should run EnrichProjectScopes on the values afterwards.
+func (r *ResourceRepo) ByIDs(ctx context.Context, ids []string) (map[string]domain.Resource, error) {
+	out := make(map[string]domain.Resource, len(ids))
+	if len(ids) == 0 {
+		return out, nil
+	}
+	tenantID := repositoryTenant(ctx)
+	// The shared select chain references the tenant as $7 (List's parameter
+	// layout); remap it to $2 so this query only carries used parameters.
+	query := strings.ReplaceAll(resourceSelectWithProjects, "$7", "$2") + `
+		WHERE res.tenant_id=$2 AND res.id = ANY($1)
+		AND (res.management_type='control_plane' OR (c.tenant_id=$2 AND c.archived_at IS NULL))`
+	rows, err := r.pool.Query(ctx, query, ids, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		res, err := scanResourceWithProjects(rows)
+		if err != nil {
+			return nil, err
+		}
+		out[res.ID] = res
+	}
+	return out, rows.Err()
 }
 
 // ListTopology returns one compact representative per parent/type/status group.
@@ -2508,13 +2598,11 @@ func (r *IntegrationRepo) ListByConnector(ctx context.Context, connectorID strin
 		return nil, err
 	}
 	rows.Close()
-	for i := range result {
-		if err := r.loadProjectScope(ctx, &result[i]); err != nil {
-			return nil, err
-		}
-		if err := r.loadCredentialProfiles(ctx, &result[i]); err != nil {
-			return nil, err
-		}
+	if err := r.loadProjectScopes(ctx, result); err != nil {
+		return nil, err
+	}
+	if err := r.loadCredentialProfilesBatch(ctx, result); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -2545,13 +2633,11 @@ func (r *IntegrationRepo) ListAll(ctx context.Context) ([]domain.Integration, er
 		return nil, err
 	}
 	rows.Close()
-	for i := range result {
-		if err := r.loadProjectScope(ctx, &result[i]); err != nil {
-			return nil, err
-		}
-		if err := r.loadCredentialProfiles(ctx, &result[i]); err != nil {
-			return nil, err
-		}
+	if err := r.loadProjectScopes(ctx, result); err != nil {
+		return nil, err
+	}
+	if err := r.loadCredentialProfilesBatch(ctx, result); err != nil {
+		return nil, err
 	}
 	return result, nil
 }
@@ -2623,6 +2709,96 @@ func (r *IntegrationRepo) loadCredentialProfiles(ctx context.Context, ig *domain
 		}
 		profile.IntegrationID = ig.ID
 		ig.CredentialProfiles = append(ig.CredentialProfiles, profile)
+	}
+	return rows.Err()
+}
+
+// loadProjectScopes is the batch form of loadProjectScope: two queries total
+// for the whole list instead of two per integration. Per-integration ordering
+// matches the single-row loader because the global ORDER BY keys are the same.
+func (r *IntegrationRepo) loadProjectScopes(ctx context.Context, integrations []domain.Integration) error {
+	if len(integrations) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(integrations))
+	index := make(map[string]int, len(integrations))
+	for i := range integrations {
+		ids = append(ids, integrations[i].ID)
+		index[integrations[i].ID] = i
+		integrations[i].ProjectIDs = []string{}
+		integrations[i].ProjectRules = []domain.IntegrationProjectRule{}
+	}
+	bindingRows, err := r.pool.Query(ctx, `SELECT integration_id::text, project_id::text FROM integration_project_bindings
+		WHERE integration_id=ANY($1) ORDER BY created_at, project_id`, ids)
+	if err != nil {
+		return err
+	}
+	for bindingRows.Next() {
+		var integrationID, projectID string
+		if err := bindingRows.Scan(&integrationID, &projectID); err != nil {
+			bindingRows.Close()
+			return err
+		}
+		if i, ok := index[integrationID]; ok {
+			integrations[i].ProjectIDs = append(integrations[i].ProjectIDs, projectID)
+		}
+	}
+	if err := bindingRows.Err(); err != nil {
+		bindingRows.Close()
+		return err
+	}
+	bindingRows.Close()
+
+	ruleRows, err := r.pool.Query(ctx, `SELECT id::text, integration_id::text, project_id::text,
+		matcher_type, pattern, priority, created_at, updated_at FROM integration_project_rules
+		WHERE integration_id=ANY($1) ORDER BY priority, pattern, id`, ids)
+	if err != nil {
+		return err
+	}
+	defer ruleRows.Close()
+	for ruleRows.Next() {
+		var rule domain.IntegrationProjectRule
+		if err := ruleRows.Scan(&rule.ID, &rule.IntegrationID, &rule.ProjectID, &rule.MatcherType,
+			&rule.Pattern, &rule.Priority, &rule.CreatedAt, &rule.UpdatedAt); err != nil {
+			return err
+		}
+		if i, ok := index[rule.IntegrationID]; ok {
+			integrations[i].ProjectRules = append(integrations[i].ProjectRules, rule)
+		}
+	}
+	return ruleRows.Err()
+}
+
+// loadCredentialProfilesBatch is the batch form of loadCredentialProfiles:
+// one query for the whole list, tolerating a not-yet-migrated auxiliary table.
+func (r *IntegrationRepo) loadCredentialProfilesBatch(ctx context.Context, integrations []domain.Integration) error {
+	if len(integrations) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(integrations))
+	index := make(map[string]int, len(integrations))
+	for i := range integrations {
+		ids = append(ids, integrations[i].ID)
+		index[integrations[i].ID] = i
+		integrations[i].CredentialProfiles = []domain.IntegrationCredentialProfile{}
+	}
+	rows, err := r.pool.Query(ctx, `SELECT id::text, integration_id::text, name, COALESCE(username,''), credential_ref, created_at, updated_at
+		FROM integration_credential_profiles WHERE integration_id=ANY($1) ORDER BY created_at, name`, ids)
+	if err != nil {
+		if isUndefinedTable(err) {
+			return nil
+		}
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var profile domain.IntegrationCredentialProfile
+		if err := rows.Scan(&profile.ID, &profile.IntegrationID, &profile.Name, &profile.Username, &profile.CredentialRef, &profile.CreatedAt, &profile.UpdatedAt); err != nil {
+			return err
+		}
+		if i, ok := index[profile.IntegrationID]; ok {
+			integrations[i].CredentialProfiles = append(integrations[i].CredentialProfiles, profile)
+		}
 	}
 	return rows.Err()
 }

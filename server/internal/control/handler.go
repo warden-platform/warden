@@ -87,6 +87,7 @@ type APIKeyStore interface {
 	GetForAuthentication(context.Context, string) (*domain.PrincipalAPIKey, *domain.Principal, error)
 	ListByPrincipal(context.Context, string) ([]domain.PrincipalAPIKey, error)
 	GetByID(context.Context, string) (*domain.PrincipalAPIKey, error)
+	NamesByIDs(ctx context.Context, ids []string) (map[string]string, error)
 	MarkUsed(context.Context, string, string) error
 	Revoke(context.Context, string, string) (bool, error)
 }
@@ -1640,9 +1641,10 @@ func (h *Handler) enrichExecutions(ctx context.Context, execs []domain.Execution
 		}
 	}
 	pMap := make(map[string]*domain.Principal, len(principalIDs))
-	for _, pid := range principalIDs {
-		if p, err := h.principals.GetByID(ctx, pid); err == nil && p != nil {
-			pMap[pid] = p
+	if summaries, err := h.principals.SummariesByIDs(ctx, principalIDs); err == nil {
+		for id, p := range summaries {
+			p := p
+			pMap[id] = &p
 		}
 	}
 	credSeen := make(map[string]bool)
@@ -1654,9 +1656,9 @@ func (h *Handler) enrichExecutions(ctx context.Context, execs []domain.Execution
 		}
 	}
 	kMap := make(map[string]string, len(credIDs))
-	for _, kid := range credIDs {
-		if k, err := h.apiKeys.GetByID(ctx, kid); err == nil && k != nil {
-			kMap[kid] = k.Name
+	if h.apiKeys != nil {
+		if names, err := h.apiKeys.NamesByIDs(ctx, credIDs); err == nil {
+			kMap = names
 		}
 	}
 	for i := range execs {
@@ -3248,16 +3250,19 @@ func (h *Handler) ListMyAccessRequests(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) enrichAccessRequests(ctx context.Context, requests []domain.AccessRequest) {
 	// Enrich with principal names so the UI shows "Warden ReadOnly" instead of UUID prefix.
 	if h.principals != nil {
-		pCache := make(map[string]string)
-		for i := range requests {
-			pid := requests[i].PrincipalID
-			if name, ok := pCache[pid]; ok {
-				requests[i].PrincipalName = name
-				continue
+		pSeen := make(map[string]bool, len(requests))
+		pIDs := make([]string, 0, len(requests))
+		for _, req := range requests {
+			if req.PrincipalID != "" && !pSeen[req.PrincipalID] {
+				pSeen[req.PrincipalID] = true
+				pIDs = append(pIDs, req.PrincipalID)
 			}
-			if p, err := h.principals.GetByID(ctx, pid); err == nil && p != nil {
-				requests[i].PrincipalName = p.Name
-				pCache[pid] = p.Name
+		}
+		if pMap, err := h.principals.SummariesByIDs(ctx, pIDs); err == nil {
+			for i := range requests {
+				if p, ok := pMap[requests[i].PrincipalID]; ok {
+					requests[i].PrincipalName = p.Name
+				}
 			}
 		}
 	}
