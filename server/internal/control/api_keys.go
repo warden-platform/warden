@@ -333,33 +333,45 @@ func validateAgentScopes(scopes []string) bool {
 	return len(scopes) > 0
 }
 
+// credentialInputError marks user-correctable failures whose message is safe
+// to return verbatim. Any other error escaping createCredential is internal
+// (database, filesystem, crypto) and must never reach the client.
+type credentialInputError struct{ message string }
+
+func (e *credentialInputError) Error() string { return e.message }
+
+func credentialInput(message string) error { return &credentialInputError{message: message} }
+
 func (h *Handler) createCredential(ctx context.Context, principalID string, req createAPIKeyRequest, parentID string, actor *AuthenticatedIdentity) (*domain.PrincipalAPIKey, string, error) {
 	p, err := h.principals.GetByID(ctx, principalID)
-	if err != nil || p == nil {
-		return nil, "", errors.New("principal not found")
+	if err != nil {
+		return nil, "", fmt.Errorf("lookup principal: %w", err)
+	}
+	if p == nil {
+		return nil, "", credentialInput("principal not found")
 	}
 	if req.Purpose == "" {
 		req.Purpose = domain.APIKeyPurposeAgent
 	}
 	if req.Purpose == domain.APIKeyPurposeRegistration {
 		if p.Kind != domain.PrincipalKindWorkload {
-			return nil, "", errors.New("registration credentials require a workload principal")
+			return nil, "", credentialInput("registration credentials require a workload principal")
 		}
 		if purpose, _ := p.Metadata["purpose"].(string); purpose != "warden_resource_registration" {
-			return nil, "", errors.New("workload principal is not designated for Warden resource registration")
+			return nil, "", credentialInput("workload principal is not designated for Warden resource registration")
 		}
 		if req.Audience == "" || req.Audience != h.registrationAudience {
-			return nil, "", errors.New("registration credential audience does not match this Warden environment")
+			return nil, "", credentialInput("registration credential audience does not match this Warden environment")
 		}
 		if !sameScopes(req.Scopes, registrationCredentialScopes) {
-			return nil, "", errors.New("invalid registration scopes")
+			return nil, "", credentialInput("invalid registration scopes")
 		}
 		if req.Name == "" {
 			req.Name = "warden-resource-registration"
 		}
 	} else {
 		if p.Kind != domain.PrincipalKindAgentInstance && p.Kind != domain.PrincipalKindWorkload {
-			return nil, "", errors.New("principal kind cannot own agent key")
+			return nil, "", credentialInput("principal kind cannot own agent key")
 		}
 		if req.Name == "" {
 			req.Name = "multica-agent"
@@ -368,7 +380,7 @@ func (h *Handler) createCredential(ctx context.Context, principalID string, req 
 			req.Scopes = append([]string(nil), defaultAgentScopes...)
 		}
 		if !validateAgentScopes(req.Scopes) {
-			return nil, "", errors.New("invalid agent scopes")
+			return nil, "", credentialInput("invalid agent scopes")
 		}
 	}
 	id, plaintext, hash, err := generatePurposeAPIKey(req.Purpose)
@@ -379,7 +391,7 @@ func (h *Handler) createCredential(ctx context.Context, principalID string, req 
 		Status: domain.APIKeyActive, Purpose: req.Purpose, Audience: req.Audience, Scopes: req.Scopes, ExpiresAt: req.ExpiresAt,
 		CreatedBy: actor.Principal.ID, RotationParentID: parentID}
 	if err := h.apiKeys.Create(ctx, key); err != nil {
-		return nil, "", err
+		return nil, "", fmt.Errorf("store credential: %w", err)
 	}
 	return key, plaintext, nil
 }
@@ -409,7 +421,13 @@ func (h *Handler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
 	}
 	key, plaintext, err := h.createCredential(r.Context(), r.PathValue("id"), req, "", identityFromContext(r.Context()))
 	if err != nil {
-		jsonError(w, 400, "CREDENTIAL_CREATE_FAILED", err.Error())
+		var inputErr *credentialInputError
+		if errors.As(err, &inputErr) {
+			jsonError(w, 400, "CREDENTIAL_CREATE_FAILED", inputErr.message)
+		} else {
+			log.Printf("create credential for principal %s failed: %v", r.PathValue("id"), err)
+			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "创建凭据失败")
+		}
 		return
 	}
 	h.writeIdentityAudit(r.Context(), "credential.created", key.PrincipalID, key.ID)
@@ -455,7 +473,13 @@ func (h *Handler) CreateRegistrationAPIKey(w http.ResponseWriter, r *http.Reques
 		Purpose: domain.APIKeyPurposeRegistration, Audience: audience,
 	}, "", identityFromContext(r.Context()))
 	if err != nil {
-		jsonError(w, http.StatusBadRequest, "REGISTRATION_CREDENTIAL_CREATE_FAILED", err.Error())
+		var inputErr *credentialInputError
+		if errors.As(err, &inputErr) {
+			jsonError(w, http.StatusBadRequest, "REGISTRATION_CREDENTIAL_CREATE_FAILED", inputErr.message)
+		} else {
+			log.Printf("create registration credential for principal %s failed: %v", r.PathValue("id"), err)
+			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "创建注册凭据失败")
+		}
 		return
 	}
 	h.writeIdentityAudit(r.Context(), "credential.created", key.PrincipalID, key.ID)

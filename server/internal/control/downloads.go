@@ -7,6 +7,7 @@ import (
 	"crypto/sha256"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -65,7 +66,8 @@ func (h *Handler) DownloadNetworkConnector(w http.ResponseWriter, r *http.Reques
 func (h *Handler) DownloadOperatorChart(w http.ResponseWriter, _ *http.Request) {
 	chartRoot, err := operatorChartRoot()
 	if err != nil {
-		jsonError(w, http.StatusNotFound, "ARTIFACT_NOT_FOUND", err.Error())
+		log.Printf("operator chart root unavailable: %v", err)
+		jsonError(w, http.StatusNotFound, "ARTIFACT_NOT_FOUND", "当前发布未包含有效的 Operator Chart")
 		return
 	}
 	payload, err := packageChart(chartRoot)

@@ -2,6 +2,7 @@ package control
 
 import (
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -22,7 +23,9 @@ type installConfigResponse struct {
 func (h *Handler) GetInstallConfig(w http.ResponseWriter, _ *http.Request) {
 	config, err := currentInstallConfig()
 	if err != nil {
-		jsonError(w, http.StatusServiceUnavailable, "INSTALL_CONFIG_UNAVAILABLE", err.Error())
+		// Filesystem paths and read errors stay in the server log only.
+		log.Printf("install config unavailable: %v", err)
+		jsonError(w, http.StatusServiceUnavailable, "INSTALL_CONFIG_UNAVAILABLE", "当前发布安装配置不可用")
 		return
 	}
 	jsonResp(w, http.StatusOK, config)
