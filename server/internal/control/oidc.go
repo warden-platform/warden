@@ -315,7 +315,9 @@ func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 	if errParam := r.URL.Query().Get("error"); errParam != "" {
 		log.Printf("OIDC provider returned error=%.200s description=%.200s",
 			errParam, r.URL.Query().Get("error_description"))
-		jsonError(w, http.StatusBadRequest, "OIDC_ERROR", "OIDC 登录失败: "+errParam)
+		// The IdP-controlled parameter is reflected to the client; sanitize and
+		// bound it like any other external error text.
+		jsonError(w, http.StatusBadRequest, "OIDC_ERROR", "OIDC 登录失败: "+domain.SanitizeErrorMessage(errParam))
 		return
 	}
 	stateCookie, _ := r.Cookie("oidc_state")

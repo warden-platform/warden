@@ -1,7 +1,7 @@
 # Warden Server
 
 > **面向**：要改后端代码的开发者。本文是服务端目录、入口与运行速查。
-> 完整上手见 [`../docs/quickstart.md`](../docs/quickstart.md)，架构与分层见 [`../docs/architecture.md`](../docs/architecture.md)，全量变量见 [`../docs/configuration.md`](../docs/reference.md#configuration)，接口见 [`../docs/api.md`](../docs/api.md)，文档地图见 [`../docs/README.md`](../docs/README.md)。
+> 完整上手见 [`../docs/quickstart.md`](../docs/quickstart.md)，架构与分层见 [`../docs/architecture.md`](../docs/architecture.md)，全量变量见 [`../docs/reference.md#configuration`](../docs/reference.md#configuration)，接口见 [`../docs/api.md`](../docs/api.md)，文档地图见 [`../docs/README.md`](../docs/README.md)。
 
 Go 模块同时构建控制面、Kubernetes / Linux / Host / Network Connector、Operator 与 Helper。
 
@@ -63,7 +63,7 @@ Network Connector 安装器可从 `/downloads/install-network.sh` 获取；安�
 ## 补充阅读
 
 - 本地从零启动：[`../docs/quickstart.md`](../docs/quickstart.md)（**控制面启动不会自动跑迁移**）
-- 全量环境变量：[`../docs/configuration.md`](../docs/reference.md#configuration)
-- 迁移与发布清单：[`../docs/operations.md`](../docs/guides.md#operations)
-- 目标系统接入：[`../docs/onboarding.md`](../docs/guides.md#onboarding)
+- 全量环境变量：[`../docs/reference.md#configuration`](../docs/reference.md#configuration)
+- 迁移与发布清单：[`../docs/guides.md#operations`](../docs/guides.md#operations)
+- 目标系统接入：[`../docs/guides.md#onboarding`](../docs/guides.md#onboarding)
 - 贡献与验证命令：[`../CONTRIBUTING.md`](../CONTRIBUTING.md)
