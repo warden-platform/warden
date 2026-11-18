@@ -39,6 +39,7 @@ func TestTenantRepositoriesIsolateDataAndShareActions(t *testing.T) {
 	if err := pool.QueryRow(ctx, `INSERT INTO principals(kind,name,status,tenant_id,metadata) VALUES ('user','same-isolation-name','ACTIVE','platform','{}') RETURNING id`).Scan(&platformID); err != nil {
 		t.Fatal(err)
 	}
+	defer pool.Exec(ctx, `DELETE FROM principals WHERE id=$1`, platformID)
 
 	repo := NewPrincipalRepo(pool)
 	acmeCtx := domain.WithTenantID(ctx, tenant)
