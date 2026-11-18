@@ -36,11 +36,12 @@ scripts/init-local-secrets.sh
 cp .env.example .env
 chmod 600 .env
 
-# 启动管理员密码：8–72 字节
-sed -i '' "s|^WARDEN_ADMIN_PASSWORD=.*|WARDEN_ADMIN_PASSWORD=$(openssl rand -hex 24)|" .env
+# 启动管理员密码：8–72 字节（临时文件写法兼容 macOS 与 Linux 的 sed）
+sed "s|^WARDEN_ADMIN_PASSWORD=.*|WARDEN_ADMIN_PASSWORD=$(openssl rand -hex 24)|" .env > .env.tmp && mv .env.tmp .env
 
 # PostgreSQL 密码；config.yaml 通过 ${WARDEN_DATABASE_PASSWORD} 引用
-sed -i '' "s|^WARDEN_DATABASE_PASSWORD=.*|WARDEN_DATABASE_PASSWORD=$(openssl rand -hex 24)|" .env
+sed "s|^WARDEN_DATABASE_PASSWORD=.*|WARDEN_DATABASE_PASSWORD=$(openssl rand -hex 24)|" .env > .env.tmp && mv .env.tmp .env
+chmod 600 .env
 ```
 
 `.env` 已被 `.gitignore` 排除，不要提交。普通配置统一放 `config.yaml`，包括端口、数据库地址、
@@ -109,8 +110,8 @@ WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 
 注意两点：
 
-- 脚本会**清理占用 `server.port`（默认 8080）的已有进程**；如该端口有别的服务，先在 `config.yaml` 中改成 `8090`。
-- 脚本为本地 HTTP 自动设 `WARDEN_COOKIE_SECURE=false`。**生产环境永远不要关掉它**（见 [生产部署](guides.md#installation)）。
+- 控制面端口由 `config.yaml` 的 `server.port` 决定（默认 8080）。脚本不会清理占用端口的进程；端口被占用时进程会启动失败，请先在 `config.yaml` 中改端口（例如 `8090`）。
+- 本地 HTTP 需要 `server.cookie_secure: false`，`config.yaml` 已默认设好（不是启动脚本注入的）。**生产环境永远不要关掉它**（见 [生产部署](guides.md#installation)）。
 
 保持这个终端运行，另开一个终端继续。
 

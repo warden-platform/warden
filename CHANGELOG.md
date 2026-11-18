@@ -26,6 +26,7 @@
 
 ### 变更
 
+- **破坏性：内部标识符 pam → warden 全量切换（迁移 `106_pam_to_warden_identifiers.sql`）**。权限 scope 前缀 `pam:` → `warden:`、API Key 前缀 `pam_agk_/pam_rgk_/pam_dtk_` → `warden_*`、Connector capability `pam.change-safety` → `warden.change-safety`、资源标签 `pam-*` → `warden-*`、Cookie 与 Rego 包名同步切换。旧格式明文 Key 解析层不再接受，存量旧 Key 统一吊销需重新签发；全部会话撤销，所有用户需重新登录。全新安装经 002–105 已直接产出 warden 标识符，106 为空操作。
 - 生产 `WARDEN_OIDC_DEFAULT_ROLE` 保持 `user`；配置 `platform_admin` 会让服务启动失败。普通账号管理入口只开放 `user` / `tenant_admin` 指派；非内置 `platform_admin` 的 JWT 兼容识别尚需后续收敛。
 - 未唯一匹配邮箱域名的新 SSO 身份默认进入 `unaffiliated`，不再自动落入 `platform`；只有显式配置 `WARDEN_OIDC_DEFAULT_TENANT_ID` 才启用默认租户兜底。
 - 普通配置、外部凭据与内部密钥分三层管理：`config.yaml` + `.env` + `var/warden/secrets.json`，内部密钥由显式初始化命令生成。
@@ -34,6 +35,6 @@
 
 ### 部署注意
 
-- 发布迁移清单当前覆盖至 `105_ai_assistant.sql`。从旧版升级必须按 `deploy/release/migrations.txt` 执行发布迁移，包括账号角色审计、单超管数据迁移、待分配身份、邀请与 AI 会话表；不要绕过发布流程直接在已有数据库上重放全部历史迁移。
+- 发布迁移清单当前覆盖至 `106_pam_to_warden_identifiers.sql`。从旧版升级必须按 `deploy/release/migrations.txt` 执行发布迁移，包括账号角色审计、单超管数据迁移、待分配身份、邀请、AI 会话表与 pam → warden 标识符切换；不要绕过发布流程直接在已有数据库上重放全部历史迁移。执行 106 前务必备份：旧 Key 吊销与会话撤销不可逆，Agent 需换发新 Key。
 - 角色变更后目标账号被强制重新登录；JWT 里的 scopes 是登录时冻结的，刷新页面不会生效。
 - 升级前先做数据库备份，并保留上一版镜像 ID、前端 `dist` 与 IdP 侧密钥。流程见 [日常运维](docs/guides.md#operations)。

@@ -72,14 +72,21 @@ scripts/init-local-secrets.sh
 cp .env.example .env
 # 按 docs/quickstart.md 设置管理员密码和数据库凭据
 
-# 2) 启动 PostgreSQL 并执行迁移
+# 2) 启动 PostgreSQL（Compose 映射到本机 5433）
 docker compose --env-file .env -f deploy/docker-compose.yaml up -d
+# 使用 Compose 数据库时，把 config.yaml 的 database.url 改为 postgres://127.0.0.1:5433/warden
 
-# 3) 构建并启动控制面（默认 :8080）
+# 3) 执行数据库迁移（控制面启动不会自动跑迁移）
+for f in server/migrations/*.sql; do
+  docker compose --env-file .env -f deploy/docker-compose.yaml exec -T postgresql \
+    psql -v ON_ERROR_STOP=1 -U warden -d warden -f "/migrations/$(basename "$f")" >/dev/null || break
+done
+
+# 4) 构建并启动控制面（默认 :8080）
 make server-build
 WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 
-# 4) 另一个终端启动管理端（默认 http://localhost:4173）
+# 5) 另一个终端启动管理端（默认 http://localhost:4173）
 make web-install && make web-dev
 ```
 
@@ -180,7 +187,7 @@ server/
 └── Dockerfile*               控制面/Connector 镜像
 web/                          React + Vite 管理端
 deploy/                       本地 compose、Helm Chart、K8s 基线、安装脚本、发布迁移清单
-scripts/                      本地启动、OIDC 联调模板、Agent 客户端
+scripts/                      本地启动、演示数据种子、Agent 客户端
 docs/                         本文档体系（见 docs/README.md）
 Makefile                      统一构建与验证入口
 ```
