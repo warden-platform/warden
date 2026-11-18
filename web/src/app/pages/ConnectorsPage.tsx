@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Activity, AlertTriangle, ArrowRight, Boxes, CheckCircle2, Loader2, Network, ServerCog, ShieldCheck } from 'lucide-react'
 import { useNavigate } from '../../shared/router'
 import type { ApiConnector, ApiError, ConnectorCheckResponse } from '../../shared/api'
@@ -7,40 +7,25 @@ import { connectorChannelPrefix, connectorTypeLabel, mapEnvironment } from '../.
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
-import { useAutoRefresh } from '../lib/useAutoRefresh'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const channelName = (connector: ApiConnector) => `${connectorChannelPrefix(connector.connector_type)}-${connector.id.slice(0, 8)}`
 
 export function ConnectorsPage() {
   const navigate = useNavigate()
   const { notify } = useApp()
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [checkingId, setCheckingId] = useState('')
   const [checkResults, setCheckResults] = useState<Record<string, ConnectorCheckResponse>>({})
   const [now, setNow] = useState(() => Date.now())
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    listConnectors()
-      .then((items) => {
-        setConnectors(items ?? [])
-        setNow(Date.now())
-      })
-      .catch((e: ApiError) => setError(e.message || '加载执行通道失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [])
-  useAutoRefresh(
-    () =>
-      listConnectors()
-        .then((items) => setConnectors(items ?? []))
-        .catch(() => undefined)
-        .finally(() => setNow(Date.now())),
-    15000,
-  )
+  const connectorsQuery = useApiQuery(() => listConnectors(), [], {
+    intervalMs: 15000,
+    onSuccess: () => setNow(Date.now()),
+  })
+  const connectors = connectorsQuery.data ?? []
+  const loading = connectorsQuery.loading
+  const error = connectorsQuery.error
+  const load = () => connectorsQuery.reload()
 
   const runCheck = (connector: ApiConnector) => {
     setCheckingId(connector.id)

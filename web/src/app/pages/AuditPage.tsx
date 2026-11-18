@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ChevronDown, Fingerprint, ListFilter, Search, SlidersHorizontal } from 'lucide-react'
-import type { ApiAuditEvent, ApiError } from '../../shared/api'
 import { listAuditEvents } from '../../shared/api'
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { apiAuditToView } from '../lib/mappers'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const CATEGORIES = ['全部', '执行', '审批', '授权', '连接器', '策略', '权限', '系统'] as const
 const CATEGORY_QUERY: Record<string, string> = {
@@ -18,9 +18,6 @@ const CATEGORY_QUERY: Record<string, string> = {
 }
 
 export function AuditPage() {
-  const [events, setEvents] = useState<ApiAuditEvent[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [category, setCategory] = useState<string>('全部')
   const [workspaceId, setWorkspaceId] = useState('')
@@ -29,26 +26,23 @@ export function AuditPage() {
   const [delegationTokenId, setDelegationTokenId] = useState('')
   const [advancedOpen, setAdvancedOpen] = useState(false)
 
-  const load = (search = query, selectedCategory = category) => {
-    setLoading(true)
-    setError('')
-    listAuditEvents({
-      q: search.trim(),
-      category: CATEGORY_QUERY[selectedCategory],
-      workspaceId: workspaceId.trim(),
-      agentId: agentId.trim(),
-      taskId: taskId.trim(),
-      delegationTokenId: delegationTokenId.trim(),
-    })
-      .then((items) => setEvents(items ?? []))
-      .catch((e: ApiError) => setError(e.message || '加载失败'))
-      .finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => load(query, category), 300)
-    return () => window.clearTimeout(timer)
-  }, [query, category, workspaceId, agentId, taskId, delegationTokenId]) // eslint-disable-line react-hooks/exhaustive-deps
+  const eventsQuery = useApiQuery(
+    () =>
+      listAuditEvents({
+        q: query.trim(),
+        category: CATEGORY_QUERY[category],
+        workspaceId: workspaceId.trim(),
+        agentId: agentId.trim(),
+        taskId: taskId.trim(),
+        delegationTokenId: delegationTokenId.trim(),
+      }),
+    [query, category, workspaceId, agentId, taskId, delegationTokenId],
+    { debounceMs: 300 },
+  )
+  const events = eventsQuery.data ?? []
+  const loading = eventsQuery.loading
+  const error = eventsQuery.error
+  const load = () => eventsQuery.reload()
 
   if (loading) return <LoadingState />
   if (error) return <ErrorState message={error} onRetry={() => load()} />

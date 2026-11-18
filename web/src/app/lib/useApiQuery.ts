@@ -13,17 +13,19 @@ import { useAutoRefresh } from './useAutoRefresh'
 //   enabled     为 false 时暂停加载与刷新
 //   isEqual     静默刷新时数据未变化则跳过 setState，避免整页重渲染
 //   onSuccess   每次成功加载后的副作用（如同步全局待办数）
+//   debounceMs  deps 变化后延迟加载（搜索框防抖）；首次加载同样延迟
 type UseApiQueryOptions<T> = {
   intervalMs?: number
   enabled?: boolean
   isEqual?: (prev: T, next: T) => boolean
   onSuccess?: (data: T) => void
+  debounceMs?: number
 }
 
 export function useApiQuery<T>(
   fetcher: () => Promise<T>,
   deps: unknown[],
-  { intervalMs, enabled = true, isEqual, onSuccess }: UseApiQueryOptions<T> = {},
+  { intervalMs, enabled = true, isEqual, onSuccess, debounceMs }: UseApiQueryOptions<T> = {},
 ) {
   const [data, setData] = useState<T | null>(null)
   const [error, setError] = useState('')
@@ -63,9 +65,13 @@ export function useApiQuery<T>(
 
   useEffect(() => {
     if (!enabled) return
+    if (debounceMs && debounceMs > 0) {
+      const timer = window.setTimeout(() => reload(true), debounceMs)
+      return () => window.clearTimeout(timer)
+    }
     reload(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [...deps, enabled, reload])
+  }, [...deps, enabled, reload, debounceMs])
 
   // 静默刷新：不闪 loading、失败时保留旧数据（与各页原 load(false) 语义一致）。
   useAutoRefresh(() => reload(false), intervalMs ?? 0, Boolean(intervalMs) && enabled)
