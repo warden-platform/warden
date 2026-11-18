@@ -70,13 +70,19 @@ docker compose --env-file .env -f deploy/docker-compose.yaml ps
 
 > **重要**：`warden-control` **不会在启动时自动跑迁移**，必须先手工执行迁移。`002_seed.sql` 只保留固定权限锚点，实际登录名由启动时的 `admin.username` 同步。
 
-全新空库按文件名顺序执行全部迁移：
+全新空库按文件名顺序执行全部迁移（001–034 不幂等，仅限空库；已有库走 [日常运维](guides.md#operations) 的 `make migrate-release`）：
+
+```bash
+make migrate
+```
+
+等价的手工循环（非 Compose 部署把连接换成自己的 DSN）：
 
 ```bash
 for f in server/migrations/*.sql; do
   echo "==> $(basename "$f")"
   docker compose --env-file .env -f deploy/docker-compose.yaml exec -T postgresql \
-    psql -v ON_ERROR_STOP=1 -U warden -d warden -f "/migrations/$(basename "$f")" >/dev/null || break
+    psql -v ON_ERROR_STOP=1 -U warden -d warden -f "/migrations/$(basename "$f")" >/dev/null || exit 1
 done
 ```
 

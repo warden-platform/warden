@@ -48,7 +48,7 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 - 新增权限点：只在 `server/internal/control/authorization.go` 定义，后端守卫与前端菜单的 `requires` 共用同一批字符串；同步 [docs/authorization.md](docs/authorization.md)。
 - 新增环境变量：同步 [配置参考](docs/reference.md#configuration)；敏感项复用 `config.Secret` 的 `*_FILE` 约定。
 - 新增审计动作名：**必须补一条 `ALTER TYPE audit_action ADD VALUE` 迁移**，否则审计会静默丢失。
-- 新增迁移：编号 ≥ 035 的必须登记 `deploy/release/migrations.txt`，且写成可重复重放。
+- 新增迁移：编号 ≥ 035 的必须登记 `deploy/release/migrations.txt`，且写成可重复重放。编号 068–071 为历史空洞（刻意跳号），不是缺文件；001–034 不保证幂等，全量重放仅限全新空库（`make migrate`），已有库升级用 `make migrate-release`。
 - 新增动作 / 版本：同步 [动作参考](docs/reference.md#actions) 与 Connector capabilities。
 
 ## 安全相关改动

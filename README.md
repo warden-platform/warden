@@ -76,11 +76,8 @@ cp .env.example .env
 docker compose --env-file .env -f deploy/docker-compose.yaml up -d
 # 使用 Compose 数据库时，把 config.yaml 的 database.url 改为 postgres://127.0.0.1:5433/warden
 
-# 3) 执行数据库迁移（控制面启动不会自动跑迁移）
-for f in server/migrations/*.sql; do
-  docker compose --env-file .env -f deploy/docker-compose.yaml exec -T postgresql \
-    psql -v ON_ERROR_STOP=1 -U warden -d warden -f "/migrations/$(basename "$f")" >/dev/null || break
-done
+# 3) 执行数据库迁移（控制面启动不会自动跑迁移；仅限全新空库）
+make migrate
 
 # 4) 构建并启动控制面（默认 :8080）
 make server-build

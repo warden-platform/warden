@@ -61,21 +61,31 @@ openssl rand -hex 24   # admin_password（8–72 字节）
 **控制面启动不会自动执行迁移**，必须先跑：
 
 ```bash
-# 全新空库：按文件名顺序执行全部迁移
-for f in server/migrations/*.sql; do
-  psql -v ON_ERROR_STOP=1 "<dsn>" -f "$f" >/dev/null || break
-done
+# 全新空库：按文件名顺序执行全部迁移（001–034 不幂等，仅限空库）
+make migrate
 
 # 已有数据的库：只按发布清单重放幂等迁移（不要重放 001–034）
+make migrate-release
+```
+
+两个目标默认走 `deploy/docker-compose.yaml` 的 `postgresql` 服务；非 Compose 部署可覆盖连接方式，例如直接对 DSN 执行同款循环：
+
+```bash
+# 全新空库
+for f in server/migrations/*.sql; do
+  psql -v ON_ERROR_STOP=1 "<dsn>" -f "$f" >/dev/null || exit 1
+done
+
+# 已有数据的库
 while read -r f; do
-  psql -v ON_ERROR_STOP=1 "<dsn>" -f "server/migrations/$f" >/dev/null || break
+  psql -v ON_ERROR_STOP=1 "<dsn>" -f "server/migrations/$f" >/dev/null || exit 1
 done < deploy/release/migrations.txt
 ```
 
 要点：
 
 - `002_seed.sql` 保留固定权限锚点，运行时同步用户提供的管理员登录名和密码哈希。
-- `deploy/release/migrations.txt` 收录编号 ≥ 035 的幂等迁移；**新增此类迁移必须登记**，否则 `internal/control` 的单测会失败。
+- `deploy/release/migrations.txt` 收录编号 ≥ 035 的幂等迁移；**新增此类迁移必须登记**，否则 `internal/control` 的单测会失败。编号 068–071 为历史空洞（刻意跳号），不是缺文件。
 - `audit_events.action` 是 PostgreSQL 枚举，新增审计动作名必须配套 `ALTER TYPE audit_action ADD VALUE` 迁移。
 
 ### 5. 反向代理与 TLS
