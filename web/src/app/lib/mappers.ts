@@ -37,6 +37,7 @@ export function apiExecutionToView(e: ApiExecution, resourceLookup?: (id: string
     action: e.actionDisplayName || mapActionName(e.actionName || e.actionId),
     actor: principalLabel,
     status: mapExecutionStatus(e.status),
+    statusKey: e.status,
     createdAt: new Date(e.createdAt).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false }),
     duration: dur,
     risk: e.riskLevel ? mapRiskLevel(e.riskLevel) : '中',

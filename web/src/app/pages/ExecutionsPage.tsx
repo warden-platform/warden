@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { ChevronDown, Plus, SlidersHorizontal, TerminalSquare } from 'lucide-react'
 import { listAvailableActions, listExecutions } from '../../shared/api'
-import { mapActionName, mapExecutionStatus, mapRiskLevel } from '../../shared/types'
+import { executionStatusGroup, mapActionName, mapRiskLevel } from '../../shared/types'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { ExecutionTable } from '../components/ExecutionTable'
 import { ActionPanel } from '../components/ActionPanel'
@@ -9,11 +9,11 @@ import { apiExecutionToView } from '../lib/mappers'
 import { useApiQuery } from '../lib/useApiQuery'
 
 const STATUS_FILTERS = ['全部', '执行中', '成功', '失败', '等待审批'] as const
-const statusMap: Record<string, string> = {
-  执行中: '执行中',
-  成功: '成功',
-  失败: '失败',
-  等待审批: '等待审批',
+const statusGroupByFilter: Record<string, string> = {
+  执行中: 'running',
+  成功: 'success',
+  失败: 'failed',
+  等待审批: 'waiting',
 }
 
 export function ExecutionsPage() {
@@ -43,11 +43,11 @@ export function ExecutionsPage() {
   const statusCounts = useMemo(() => {
     const counts: Record<string, number> = { 全部: executions.length, 执行中: 0, 成功: 0, 失败: 0, 等待审批: 0 }
     for (const e of executions) {
-      const s = mapExecutionStatus(e.status)
-      if (s === '成功') counts['成功'] += 1
-      else if (s === '执行中' || s === '排队中') counts['执行中'] += 1
-      else if (s === '等待审批') counts['等待审批'] += 1
-      else if (s === '失败' || s === '拒绝') counts['失败'] += 1
+      const g = executionStatusGroup(e.status)
+      if (g === 'success') counts['成功'] += 1
+      else if (g === 'running') counts['执行中'] += 1
+      else if (g === 'waiting') counts['等待审批'] += 1
+      else if (g === 'failed') counts['失败'] += 1
     }
     return counts
   }, [executions])
@@ -65,7 +65,7 @@ export function ExecutionsPage() {
           }
           return v
         })
-        .filter((item) => filter === '全部' || item.status === statusMap[filter]),
+        .filter((item) => filter === '全部' || executionStatusGroup(item.statusKey) === statusGroupByFilter[filter]),
     [executions, actionByID, filter, resourceType],
   )
 

@@ -15,19 +15,11 @@ import { useApp } from '../components/Toast'
 import { LoadingState, ErrorState, EmptyState } from '../components/States'
 import { apiExecutionToView } from '../lib/mappers'
 import { useAutoRefresh } from '../lib/useAutoRefresh'
-import { connectorTypeLabel, mapActionName, mapExecutionStatus } from '../../shared/types'
+import { connectorTypeLabel, executionLedClass, executionStatusGroup, mapActionName } from '../../shared/types'
 
 // Mission Control overview: a situation wall built only from real API data —
 // hourly execution sparkline, status distribution, connector heartbeat wall.
 // No fake charts or hardcoded scores.
-
-function ledClass(status: string): string {
-  if (status === '成功') return 'ok'
-  if (status === '失败' || status === '拒绝') return 'deny'
-  if (status === '等待审批') return 'wait'
-  if (status === '执行中' || status === '排队中') return 'run'
-  return ''
-}
 
 function Spark({ values, tone = '' }: { values: number[]; tone?: string }) {
   const max = Math.max(1, ...values)
@@ -98,11 +90,11 @@ export function OverviewPage() {
   const statusCounts = useMemo(() => {
     const counts = { 成功: 0, 执行中: 0, 等待审批: 0, 失败: 0 }
     for (const e of executions) {
-      const s = mapExecutionStatus(e.status)
-      if (s === '成功') counts['成功'] += 1
-      else if (s === '执行中' || s === '排队中') counts['执行中'] += 1
-      else if (s === '等待审批') counts['等待审批'] += 1
-      else if (s === '失败' || s === '拒绝') counts['失败'] += 1
+      const g = executionStatusGroup(e.status)
+      if (g === 'success') counts['成功'] += 1
+      else if (g === 'running') counts['执行中'] += 1
+      else if (g === 'waiting') counts['等待审批'] += 1
+      else if (g === 'failed') counts['失败'] += 1
     }
     return counts
   }, [executions])
@@ -224,11 +216,11 @@ export function OverviewPage() {
             <div>
               {viewExecs.map((e) => (
                 <div className="stream-row" key={e.id} onClick={() => navigate('/executions')} title={`${e.resource} · ${e.actor}`}>
-                  <span className={`stream-dot ${ledClass(e.status)}`} />
+                  <span className={`stream-dot ${executionLedClass(e.statusKey)}`} />
                   <span className="stream-id">{e.id.slice(0, 8)}</span>
                   <span className="stream-act">{e.action}</span>
                   <span className="stream-who">{e.actor}</span>
-                  <span className={`stream-st ${ledClass(e.status)}`}>{e.status}</span>
+                  <span className={`stream-st ${executionLedClass(e.statusKey)}`}>{e.status}</span>
                   <span className="stream-time">{e.createdAt}</span>
                 </div>
               ))}

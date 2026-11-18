@@ -1,6 +1,9 @@
 import { describe, expect, it } from 'vitest'
 import {
   connectorTypeLabel,
+  executionLedClass,
+  executionStatusGroup,
+  executionStatusTone,
   mapActionName,
   mapConnectorStatus,
   mapEnvironment,
@@ -23,10 +26,40 @@ describe('mapExecutionStatus', () => {
     expect(mapExecutionStatus('UNKNOWN')).toBe('结果未知')
   })
 
-  it('documents the current unknown-status fallback (queued)', () => {
-    // Known design debt: unknown states are masked as 排队中 instead of being
-    // surfaced. This test pins current behavior so a future fix is deliberate.
-    expect(mapExecutionStatus('SOME_NEW_STATE')).toBe('排队中')
+  it('surfaces unknown statuses instead of masking them as queued', () => {
+    expect(mapExecutionStatus('SOME_NEW_STATE')).toBe('未知状态')
+    expect(mapExecutionStatus('')).toBe('未知状态')
+  })
+})
+
+describe('execution logic helpers key on the raw backend enum', () => {
+  it('executionStatusTone', () => {
+    expect(executionStatusTone('SUCCEEDED')).toBe('success')
+    expect(executionStatusTone('FAILED')).toBe('danger')
+    expect(executionStatusTone('CANCELLED')).toBe('danger')
+    expect(executionStatusTone('EXPIRED')).toBe('danger')
+    expect(executionStatusTone('WAITING_APPROVAL')).toBe('warning')
+    expect(executionStatusTone('RUNNING')).toBe('info')
+    expect(executionStatusTone('QUEUED')).toBe('info')
+    expect(executionStatusTone('UNKNOWN')).toBe('neutral')
+    expect(executionStatusTone('SOME_NEW_STATE')).toBe('neutral')
+  })
+
+  it('executionStatusGroup', () => {
+    expect(executionStatusGroup('SUCCEEDED')).toBe('success')
+    expect(executionStatusGroup('DISPATCHED')).toBe('running')
+    expect(executionStatusGroup('QUEUED')).toBe('running')
+    expect(executionStatusGroup('WAITING_APPROVAL')).toBe('waiting')
+    expect(executionStatusGroup('CANCELLING')).toBe('failed')
+    expect(executionStatusGroup('SOME_NEW_STATE')).toBe('other')
+  })
+
+  it('executionLedClass', () => {
+    expect(executionLedClass('SUCCEEDED')).toBe('ok')
+    expect(executionLedClass('FAILED')).toBe('deny')
+    expect(executionLedClass('WAITING_APPROVAL')).toBe('wait')
+    expect(executionLedClass('RUNNING')).toBe('run')
+    expect(executionLedClass('SOME_NEW_STATE')).toBe('')
   })
 })
 

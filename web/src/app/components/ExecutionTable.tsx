@@ -1,15 +1,7 @@
 import { Fragment, useState } from 'react'
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
-import type { Execution } from '../../shared/types'
+import { executionLedClass, type Execution } from '../../shared/types'
 import { Badge, StatusBadge } from './Badge'
-
-function ledClass(status: Execution['status']): string {
-  if (status === '成功') return 'ok'
-  if (status === '失败' || status === '拒绝') return 'deny'
-  if (status === '等待审批') return 'wait'
-  if (status === '执行中' || status === '排队中') return 'run'
-  return ''
-}
 
 export function ExecutionTable({ executions }: { executions: Execution[] }) {
   const [expanded, setExpanded] = useState<string | null>(null)
@@ -52,9 +44,9 @@ export function ExecutionTable({ executions }: { executions: Execution[] }) {
                   <Badge tone={item.risk === '高' ? 'danger' : item.risk === '中' ? 'warning' : 'neutral'}>{item.risk}</Badge>
                 </td>
                 <td>
-                  <span className={`exec-led ${ledClass(item.status)}`}>
+                  <span className={`exec-led ${executionLedClass(item.statusKey)}`}>
                     <i aria-hidden="true" />
-                    <StatusBadge status={item.status} />
+                    <StatusBadge statusKey={item.statusKey} label={item.status} />
                   </span>
                 </td>
                 <td>{item.createdAt}</td>

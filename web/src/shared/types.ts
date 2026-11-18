@@ -11,7 +11,7 @@ export type Resource = {
   actions: string[]
 }
 
-export type ExecutionStatus = '等待审批' | '排队中' | '执行中' | '成功' | '拒绝' | '失败' | '结果未知'
+export type ExecutionStatus = '等待审批' | '排队中' | '执行中' | '成功' | '拒绝' | '失败' | '结果未知' | '未知状态'
 
 export type Execution = {
   id: string
@@ -21,6 +21,9 @@ export type Execution = {
   action: string
   actor: string
   status: ExecutionStatus
+  // Raw backend enum (WAITING_APPROVAL/QUEUED/...): all logic branches on this,
+  // the Chinese label above is display-only.
+  statusKey: string
   createdAt: string
   duration: string
   risk: '低' | '中' | '高'
@@ -82,9 +85,9 @@ export function connectorChannelPrefix(type: string): string {
 
 // --- API status mapping helpers ---
 
-// Maps backend ExecutionStatus (uppercase snake) to the Chinese label the UI
-// already uses. Unknown statuses fall back to the raw string so new backend
-// states are still visible.
+// Maps backend ExecutionStatus (uppercase snake) to the Chinese display label.
+// Unknown statuses surface as 未知状态 instead of being masked as queued, so a
+// new backend state is visible to operators rather than silently hidden.
 export function mapExecutionStatus(s: string): ExecutionStatus {
   switch (s) {
     case 'WAITING_APPROVAL':
@@ -105,7 +108,68 @@ export function mapExecutionStatus(s: string): ExecutionStatus {
     case 'UNKNOWN':
       return '结果未知'
     default:
-      return '排队中'
+      return '未知状态'
+  }
+}
+
+// Logic helpers keyed on the RAW backend enum — never on display labels.
+export function executionStatusTone(s: string): 'success' | 'warning' | 'danger' | 'info' | 'neutral' {
+  switch (s) {
+    case 'SUCCEEDED':
+      return 'success'
+    case 'FAILED':
+    case 'CANCELLED':
+    case 'CANCELLING':
+    case 'EXPIRED':
+      return 'danger'
+    case 'WAITING_APPROVAL':
+      return 'warning'
+    case 'QUEUED':
+    case 'DISPATCHED':
+    case 'RUNNING':
+      return 'info'
+    default:
+      return 'neutral'
+  }
+}
+
+export function executionStatusGroup(s: string): 'success' | 'running' | 'waiting' | 'failed' | 'other' {
+  switch (s) {
+    case 'SUCCEEDED':
+      return 'success'
+    case 'QUEUED':
+    case 'DISPATCHED':
+    case 'RUNNING':
+      return 'running'
+    case 'WAITING_APPROVAL':
+      return 'waiting'
+    case 'FAILED':
+    case 'CANCELLED':
+    case 'CANCELLING':
+    case 'EXPIRED':
+      return 'failed'
+    default:
+      return 'other'
+  }
+}
+
+export function executionLedClass(s: string): string {
+  switch (s) {
+    case 'SUCCEEDED':
+      return 'ok'
+    case 'FAILED':
+    case 'CANCELLED':
+    case 'CANCELLING':
+    case 'EXPIRED':
+      return 'deny'
+    case 'WAITING_APPROVAL':
+      return 'wait'
+    case 'QUEUED':
+    case 'DISPATCHED':
+    case 'RUNNING':
+      return 'run'
+    default:
+      return ''
   }
 }
 
