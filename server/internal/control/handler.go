@@ -1496,7 +1496,11 @@ func (h *Handler) GetExecution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e, err := h.executions.GetByID(r.Context(), r.PathValue("id"))
-	if err != nil || e == nil {
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询执行记录失败")
+		return
+	}
+	if e == nil {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
@@ -1514,7 +1518,11 @@ func (h *Handler) CancelExecution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	e, err := h.executions.GetByID(r.Context(), r.PathValue("id"))
-	if err != nil || e == nil {
+	if err != nil {
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询执行记录失败")
+		return
+	}
+	if e == nil {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
