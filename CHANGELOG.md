@@ -22,6 +22,7 @@
 - 顶栏显示 `federated:<hash>`：改为优先展示 `display_name` / 邮箱 / 头像，内部标识仅用于登录与审计。
 - 角色变更审计静默丢失：`audit_events.action` 是 PostgreSQL 枚举，补 `097_account_role_audit.sql` 迁移并登记发布清单。
 - 旧文档与代码不一致：`/auth/logout` 权限描述、Principal 接口的 Scope 标注、OIDC 默认角色可选值、服务端入口清单等。
+- 钉钉审批多租户断裂与跨租户泄漏：钉钉链路原先使用空租户上下文，多租户化后免登/列表/决策全部失效、审计落空租户。现改为租户级群隔离——应用凭据部署级共享（与 OIDC 单 IdP 同构），每租户在渠道设置绑定自己的审批群（迁移 `107_dingtalk_tenant_group.sql`，一群一租户部分唯一索引）；酷应用按群解析租户并冻结进会话，卡片回调按请求锚定租户且校验回调群匹配，卡片投递只进请求租户的群，legacy Webhook 仅承载 platform 租户内容。未绑群租户明确返回 `DINGTALK_GROUP_NOT_BOUND`；无租户 claim 的旧钉钉会话失效需重登。
 - env-only 部署未设置 `WARDEN_ADMIN_USERNAME` 时回退内置 `admin`，避免旧部署升级后因新增必填项无法启动；管理员密码仍为必需项。
 
 ### 变更
@@ -35,6 +36,6 @@
 
 ### 部署注意
 
-- 发布迁移清单当前覆盖至 `106_pam_to_warden_identifiers.sql`。从旧版升级必须按 `deploy/release/migrations.txt` 执行发布迁移，包括账号角色审计、单超管数据迁移、待分配身份、邀请、AI 会话表与 pam → warden 标识符切换；不要绕过发布流程直接在已有数据库上重放全部历史迁移。执行 106 前务必备份：旧 Key 吊销与会话撤销不可逆，Agent 需换发新 Key。
+- 发布迁移清单当前覆盖至 `107_dingtalk_tenant_group.sql`。从旧版升级必须按 `deploy/release/migrations.txt` 执行发布迁移，包括账号角色审计、单超管数据迁移、待分配身份、邀请、AI 会话表、pam → warden 标识符切换与钉钉租户群绑定列；不要绕过发布流程直接在已有数据库上重放全部历史迁移。执行 106 前务必备份：旧 Key 吊销与会话撤销不可逆，Agent 需换发新 Key。启用钉钉审批的部署升级后需为各业务租户绑定审批群（platform 租户沿用部署级群配置）。
 - 角色变更后目标账号被强制重新登录；JWT 里的 scopes 是登录时冻结的，刷新页面不会生效。
 - 升级前先做数据库备份，并保留上一版镜像 ID、前端 `dist` 与 IdP 侧密钥。流程见 [日常运维](docs/guides.md#operations)。

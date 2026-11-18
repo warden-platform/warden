@@ -171,9 +171,9 @@ WARDEN_OIDC_CLIENT_SECRET_FILE=/etc/warden/secrets/oidc_client_secret
 
 | 变量（均支持 `_FILE`） | 约束 |
 |---|---|
-| `WARDEN_DINGTALK_WEBHOOK` + `WARDEN_DINGTALK_SECRET` | 成对出现；Webhook 必须 HTTPS 官方域名；Secret ≥16 字节；依赖 `WARDEN_PUBLIC_CONTROL_URL` |
-| `WARDEN_DINGTALK_APP_KEY` + `WARDEN_DINGTALK_APP_SECRET` | 成对出现；Secret ≥16 字节 |
-| `WARDEN_DINGTALK_CARD_TEMPLATE_ID` + `WARDEN_DINGTALK_OPEN_CONVERSATION_ID` + `WARDEN_DINGTALK_ROBOT_CODE` | 三者必须同时配置，且依赖 CoolApp 配置 |
+| `WARDEN_DINGTALK_WEBHOOK` + `WARDEN_DINGTALK_SECRET` | 成对出现；Webhook 必须 HTTPS 官方域名；Secret ≥16 字节；依赖 `WARDEN_PUBLIC_CONTROL_URL`。Webhook 指向部署级群，仅承载 platform 租户内容 |
+| `WARDEN_DINGTALK_APP_KEY` + `WARDEN_DINGTALK_APP_SECRET` | 成对出现；Secret ≥16 字节。应用凭据部署级共享（与 OIDC 单 IdP 同构） |
+| `WARDEN_DINGTALK_CARD_TEMPLATE_ID` + `WARDEN_DINGTALK_OPEN_CONVERSATION_ID` + `WARDEN_DINGTALK_ROBOT_CODE` | 三者必须同时配置，且依赖 CoolApp 配置。`OPEN_CONVERSATION_ID` 语义为 **platform 租户的审批群**兜底；业务租户必须在「钉钉审批」渠道设置中绑定本组织的审批群（`open_conversation_id`），一个群只能绑定一个租户（迁移 107 部分唯一索引），未绑群租户的卡片投递跳过、酷应用免登返回 `DINGTALK_GROUP_NOT_BOUND` |
 
 ### AI 只读助手（可选）
 

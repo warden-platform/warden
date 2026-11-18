@@ -254,13 +254,13 @@ create/update 在实际写入前必须先调用 `kubernetes.resource.preview` �
 | DELETE | `/api/v1/policy-rules/{id}` | 租户管理员 | 删除策略规则 |
 | POST | `/api/v1/policy-rules/{id}/copy` | 租户管理员 | 复制为默认停用的新规则 |
 | POST | `/api/v1/policy-rules/simulate` | 租户管理员 | 模拟规则命中和 Rego + 矩阵最终决策 |
-| GET | `/api/v1/notification-channels/dingtalk` | 租户管理员 | 查询钉钉渠道启用状态、通知范围及 Secret 配置状态，不返回凭据 |
-| PUT | `/api/v1/notification-channels/dingtalk` | 租户管理员 | 更新渠道名称、启用状态和审批事件范围 |
-| POST | `/api/v1/notification-channels/dingtalk/test` | 租户管理员 | 发送脱敏的钉钉连通性测试消息 |
-| POST | `/api/v1/dingtalk/auth` | 公开、同源 | 使用 `auth_code`、`corp_id` 和 `open_conversation_id` 完成酷应用免登；仅接受已配置审批群的成员，无需预先绑定，审批人钉钉身份自动写入审计 |
-| GET | `/api/v1/dingtalk/access-requests` | 钉钉酷应用会话 | 查询待审批请求及其资源、动作和风险上下文 |
-| POST | `/api/v1/dingtalk/access-requests/{id}/approve` | 钉钉酷应用会话 | 在酷应用内批准请求 |
-| POST | `/api/v1/dingtalk/access-requests/{id}/reject` | 钉钉酷应用会话 | 在酷应用内拒绝请求 |
+| GET | `/api/v1/notification-channels/dingtalk` | 租户管理员 | 查询钉钉渠道启用状态、通知范围、本组织绑定的审批群 `open_conversation_id` 及 Secret 配置状态，不返回凭据 |
+| PUT | `/api/v1/notification-channels/dingtalk` | 租户管理员 | 更新渠道名称、启用状态、审批事件范围与本组织审批群 `open_conversation_id`；群已被其他组织绑定返回 409 `DINGTALK_GROUP_BOUND`，业务租户绑定部署级 platform 群返回 409 `DINGTALK_GROUP_CONFLICT` |
+| POST | `/api/v1/notification-channels/dingtalk/test` | 租户管理员 | 向本组织绑定的审批群发送脱敏测试卡片；未绑群返回 409 `DINGTALK_GROUP_NOT_BOUND` |
+| POST | `/api/v1/dingtalk/auth` | 公开、同源 | 使用 `auth_code`、`corp_id` 和 `open_conversation_id` 完成酷应用免登；群必须已绑定到某租户（部署级群归属 platform），会话冻结该租户，未绑群返回 409 `DINGTALK_GROUP_NOT_BOUND`；审批人钉钉身份自动写入审计 |
+| GET | `/api/v1/dingtalk/access-requests` | 钉钉酷应用会话 | 查询**会话所属租户**的待审批请求及其资源、动作和风险上下文 |
+| POST | `/api/v1/dingtalk/access-requests/{id}/approve` | 钉钉酷应用会话 | 在酷应用内批准请求（仅限会话所属租户的请求） |
+| POST | `/api/v1/dingtalk/access-requests/{id}/reject` | 钉钉酷应用会话 | 在酷应用内拒绝请求（仅限会话所属租户的请求） |
 | POST | `/api/v1/dingtalk/logout` | 钉钉酷应用会话 | 清除酷应用审批会话 |
 
 审批或拒绝请求体可包含业务原因；具体字段以对应页面和 Handler 校验为准。生产集成应始终提供可审计原因。
