@@ -1,0 +1,110 @@
+# 生产编排示例（脱敏）——单机 Docker Compose 形态的参考实现。
+#
+# 用法：
+#   1. 复制为 deploy/docker-compose.prod.yaml（已被 .gitignore 排除），
+#      按部署环境修改域名/端口/镜像 tag。
+#   2. 在仓库根目录的 .secrets/ 下准备各 Secret 文件（权限 600，见
+#      docs/guides.md#installation 的「准备 Secret」），切勿提交。
+#   3. 构建镜像：
+#      docker build -f server/Dockerfile --build-arg TARGET=warden-control -t warden-control:latest .
+#      docker build -t warden-web:latest web/
+#   4. 先对空库执行迁移（见 guides §4），再 docker compose -f deploy/docker-compose.prod.yaml up -d。
+#
+# 外层仍需 HTTPS 反向代理（Caddy/nginx/云 LB）终结 TLS 并转发到 web 服务；
+# 容器内 nginx 已把 /api 与 /downloads 代理到控制面（nginx.prod.example.conf）。
+# 所有端口只绑定 127.0.0.1，由外层反代统一入口。
+
+services:
+  postgresql:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: warden
+      POSTGRES_USER: warden
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - warden-pgdata:/var/lib/postgresql/data
+      - ../server/migrations:/migrations:ro
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warden -d warden"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+  warden-control:
+    image: warden-control:latest
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      WARDEN_PORT: "8080"
+      WARDEN_DATABASE_URL_FILE: /run/secrets/warden_database_url
+      WARDEN_TASK_SIGNING_KEY_FILE: /run/secrets/warden_task_signing_key
+      WARDEN_JWT_SIGNING_KEY_FILE: /run/secrets/warden_jwt_signing_key
+      WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/warden_credential_encryption_key
+      WARDEN_ADMIN_API_KEY_FILE: /run/secrets/warden_admin_api_key
+      WARDEN_ADMIN_USERNAME: "admin"
+      WARDEN_ADMIN_PASSWORD_FILE: /run/secrets/warden_admin_password
+      WARDEN_COOKIE_SECURE: "true"
+      WARDEN_PUBLIC_CONTROL_URL: "https://warden.example.com"
+      WARDEN_CORS_ORIGIN: "https://warden.example.com"
+      # --- 可选：企业 OIDC/SSO（不配置则仅本地密码登录）---
+      # WARDEN_OIDC_ISSUER: "https://idp.example.com"
+      # WARDEN_OIDC_CLIENT_ID: "<client-id>"
+      # WARDEN_OIDC_CLIENT_SECRET_FILE: /run/secrets/oidc_client_secret
+      # WARDEN_OIDC_REDIRECT_URL: "https://warden.example.com/api/v1/auth/oidc/callback"
+      # WARDEN_OIDC_DEFAULT_ROLE: "user"
+      # --- 可选：AI 只读助手 ---
+      # WARDEN_AI_ENABLED: "true"
+      # WARDEN_AI_MODEL: "<model>"
+      # WARDEN_AI_BASE_URL: "<openai-compatible-base-url>"
+      # WARDEN_AI_API_KEY_FILE: /run/secrets/ai_api_key
+    ports:
+      - "127.0.0.1:8080:8080"
+    secrets:
+      - warden_database_url
+      - warden_task_signing_key
+      - warden_jwt_signing_key
+      - warden_credential_encryption_key
+      - warden_admin_api_key
+      - warden_admin_password
+      # - oidc_client_secret
+      # - ai_api_key
+    restart: unless-stopped
+
+  web:
+    image: warden-web:latest
+    depends_on:
+      - warden-control
+    volumes:
+      - ./nginx.prod.example.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8081:8080"
+    restart: unless-stopped
+
+secrets:
+  postgres_password:
+    file: ../.secrets/postgres_password
+  warden_database_url:
+    file: ../.secrets/warden_database_url
+  warden_task_signing_key:
+    file: ../.secrets/warden_task_signing_key
+  warden_jwt_signing_key:
+    file: ../.secrets/warden_jwt_signing_key
+  warden_credential_encryption_key:
+    file: ../.secrets/warden_credential_encryption_key
+  warden_admin_api_key:
+    file: ../.secrets/warden_admin_api_key
+  warden_admin_password:
+    file: ../.secrets/warden_admin_password
+  # oidc_client_secret:
+  #   file: ../.secrets/oidc_client_secret
+  # ai_api_key:
+  #   file: ../.secrets/ai_api_key
+
+volumes:
+  warden-pgdata:

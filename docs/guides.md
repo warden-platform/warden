@@ -18,7 +18,7 @@
 > **目标**：搭出一套 HTTPS、最小权限、可回滚的运行环境。
 > 变量含义查 [配置参考](reference.md#configuration)，SSO 接入查 [SSO 接入](#oidc)，日常运维查 [日常运维](#operations)。
 
-> **先读这一句**：仓库里的 `deploy/docker-compose.yaml` **只用于本地开发**（PostgreSQL + 可选 OPA/OpenBao）。仓库**不包含**生产编排文件；生产用的 compose / Kubernetes 清单、反向代理配置和 Secret 挂载由部署环境自行维护。不要拿本地 compose 直接上生产。
+> **先读这一句**：仓库里的 `deploy/docker-compose.yaml` **只用于本地开发**（PostgreSQL + 可选 OPA/OpenBao）。生产编排参考脱敏示例 **`deploy/docker-compose.prod.example.yaml`**（单机 Compose 形态：PostgreSQL + 控制面 + 管理端，全 `*_FILE` Secret 挂载）与 **`deploy/nginx.prod.example.conf`**（容器内 SPA + `/api`、`/downloads` 反代）；复制为 `deploy/docker-compose.prod.yaml`（已 gitignore）后按环境修改。Kubernetes 形态见 `deploy/helm/`。不要拿本地 compose 直接上生产。
 
 ### 1. 准备制品
 
@@ -90,7 +90,7 @@ done < deploy/release/migrations.txt
 
 ### 5. 反向代理与 TLS
 
-前端是 SPA，需要把 `/api` 反代到控制面，静态资源走 fallback 到 `index.html`。参考 `web/nginx.conf`（容器版，监听 8080）的写法，外层反代示意：
+前端是 SPA，需要把 `/api` 反代到控制面，静态资源走 fallback 到 `index.html`。容器内反代直接用 `deploy/nginx.prod.example.conf`（含 `/api` 与 `/downloads` 代理、安全响应头与 CSP）；`web/nginx.conf` 是纯静态版（仅 SPA fallback）。外层反代示意：
 
 ```nginx
 server {

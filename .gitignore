@@ -8,6 +8,9 @@ server/warden-control
 .cache/
 .env
 /var/warden/
+# 生产 Secret 与真实编排文件不入库（脱敏示例 *.example.* 除外）
+.secrets/
+deploy/docker-compose.prod.yaml
 # Local workbench data (session memory, work logs). Never commit.
 .workbuddy/
 .DS_Store
