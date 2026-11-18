@@ -2,10 +2,12 @@ package control
 
 import (
 	"context"
+	"errors"
 	"log"
 	"time"
 
 	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 )
 
 // StartBackground starts bounded maintenance loops owned by the control-plane
@@ -65,14 +67,23 @@ func (h *Handler) expirePendingApprovals(ctx context.Context) error {
 		}
 		if err := h.requests.UpdateStatusTx(requestCtx, tx, request.ID, string(domain.RequestPending), string(domain.RequestExpired), "", nil); err != nil {
 			_ = tx.Rollback(requestCtx)
-			continue // An approver won the race; leave its decision intact.
+			if errors.Is(err, postgres.ErrRequestStateChanged) {
+				continue // An approver won the race; leave its decision intact.
+			}
+			log.Printf("expire approval %s: update request status failed: %v", request.ID, err)
+			continue
 		}
 		if request.ExecutionID != "" {
 			changed, err := h.executions.TransitionStatusTx(requestCtx, tx, request.ExecutionID, domain.ExecWaitingApproval,
 				domain.ExecExpired, "APPROVAL_EXPIRED", "审批请求已过期")
-			if err != nil || !changed {
+			if err != nil {
 				_ = tx.Rollback(requestCtx)
+				log.Printf("expire approval %s: transition execution %s failed: %v", request.ID, request.ExecutionID, err)
 				continue
+			}
+			if !changed {
+				_ = tx.Rollback(requestCtx)
+				continue // Execution already left WAITING_APPROVAL; leave it intact.
 			}
 		}
 		expiredAudit := &domain.AuditEvent{

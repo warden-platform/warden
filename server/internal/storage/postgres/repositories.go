@@ -2238,6 +2238,11 @@ func (r *RequestRepo) UpdateStatus(ctx context.Context, id, status, approvedBy s
 	return err
 }
 
+// ErrRequestStateChanged signals that a conditional status update matched no
+// rows because another writer already transitioned the request. Callers can
+// use errors.Is to tell this benign race apart from a real database failure.
+var ErrRequestStateChanged = errors.New("access request state changed")
+
 func (r *RequestRepo) UpdateStatusTx(ctx context.Context, tx pgx.Tx, id, from, status, approvedBy string, approvedAt *time.Time) error {
 	command, err := tx.Exec(ctx, `UPDATE access_requests SET status=$3,approved_by=$4,approved_at=$5,updated_at=now()
 		WHERE id=$1 AND tenant_id=$6 AND status=$2::request_status`, id, from, status, nullIf(approvedBy), approvedAt, repositoryTenant(ctx))
@@ -2245,7 +2250,7 @@ func (r *RequestRepo) UpdateStatusTx(ctx context.Context, tx pgx.Tx, id, from, s
 		return err
 	}
 	if command.RowsAffected() != 1 {
-		return fmt.Errorf("access request %s state changed", id)
+		return fmt.Errorf("access request %s: %w", id, ErrRequestStateChanged)
 	}
 	return nil
 }
