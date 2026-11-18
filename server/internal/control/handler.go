@@ -78,6 +78,7 @@ type AIStore interface {
 
 type NotificationChannelStore interface {
 	Get(context.Context, string) (*domain.NotificationChannel, error)
+	GetByConversation(ctx context.Context, channelType, conversationID string) (*domain.NotificationChannel, error)
 	Upsert(context.Context, *domain.NotificationChannel) error
 }
 

@@ -103,11 +103,14 @@ func approvalApplicant(n approvalNotification) string {
 	return name
 }
 
-func (c *dingTalkCardClient) send(ctx context.Context, n approvalNotification) error {
+// send delivers a new card into the given tenant's approval group. The group
+// is resolved per request tenant by the caller; the shared app credentials
+// only authenticate the delivery.
+func (c *dingTalkCardClient) send(ctx context.Context, n approvalNotification, conversationID string) error {
 	payload := map[string]any{
 		"callbackType": "STREAM", "cardTemplateId": c.templateID,
 		"cardData":    map[string]any{"cardParamMap": c.cardData(n)},
-		"openSpaceId": "dtv1.card//im_group." + c.openConversationID,
+		"openSpaceId": "dtv1.card//im_group." + conversationID,
 		"outTrackId":  dingTalkCardTrackID(n.RequestID),
 		"imGroupOpenSpaceModel": map[string]any{
 			"supportForward": false,
@@ -201,9 +204,6 @@ func (h *Handler) handleDingTalkCardCallback(ctx context.Context, request *dingc
 	if request == nil || h.principals == nil || h.dingTalkCard == nil || h.dingTalkCard.app == nil {
 		return nil, errors.New("DingTalk card callback unavailable")
 	}
-	if !dingTalkCardCallbackSpaceAllowed(request, h.dingTalkCard.openConversationID) {
-		return nil, errors.New("DingTalk card callback space is not allowed")
-	}
 	log.Printf("DingTalk card callback received: out_track_id=%s user_id=%s user_id_type=%d action_ids=%v", request.OutTrackId, request.UserId, request.UserIdType, request.CardActionData.CardPrivateData.ActionIdList)
 	requestID, approve, err := dingTalkCardDecision(request)
 	if err != nil {
@@ -215,28 +215,46 @@ func (h *Handler) handleDingTalkCardCallback(ctx context.Context, request *dingc
 	}
 	// Channel test cards deliberately have no database approval request. They
 	// only verify card delivery and the authenticated Stream callback, and must
-	// never create a Grant or trigger an execution.
+	// never create a Grant or trigger an execution. The track ID carries the
+	// sending tenant so the callback can be checked against that tenant's group.
 	if strings.HasPrefix(requestID, "channel-test-") {
+		tenantID := dingTalkTestCardTenant(requestID)
+		if tenantID == "" || !dingTalkCardCallbackSpaceAllowed(request, h.dingTalkConversationForTenant(ctx, tenantID)) {
+			return nil, errors.New("DingTalk test card callback space is not allowed")
+		}
 		status := "REJECTED"
 		if approve {
 			status = "APPROVED"
 		}
 		notification := approvalNotification{RequestID: requestID, Status: status, ApproverName: approverName}
-		if h.dingTalkCard != nil {
-			if err := h.dingTalkCard.update(ctx, notification); err != nil {
-				log.Printf("DingTalk test card update failed: %v", err)
-			}
+		if err := h.dingTalkCard.update(ctx, notification); err != nil {
+			log.Printf("DingTalk test card update failed: %v", err)
 		}
 		return &dingcard.CardResponse{
 			CardUpdateOptions: &dingcard.CardUpdateOptions{UpdateCardDataByKey: true},
 			CardData:          &dingcard.CardDataDto{CardParamMap: h.dingTalkCard.cardData(notification)},
 		}, nil
 	}
-	principal, err := h.principals.GetByID(ctx, adminPrincipalID)
+	// The Stream signature authenticates the shared app; the request itself
+	// anchors the tenant. The callback group must equal the group bound to that
+	// tenant, so a card replayed from another tenant's group is rejected.
+	target, err := h.requests.GetByIDAnyTenant(ctx, requestID)
+	if err != nil {
+		return nil, err
+	}
+	if target == nil {
+		return nil, errors.New("DingTalk card approval request not found")
+	}
+	tenantID := target.TenantID
+	if !dingTalkCardCallbackSpaceAllowed(request, h.dingTalkConversationForTenant(ctx, tenantID)) {
+		return nil, errors.New("DingTalk card callback space does not match the request tenant group")
+	}
+	ctx = domain.WithTenantID(ctx, tenantID)
+	principal, err := h.principals.GetByID(domain.WithTenantID(ctx, "platform"), adminPrincipalID)
 	if err != nil || principal == nil || principal.Status != domain.PrincipalStatusActive || principal.Kind != domain.PrincipalKindUser || principal.ID != adminPrincipalID {
 		return nil, errors.New("DingTalk card principal unavailable")
 	}
-	actor := &AuthenticatedIdentity{Principal: principal, Scopes: []string{"warden:approve"}, Kind: "DINGTALK_CARD_STREAM", AuditMetadata: map[string]any{
+	actor := &AuthenticatedIdentity{Principal: principal, TenantID: tenantID, Scopes: []string{"warden:approve"}, Kind: "DINGTALK_CARD_STREAM", AuditMetadata: map[string]any{
 		"auth_channel": "dingtalk_card_stream", "dingtalk_user_id": userID, "dingtalk_user_name": approverName,
 	}}
 	approvedRequest, err := h.decideApproval(ctx, requestID, approve, actor)
@@ -258,6 +276,25 @@ func (h *Handler) handleDingTalkCardCallback(ctx context.Context, request *dingc
 		CardUpdateOptions: &dingcard.CardUpdateOptions{UpdateCardDataByKey: true},
 		CardData:          &dingcard.CardDataDto{CardParamMap: h.dingTalkCard.cardData(notification)},
 	}, nil
+}
+
+// dingTalkTestCardTenant extracts the tenant from a test track ID shaped
+// "channel-test-<tenant-slug>-<unix-nano>". The timestamp suffix is digits
+// only, so the last hyphen separates it from the slug (which may contain
+// hyphens itself). Legacy IDs without a tenant return "" and are rejected.
+func dingTalkTestCardTenant(requestID string) string {
+	rest := strings.TrimPrefix(requestID, "channel-test-")
+	index := strings.LastIndex(rest, "-")
+	if index <= 0 || index == len(rest)-1 {
+		return ""
+	}
+	tenantID, suffix := rest[:index], rest[index+1:]
+	for _, ch := range suffix {
+		if ch < '0' || ch > '9' {
+			return ""
+		}
+	}
+	return tenantID
 }
 
 func (h *Handler) reconcileDingTalkCardResponse(ctx context.Context, requestID, approverName string) *dingcard.CardResponse {

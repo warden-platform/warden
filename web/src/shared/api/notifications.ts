@@ -11,13 +11,14 @@ export type ApiNotificationChannel = {
   coolapp_configured: boolean
   card_configured: boolean
   stream_configured: boolean
+  open_conversation_id?: string
   credential_source: 'secret_file'
   created_at?: string
   updated_at?: string
 }
 
 export const getDingTalkChannel = () => request<ApiNotificationChannel>('GET', '/notification-channels/dingtalk')
-export const updateDingTalkChannel = (body: { name: string; enabled: boolean; events: string[] }) =>
+export const updateDingTalkChannel = (body: { name: string; enabled: boolean; events: string[]; open_conversation_id: string }) =>
   request<ApiNotificationChannel>('PUT', '/notification-channels/dingtalk', body)
 export const testDingTalkChannel = () => request<{ status: 'SUCCEEDED' }>('POST', '/notification-channels/dingtalk/test')
 

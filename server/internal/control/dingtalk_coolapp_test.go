@@ -79,7 +79,7 @@ func TestDingTalkCoolAppNetworkErrorsDoNotLeakCredentials(t *testing.T) {
 
 func TestDingTalkCoolAppSessionHasSeparateAudience(t *testing.T) {
 	h := &Handler{jwtSigningKey: []byte("0123456789abcdef0123456789abcdef")}
-	raw, _, err := h.issueDingTalkSession("ding-user", "张三", "corp-id", "cid-group")
+	raw, _, err := h.issueDingTalkSession("ding-user", "张三", "corp-id", "cid-group", "acme")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -87,7 +87,7 @@ func TestDingTalkCoolAppSessionHasSeparateAudience(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if claims.UserID != "ding-user" || claims.OpenConversationID != "cid-group" {
+	if claims.UserID != "ding-user" || claims.OpenConversationID != "cid-group" || claims.TenantID != "acme" {
 		t.Fatalf("unexpected claims: %#v", claims)
 	}
 	if _, err := h.parseJWT(raw); err == nil {

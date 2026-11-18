@@ -262,15 +262,16 @@ type dingTalkClaims struct {
 	UserID             string `json:"dingtalk_user_id"`
 	DisplayName        string `json:"dingtalk_user_name,omitempty"`
 	PrincipalID        string `json:"principal_id"`
+	TenantID           string `json:"tenant_id"`
 	CorpID             string `json:"corp_id"`
 	OpenConversationID string `json:"open_conversation_id,omitempty"`
 	jwt.RegisteredClaims
 }
 
-func (h *Handler) issueDingTalkSession(userID, displayName, corpID, conversationID string) (string, time.Time, error) {
+func (h *Handler) issueDingTalkSession(userID, displayName, corpID, conversationID, tenantID string) (string, time.Time, error) {
 	now := time.Now()
 	expiresAt := now.Add(2 * time.Hour)
-	claims := dingTalkClaims{UserID: userID, DisplayName: displayName, PrincipalID: adminPrincipalID, CorpID: corpID, OpenConversationID: conversationID,
+	claims := dingTalkClaims{UserID: userID, DisplayName: displayName, PrincipalID: adminPrincipalID, TenantID: tenantID, CorpID: corpID, OpenConversationID: conversationID,
 		RegisteredClaims: jwt.RegisteredClaims{Subject: adminPrincipalID, Issuer: jwtIssuer, Audience: jwt.ClaimStrings{dingTalkAudience}, IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(expiresAt)}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	signed, err := token.SignedString(h.jwtSigningKey)
@@ -286,7 +287,10 @@ func (h *Handler) parseDingTalkSession(raw string) (*dingTalkClaims, error) {
 		return h.jwtSigningKey, nil
 	},
 		jwt.WithIssuer(jwtIssuer), jwt.WithAudience(dingTalkAudience), jwt.WithIssuedAt(), jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
-	if err != nil || claims.UserID == "" || claims.PrincipalID == "" {
+	if err != nil || claims.UserID == "" || claims.PrincipalID == "" || claims.TenantID == "" {
+		// Sessions issued before tenant-level group isolation carry no tenant
+		// claim; they are rejected so the user re-authenticates through a bound
+		// group (2h TTL converges quickly).
 		return nil, errors.New("invalid DingTalk session")
 	}
 	return claims, nil
@@ -342,12 +346,20 @@ func (h *Handler) DingTalkAuth(w http.ResponseWriter, r *http.Request) {
 	// Identity binding is no longer required: any member of the configured
 	// approval group may decide, and the decision is audited with the DingTalk
 	// user's real name (same trust model as the interactive card buttons).
-	if h.dingTalkCard == nil || strings.TrimSpace(h.dingTalkCard.openConversationID) == "" {
-		jsonError(w, http.StatusConflict, "DINGTALK_GROUP_NOT_CONFIGURED", "审批群尚未配置，请先完成互动卡片配置")
+	// The group itself is the tenant anchor: each tenant binds its own group,
+	// so the queue, decisions and audit stay inside that tenant's boundary.
+	tenantID, err := h.resolveDingTalkTenant(ctx, body.OpenConversationID)
+	if err != nil {
+		log.Printf("DingTalk group tenant resolution failed: %v", err)
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "解析审批群归属失败")
 		return
 	}
-	if body.OpenConversationID != strings.TrimSpace(h.dingTalkCard.openConversationID) {
-		jsonError(w, http.StatusForbidden, "DINGTALK_GROUP_MISMATCH", "请从审批群的快捷入口打开本页面")
+	if tenantID == "" {
+		jsonError(w, http.StatusConflict, "DINGTALK_GROUP_NOT_BOUND", "该群未绑定任何组织的审批渠道，请由租户管理员在钉钉审批设置中绑定本组织的审批群")
+		return
+	}
+	if !h.tenantIsActive(ctx, tenantID) {
+		jsonError(w, http.StatusForbidden, "DINGTALK_TENANT_DISABLED", "该群绑定的组织已停用")
 		return
 	}
 	displayName := userID
@@ -356,18 +368,20 @@ func (h *Handler) DingTalkAuth(w http.ResponseWriter, r *http.Request) {
 	} else {
 		displayName = sanitizeDingTalkText(resolvedName)
 	}
-	principal, err := h.principals.GetByID(ctx, adminPrincipalID)
+	// The built-in admin principal is a platform fixture; look it up in the
+	// platform tenant while all business data stays in the bound tenant.
+	principal, err := h.principals.GetByID(domain.WithTenantID(ctx, "platform"), adminPrincipalID)
 	if err != nil || principal == nil || principal.Status != domain.PrincipalStatusActive || principal.Kind != domain.PrincipalKindUser {
 		jsonError(w, http.StatusForbidden, "DINGTALK_PRINCIPAL_DISABLED", "Warden 审批身份不可用")
 		return
 	}
-	token, expiresAt, err := h.issueDingTalkSession(userID, displayName, body.CorpID, body.OpenConversationID)
+	token, expiresAt, err := h.issueDingTalkSession(userID, displayName, body.CorpID, body.OpenConversationID, tenantID)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "SESSION_CREATE_FAILED", "创建钉钉审批会话失败")
 		return
 	}
 	http.SetCookie(w, &http.Cookie{Name: dingTalkCookieName, Value: token, Path: "/api/v1/dingtalk", HttpOnly: true, Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteLaxMode, Expires: expiresAt})
-	h.writeNotificationAudit(ctx, "dingtalk.coolapp.login", userID, "钉钉酷应用审批用户免登成功", map[string]any{
+	h.writeNotificationAudit(domain.WithTenantID(ctx, tenantID), "dingtalk.coolapp.login", userID, "钉钉酷应用审批用户免登成功", map[string]any{
 		"dingtalk_user_id": userID, "dingtalk_user_name": displayName,
 	}, principal.ID, "user")
 	jsonResp(w, http.StatusOK, map[string]any{"user": map[string]string{"id": userID, "name": displayName}, "expires_at": expiresAt})
@@ -382,11 +396,14 @@ func (h *Handler) dingTalkIdentity(r *http.Request) (*AuthenticatedIdentity, *di
 	if err != nil {
 		return nil, nil, err
 	}
-	principal, err := h.principals.GetByID(r.Context(), adminPrincipalID)
+	if !h.tenantIsActive(r.Context(), claims.TenantID) {
+		return nil, nil, errors.New("DingTalk tenant disabled")
+	}
+	principal, err := h.principals.GetByID(domain.WithTenantID(r.Context(), "platform"), adminPrincipalID)
 	if err != nil || principal == nil || principal.Status != domain.PrincipalStatusActive || principal.Kind != domain.PrincipalKindUser {
 		return nil, nil, errors.New("DingTalk principal unavailable")
 	}
-	identity := &AuthenticatedIdentity{Principal: principal, Scopes: []string{"warden:approve"}, Kind: "DINGTALK_COOLAPP", AuditMetadata: map[string]any{
+	identity := &AuthenticatedIdentity{Principal: principal, TenantID: claims.TenantID, Scopes: []string{"warden:approve"}, Kind: "DINGTALK_COOLAPP", AuditMetadata: map[string]any{
 		"auth_channel": "dingtalk_coolapp", "dingtalk_user_id": claims.UserID, "dingtalk_user_name": claims.DisplayName,
 	}}
 	return identity, claims, nil
@@ -397,11 +414,13 @@ func (h *Handler) DingTalkListAccessRequests(w http.ResponseWriter, r *http.Requ
 		databaseUnavailable(w)
 		return
 	}
-	if _, _, err := h.dingTalkIdentity(r); err != nil {
+	_, claims, err := h.dingTalkIdentity(r)
+	if err != nil {
 		jsonError(w, http.StatusUnauthorized, "DINGTALK_SESSION_INVALID", "钉钉审批会话已过期，请重新打开酷应用")
 		return
 	}
-	requests, err := h.requests.List(r.Context(), string(domain.RequestPending), 50, 0)
+	ctx := domain.WithTenantID(r.Context(), claims.TenantID)
+	requests, err := h.requests.List(ctx, string(domain.RequestPending), 50, 0)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询审批请求失败")
 		return
@@ -409,17 +428,17 @@ func (h *Handler) DingTalkListAccessRequests(w http.ResponseWriter, r *http.Requ
 	result := make([]map[string]any, 0, len(requests))
 	for _, request := range requests {
 		item := map[string]any{"id": request.ID, "status": request.Status, "reason": request.Reason, "parameters": request.Parameters, "expires_at": request.ExpiresAt, "created_at": request.CreatedAt}
-		if principal, _ := h.principals.GetByID(r.Context(), request.PrincipalID); principal != nil {
+		if principal, _ := h.principals.GetByID(ctx, request.PrincipalID); principal != nil {
 			item["applicant"] = principal.Name
 		}
-		if resource, _ := h.resources.GetByID(r.Context(), request.ResourceID); resource != nil {
+		if resource, _ := h.resources.GetByID(ctx, request.ResourceID); resource != nil {
 			item["resource_name"] = resource.Name
 			item["resource_type"] = resource.ResourceType
 			item["environment"] = resource.Environment
 		}
-		if actionName := actionNameFromID(r.Context(), h.pool, request.ActionID); actionName != "" {
+		if actionName := actionNameFromID(ctx, h.pool, request.ActionID); actionName != "" {
 			item["action_name"] = actionName
-			if action, _ := h.actions.GetByName(r.Context(), actionName); action != nil {
+			if action, _ := h.actions.GetByName(ctx, actionName); action != nil {
 				item["risk_level"] = action.RiskLevel
 			}
 		}
@@ -438,7 +457,8 @@ func (h *Handler) dingTalkDecide(w http.ResponseWriter, r *http.Request, approve
 		jsonError(w, http.StatusUnauthorized, "DINGTALK_SESSION_INVALID", "钉钉审批会话已过期，请重新打开酷应用")
 		return
 	}
-	request, err := h.decideApproval(r.Context(), r.PathValue("id"), approve, actor)
+	ctx := domain.WithTenantID(r.Context(), claims.TenantID)
+	request, err := h.decideApproval(ctx, r.PathValue("id"), approve, actor)
 	if err != nil {
 		status, code, message := approvalDecisionHTTPError(err)
 		jsonError(w, status, code, message)
@@ -452,7 +472,7 @@ func (h *Handler) dingTalkDecide(w http.ResponseWriter, r *http.Request, approve
 	if approverName == "" {
 		approverName = claims.UserID
 	}
-	h.notifyApprovalAsync(r.Context(), *request, event, approverName)
+	h.notifyApprovalAsync(ctx, *request, event, approverName)
 	jsonResp(w, http.StatusOK, map[string]string{"id": request.ID, "status": status})
 }
 

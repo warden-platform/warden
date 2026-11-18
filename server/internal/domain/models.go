@@ -524,8 +524,12 @@ type NotificationChannel struct {
 	Enabled   bool      `json:"enabled"`
 	Events    []string  `json:"events"`
 	TenantID  string    `json:"tenant_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	// OpenConversationID binds this tenant's own DingTalk approval group.
+	// Empty means unbound; the platform tenant may fall back to the
+	// deployment-level WARDEN_DINGTALK_OPEN_CONVERSATION_ID secret.
+	OpenConversationID string    `json:"open_conversation_id"`
+	CreatedAt          time.Time `json:"created_at"`
+	UpdatedAt          time.Time `json:"updated_at"`
 }
 
 // DingTalkPrincipalBinding is an explicit trust mapping used by interactive

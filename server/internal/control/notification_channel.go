@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"gitee.com/warden-platform/warden/server/internal/domain"
+	"github.com/jackc/pgx/v5/pgconn"
 )
 
 func (h *Handler) GetDingTalkChannel(w http.ResponseWriter, r *http.Request) {
@@ -36,9 +37,10 @@ func (h *Handler) UpdateDingTalkChannel(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	var body struct {
-		Name    string   `json:"name"`
-		Enabled bool     `json:"enabled"`
-		Events  []string `json:"events"`
+		Name               string   `json:"name"`
+		Enabled            bool     `json:"enabled"`
+		Events             []string `json:"events"`
+		OpenConversationID string   `json:"open_conversation_id"`
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 32<<10))
 	decoder.DisallowUnknownFields()
@@ -56,18 +58,33 @@ func (h *Handler) UpdateDingTalkChannel(w http.ResponseWriter, r *http.Request) 
 		jsonError(w, http.StatusBadRequest, "INVALID_CHANNEL", err.Error())
 		return
 	}
+	body.OpenConversationID = strings.TrimSpace(body.OpenConversationID)
+	if len(body.OpenConversationID) > 512 || strings.ContainsAny(body.OpenConversationID, "\r\n") {
+		jsonError(w, http.StatusBadRequest, "INVALID_CHANNEL", "审批群 ID 格式不正确")
+		return
+	}
+	tenantID := domain.TenantIDFromContext(r.Context())
+	if body.OpenConversationID != "" && tenantID != "platform" && h.dingTalkCard != nil && body.OpenConversationID == strings.TrimSpace(h.dingTalkCard.openConversationID) {
+		jsonError(w, http.StatusConflict, "DINGTALK_GROUP_CONFLICT", "该群是平台管理域的部署级审批群，业务组织请绑定自己的审批群")
+		return
+	}
 	if body.Enabled && h.dingTalk == nil && h.dingTalkCard == nil {
 		jsonError(w, http.StatusConflict, "DINGTALK_NOT_CONFIGURED", "请先通过 Secret 文件配置钉钉 Webhook 或互动卡片")
 		return
 	}
-	channel := &domain.NotificationChannel{Type: dingTalkChannelType, Name: body.Name, Enabled: body.Enabled, Events: events}
+	channel := &domain.NotificationChannel{Type: dingTalkChannelType, Name: body.Name, Enabled: body.Enabled, Events: events, OpenConversationID: body.OpenConversationID}
 	if err := h.notificationChannels.Upsert(r.Context(), channel); err != nil {
+		var pgErr *pgconn.PgError
+		if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "notification_channels_type_conversation_key" {
+			jsonError(w, http.StatusConflict, "DINGTALK_GROUP_BOUND", "该审批群已被其他组织绑定，一个群只能归属一个组织")
+			return
+		}
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存钉钉通知渠道失败")
 		return
 	}
 	identity := identityFromContext(r.Context())
 	h.writeNotificationAudit(r.Context(), "notification.updated", channel.ID, "钉钉审批通知配置已更新", map[string]any{
-		"enabled": channel.Enabled, "events": channel.Events,
+		"enabled": channel.Enabled, "events": channel.Events, "open_conversation_id": channel.OpenConversationID,
 	}, identity.Principal.ID, string(identity.Principal.Kind))
 	jsonResp(w, http.StatusOK, notificationChannelResponse(channel, h.dingTalk != nil, h.dingTalkCoolApp != nil, h.dingTalkCard != nil))
 }
@@ -79,18 +96,26 @@ func (h *Handler) TestDingTalkChannel(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx, cancel := context.WithTimeout(r.Context(), 20*time.Second)
 	defer cancel()
+	identity := identityFromContext(r.Context())
+	tenantID := domain.TenantIDFromContext(r.Context())
+	conversationID := h.dingTalkConversationForTenant(ctx, tenantID)
+	cardAvailable := h.dingTalkCard != nil && conversationID != ""
+	webhookAvailable := h.dingTalk != nil && tenantID == "platform"
+	if !cardAvailable && !webhookAvailable {
+		jsonError(w, http.StatusConflict, "DINGTALK_GROUP_NOT_BOUND", "本组织尚未绑定审批群，请先在渠道设置中填写本组织的审批群 ID")
+		return
+	}
 	notification := approvalNotification{
-		Event: "notification.test", Status: "TEST", RequestID: fmt.Sprintf("channel-test-%d", time.Now().UnixNano()),
-		PrincipalName: identityFromContext(r.Context()).Principal.Name,
-		Reason:        "Warden Warden 钉钉审批通知渠道连通性测试",
+		Event: "notification.test", Status: "TEST", RequestID: fmt.Sprintf("channel-test-%s-%d", tenantID, time.Now().UnixNano()),
+		PrincipalName: identity.Principal.Name,
+		Reason:        "Warden 钉钉审批通知渠道连通性测试",
 	}
 	var err error
-	if h.dingTalkCard != nil {
-		err = h.dingTalkCard.send(ctx, notification)
+	if cardAvailable {
+		err = h.dingTalkCard.send(ctx, notification, conversationID)
 	} else {
 		err = h.dingTalk.send(ctx, notification)
 	}
-	identity := identityFromContext(r.Context())
 	if err != nil {
 		h.writeNotificationAudit(r.Context(), "notification.failed", "dingtalk", "钉钉通知渠道测试失败", map[string]any{
 			"event": "notification.test", "error": safeNotificationError(err),
@@ -108,13 +133,52 @@ func defaultDingTalkChannel() *domain.NotificationChannel {
 	return &domain.NotificationChannel{Type: dingTalkChannelType, Name: "钉钉审批通知", Enabled: true, Events: append([]string(nil), allowedDingTalkEvents...), TenantID: "platform"}
 }
 
+// resolveDingTalkTenant maps a DingTalk group to its owning tenant. A group
+// bound in notification_channels wins; the deployment-level
+// WARDEN_DINGTALK_OPEN_CONVERSATION_ID secret is the platform tenant's
+// fallback (backward compatibility with single-tenant deployments).
+// Returns "" when the group is bound to no tenant (fail-closed upstream).
+func (h *Handler) resolveDingTalkTenant(ctx context.Context, conversationID string) (string, error) {
+	conversationID = strings.TrimSpace(conversationID)
+	if conversationID == "" || h.notificationChannels == nil {
+		return "", nil
+	}
+	channel, err := h.notificationChannels.GetByConversation(ctx, dingTalkChannelType, conversationID)
+	if err != nil {
+		return "", err
+	}
+	if channel != nil {
+		return channel.TenantID, nil
+	}
+	if h.dingTalkCard != nil && conversationID == strings.TrimSpace(h.dingTalkCard.openConversationID) {
+		return "platform", nil
+	}
+	return "", nil
+}
+
+// dingTalkConversationForTenant returns the approval group bound to a tenant.
+// Business tenants must bind their own group; only the platform tenant may
+// fall back to the deployment-level secret. "" means unbound.
+func (h *Handler) dingTalkConversationForTenant(ctx context.Context, tenantID string) string {
+	if h.notificationChannels != nil {
+		if channel, err := h.notificationChannels.Get(domain.WithTenantID(ctx, tenantID), dingTalkChannelType); err == nil && channel != nil && strings.TrimSpace(channel.OpenConversationID) != "" {
+			return strings.TrimSpace(channel.OpenConversationID)
+		}
+	}
+	if tenantID == "platform" && h.dingTalkCard != nil {
+		return strings.TrimSpace(h.dingTalkCard.openConversationID)
+	}
+	return ""
+}
+
 func notificationChannelResponse(channel *domain.NotificationChannel, webhookConfigured, coolAppConfigured, cardConfigured bool) map[string]any {
 	return map[string]any{
 		"id": channel.ID, "type": channel.Type, "name": channel.Name,
 		"enabled": channel.Enabled, "events": channel.Events, "configured": webhookConfigured || cardConfigured,
 		"webhook_configured": webhookConfigured, "coolapp_configured": coolAppConfigured,
 		"card_configured": cardConfigured, "stream_configured": cardConfigured,
-		"credential_source": "secret_file", "created_at": channel.CreatedAt, "updated_at": channel.UpdatedAt,
+		"open_conversation_id": channel.OpenConversationID,
+		"credential_source":    "secret_file", "created_at": channel.CreatedAt, "updated_at": channel.UpdatedAt,
 	}
 }
 
@@ -169,6 +233,11 @@ func (h *Handler) deliverApprovalNotification(ctx context.Context, request domai
 	if channel == nil {
 		channel = defaultDingTalkChannel()
 	}
+	tenantID := domain.TenantIDFromContext(ctx)
+	conversationID := strings.TrimSpace(channel.OpenConversationID)
+	if conversationID == "" && tenantID == "platform" && h.dingTalkCard != nil {
+		conversationID = strings.TrimSpace(h.dingTalkCard.openConversationID)
+	}
 	notification := h.approvalNotificationForRequest(ctx, request, notificationStatus(event), event, approverName)
 	eventEnabled := channel.Enabled && stringSliceContains(channel.Events, event)
 	// Once an interactive card exists, lifecycle changes must always reconcile
@@ -180,17 +249,25 @@ func (h *Handler) deliverApprovalNotification(ctx context.Context, request domai
 	}
 	var deliveryErrors []error
 	if cardEnabled {
-		var cardErr error
-		if event == "access_request.created" {
-			cardErr = h.dingTalkCard.send(ctx, notification)
+		if conversationID == "" {
+			// Tenant isolation: never deliver a tenant's approval content into
+			// another tenant's (or the deployment default) group.
+			log.Printf("skip DingTalk card without a bound tenant group: tenant=%s event=%s request=%s", tenantID, event, request.ID)
 		} else {
-			cardErr = h.dingTalkCard.update(ctx, notification)
-		}
-		if cardErr != nil {
-			deliveryErrors = append(deliveryErrors, cardErr)
+			var cardErr error
+			if event == "access_request.created" {
+				cardErr = h.dingTalkCard.send(ctx, notification, conversationID)
+			} else {
+				cardErr = h.dingTalkCard.update(ctx, notification)
+			}
+			if cardErr != nil {
+				deliveryErrors = append(deliveryErrors, cardErr)
+			}
 		}
 	}
-	if eventEnabled && h.dingTalk != nil {
+	// The legacy webhook points at one deployment-level group, so it may only
+	// carry platform-tenant content; business tenants use their own card group.
+	if eventEnabled && h.dingTalk != nil && tenantID == "platform" {
 		if err := h.dingTalk.send(ctx, notification); err != nil {
 			deliveryErrors = append(deliveryErrors, err)
 		}

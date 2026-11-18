@@ -2189,6 +2189,30 @@ func (r *RequestRepo) GetByID(ctx context.Context, id string) (*domain.AccessReq
 	return &ar, nil
 }
 
+// GetByIDAnyTenant resolves a request across tenant boundaries and returns its
+// owning tenant. It exists solely for the DingTalk card Stream callback, which
+// is authenticated by the app-level Stream signature plus a per-tenant group
+// allowlist before this lookup runs; every other path must use GetByID.
+func (r *RequestRepo) GetByIDAnyTenant(ctx context.Context, id string) (*domain.AccessRequest, error) {
+	query := `SELECT id, tenant_id, COALESCE(execution_id::text,''), principal_id, resource_id, action_id, COALESCE(acting_project_id::text,''), external_context,
+		COALESCE(delegation_token_id::text,''), COALESCE(on_behalf_of_principal_id::text,''), COALESCE(accountable_principal_id::text,''), parameters, parameter_hash,
+		COALESCE(reason,''), status, COALESCE(decision_id::text,''), COALESCE(approved_by::text,''),
+		approved_at, expires_at, created_at, updated_at
+		FROM access_requests WHERE id = $1`
+	var ar domain.AccessRequest
+	err := r.pool.QueryRow(ctx, query, id).Scan(&ar.ID, &ar.TenantID, &ar.ExecutionID, &ar.PrincipalID, &ar.ResourceID, &ar.ActionID, &ar.ActingProjectID, &ar.ExternalContext,
+		&ar.DelegationTokenID, &ar.OnBehalfOfPrincipalID, &ar.AccountablePrincipalID, &ar.Parameters, &ar.ParameterHash,
+		&ar.Reason, &ar.Status, &ar.DecisionID, &ar.ApprovedBy,
+		&ar.ApprovedAt, &ar.ExpiresAt, &ar.CreatedAt, &ar.UpdatedAt)
+	if err != nil {
+		if err == pgx.ErrNoRows {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &ar, nil
+}
+
 func (r *RequestRepo) GetPendingByExecutionID(ctx context.Context, executionID string) (*domain.AccessRequest, error) {
 	query := `SELECT id, COALESCE(execution_id::text,''), principal_id, resource_id, action_id, COALESCE(acting_project_id::text,''), external_context,
 		COALESCE(delegation_token_id::text,''), COALESCE(on_behalf_of_principal_id::text,''), COALESCE(accountable_principal_id::text,''), parameters, parameter_hash,

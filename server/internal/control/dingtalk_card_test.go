@@ -31,7 +31,7 @@ func TestDingTalkCardCreateAndDeliverPayload(t *testing.T) {
 	defer server.Close()
 	app := &dingTalkCoolAppClient{appKey: "ding-app-key", appSecret: "secret-value-long-enough", http: server.Client(), tokenEndpoint: server.URL + "/token"}
 	client := &dingTalkCardClient{app: app, templateID: "template-id", openConversationID: "cid-group", robotCode: "robot-code", http: server.Client(), createEndpoint: server.URL + "/card"}
-	if err := client.send(context.Background(), approvalNotification{RequestID: "request-id", Status: "PENDING", PrincipalName: "alice"}); err != nil {
+	if err := client.send(context.Background(), approvalNotification{RequestID: "request-id", Status: "PENDING", PrincipalName: "alice"}, "cid-group"); err != nil {
 		t.Fatal(err)
 	}
 	if delivered["callbackType"] != "STREAM" || delivered["cardTemplateId"] != "template-id" || delivered["openSpaceId"] != "dtv1.card//im_group.cid-group" || delivered["outTrackId"] != "warden-approval:request-id" {

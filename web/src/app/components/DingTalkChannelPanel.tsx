@@ -19,7 +19,8 @@ export function DingTalkChannelPanel() {
   const [testing, setTesting] = useState(false)
   const [testSentAt, setTestSentAt] = useState<Date | null>(null)
   const [error, setError] = useState('')
-  const { notify } = useApp()
+  const { notify, auth } = useApp()
+  const isPlatformTenant = (auth.user?.tenant?.slug ?? 'platform') === 'platform'
 
   const load = () => {
     setLoading(true)
@@ -42,8 +43,10 @@ export function DingTalkChannelPanel() {
     if (!channel.name.trim()) return notify('请填写渠道名称', 'error')
     if (channel.events.length === 0) return notify('至少选择一个通知事件', 'error')
     if (channel.enabled && (!channel.card_configured || !channel.stream_configured)) return notify('请先完成互动卡片和 Stream 回调配置', 'error')
+    const conversationID = (channel.open_conversation_id ?? '').trim()
+    if (channel.enabled && !conversationID && !isPlatformTenant) return notify('启用前请先绑定本组织的审批群 ID', 'error')
     setSaving(true)
-    updateDingTalkChannel({ name: channel.name.trim(), enabled: channel.enabled, events: channel.events })
+    updateDingTalkChannel({ name: channel.name.trim(), enabled: channel.enabled, events: channel.events, open_conversation_id: conversationID })
       .then((updated) => {
         setChannel(updated)
         notify('钉钉审批通知配置已保存')
@@ -162,6 +165,16 @@ export function DingTalkChannelPanel() {
             onChange={(e) => setChannel({ ...channel, name: e.target.value })}
           />
         </label>
+        <label htmlFor="dingtalk-channel-conversation" className="dingtalk-field">
+          <span>本组织审批群 ID（openConversationId）</span>
+          <input
+            id="dingtalk-channel-conversation"
+            value={channel.open_conversation_id ?? ''}
+            maxLength={512}
+            placeholder={isPlatformTenant ? '留空则使用部署级审批群配置' : '例如 cidXXXXXXXX=='}
+            onChange={(e) => setChannel({ ...channel, open_conversation_id: e.target.value })}
+          />
+        </label>
         <label
           className="dingtalk-toggle"
           htmlFor="dingtalk-channel-enabled"
@@ -253,9 +266,10 @@ export function DingTalkChannelPanel() {
             <span className="adv-label">兼容说明</span>
             <p>
               复用企业内部应用的 Client ID / Client
-              Secret，修改 Secret 文件后需重启 control 服务。Webhook{' '}
+              Secret，修改 Secret 文件后需重启 control 服务。部署级群配置（
+              <code>WARDEN_DINGTALK_OPEN_CONVERSATION_ID</code>）仅作用于平台管理域；业务组织必须在上方绑定自己的审批群，审批数据与卡片严格按组织隔离。Webhook{' '}
               {channel.webhook_configured ? '已配置' : '未配置'}
-              ，启用时同步发送兼容文本通知；旧酷应用接口仅保留兼容，不参与当前卡片审批主流程。
+              ，仅平台管理域启用时同步发送兼容文本通知；旧酷应用接口仅保留兼容，不参与当前卡片审批主流程。
             </p>
           </div>
         </div>
