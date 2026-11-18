@@ -2,15 +2,16 @@
 // Lifted out of App so any routed page can trigger a toast, report the
 // current pending-approval count, or read the logged-in user without prop drilling.
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
-import { CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { getMe, getOIDCConfig, logout, type AuthUser } from '../../shared/api'
 
-type ToastEntry = { id: number; message: string }
+type ToastVariant = 'success' | 'error'
+type ToastEntry = { id: number; message: string; variant: ToastVariant }
 
 type AuthState = { user: AuthUser | null; loading: boolean }
 
 type AppContextValue = {
-  notify: (message: string) => void
+  notify: (message: string, variant?: ToastVariant) => void
   pendingApprovals: number
   setPendingApprovals: (n: number) => void
   auth: AuthState
@@ -27,9 +28,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [oidcLogoutUrl, setOIDCLogoutUrl] = useState('')
   const seq = useRef(0)
 
-  const notify = useCallback((message: string) => {
+  const notify = useCallback((message: string, variant: ToastVariant = 'success') => {
     const id = ++seq.current
-    setToasts((current) => [...current, { id, message }])
+    setToasts((current) => [...current, { id, message, variant }])
     window.setTimeout(() => {
       setToasts((current) => current.filter((item) => item.id !== id))
     }, 3200)
@@ -72,16 +73,15 @@ export function AppProvider({ children }: { children: ReactNode }) {
   return (
     <AppContext.Provider value={value}>
       {children}
-      {toasts.length > 0 && (
-        <div className="toast-stack">
-          {toasts.map((t) => (
-            <div className="toast" key={t.id}>
-              <CheckCircle2 size={18} />
-              {t.message}
-            </div>
-          ))}
-        </div>
-      )}
+      {/* The live region stays mounted so screen readers announce new toasts. */}
+      <div className="toast-stack" aria-live="polite">
+        {toasts.map((t) => (
+          <div className={t.variant === 'error' ? 'toast toast-error' : 'toast'} key={t.id} role="status">
+            {t.variant === 'error' ? <AlertTriangle size={18} /> : <CheckCircle2 size={18} />}
+            {t.message}
+          </div>
+        ))}
+      </div>
     </AppContext.Provider>
   )
 }

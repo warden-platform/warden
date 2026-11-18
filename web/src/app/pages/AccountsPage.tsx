@@ -47,7 +47,7 @@ function AssignIdentityRow({
   const [submitting, setSubmitting] = useState(false)
   const submit = () => {
     if (!tenant) {
-      notify('请先选择要指派到的组织')
+      notify('请先选择要指派到的组织', 'error')
       return
     }
     if (!window.confirm(`确认把「${accountDisplayName(account)}」指派到「${tenant}」为「${roleLabels[role]}」？\n\n该账号当前待分配的会话会失效。`)) return
@@ -57,7 +57,7 @@ function AssignIdentityRow({
         notify(`已指派到 ${tenant}`)
         onAssigned(account.id)
       })
-      .catch((e: ApiError) => notify(e.message || '指派失败'))
+      .catch((e: ApiError) => notify(e.message || '指派失败', 'error'))
       .finally(() => setSubmitting(false))
   }
   return (
@@ -134,7 +134,7 @@ export function AccountsPage() {
         setAccounts((items) => items.map((item) => (item.id === result.id ? { ...item, role: result.role } : item)))
         notify(result.force_relogin ? `角色已更新，已撤销 ${result.revoked_sessions} 个会话，需重新登录` : '角色已更新')
       })
-      .catch((e: ApiError) => notify(e.message || '更新角色失败'))
+      .catch((e: ApiError) => notify(e.message || '更新角色失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -151,7 +151,7 @@ export function AccountsPage() {
         notify(result.action === 'removed' ? `已移回未分配大厅（撤销 ${result.revoked_sessions} 个会话）` : `已停用该成员（撤销 ${result.revoked_sessions} 个会话）`)
         load(false)
       })
-      .catch((e: ApiError) => notify(e.message || '移出成员失败'))
+      .catch((e: ApiError) => notify(e.message || '移出成员失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -164,7 +164,7 @@ export function AccountsPage() {
         notify(`已恢复启用「${label}」`)
         load(false)
       })
-      .catch((e: ApiError) => notify(e.message || '恢复启用失败'))
+      .catch((e: ApiError) => notify(e.message || '恢复启用失败', 'error'))
       .finally(() => setBusy(''))
   }
 

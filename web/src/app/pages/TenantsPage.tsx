@@ -103,7 +103,7 @@ export function TenantsPage() {
         setEmailDomains((((tenant.settings?.emailDomains as string[] | undefined) ?? [])).join(', '))
         setMembers(memberItems ?? [])
       })
-      .catch((e: ApiError) => notify(e.message || '加载租户详情失败'))
+      .catch((e: ApiError) => notify(e.message || '加载租户详情失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -121,7 +121,7 @@ export function TenantsPage() {
         setMemberForm({ name: '', password: '', role: 'user' })
         return openTenant(selected.slug)
       })
-      .catch((e: ApiError) => notify(e.message || '创建成员失败'))
+      .catch((e: ApiError) => notify(e.message || '创建成员失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -133,7 +133,7 @@ export function TenantsPage() {
     updateAccountRole(member.id, role as 'user' | 'tenant_admin')
       .then(() => openTenant(selected.slug))
       .then(() => notify('成员角色已更新'))
-      .catch((e: ApiError) => notify(e.message || '更新角色失败'))
+      .catch((e: ApiError) => notify(e.message || '更新角色失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -152,7 +152,7 @@ export function TenantsPage() {
         setCreateForm(EMPTY_TENANT)
         load(false)
       })
-      .catch((e: ApiError) => notify(e.message || '创建租户失败'))
+      .catch((e: ApiError) => notify(e.message || '创建租户失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -165,7 +165,7 @@ export function TenantsPage() {
         return openTenant(selected.slug)
       })
       .then(() => load(false))
-      .catch((e: ApiError) => notify(e.message || '更新并发保护阈值失败'))
+      .catch((e: ApiError) => notify(e.message || '更新并发保护阈值失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -178,7 +178,7 @@ export function TenantsPage() {
         setEmailDomains(res.emailDomains.join(', '))
         notify('SSO 邮箱域名已更新')
       })
-      .catch((e: ApiError) => notify(e.message || '更新邮箱域名失败'))
+      .catch((e: ApiError) => notify(e.message || '更新邮箱域名失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -191,7 +191,7 @@ export function TenantsPage() {
         setSelected(null)
         load(false)
       })
-      .catch((e: ApiError) => notify(e.message || '停用租户失败'))
+      .catch((e: ApiError) => notify(e.message || '停用租户失败', 'error'))
       .finally(() => setBusy(''))
   }
 

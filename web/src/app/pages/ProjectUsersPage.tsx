@@ -58,7 +58,7 @@ function InvitationsPanel() {
         setEmail('')
         notify(`已邀请 ${created.email}`)
       })
-      .catch((e: ApiError) => notify(e.message || '创建邀请失败'))
+      .catch((e: ApiError) => notify(e.message || '创建邀请失败', 'error'))
       .finally(() => setBusy(false))
   }
 
@@ -70,7 +70,7 @@ function InvitationsPanel() {
         setInvites((items) => items.map((item) => (item.id === invite.id ? { ...item, status: 'REVOKED' } : item)))
         notify('邀请已撤销')
       })
-      .catch((e: ApiError) => notify(e.message || '撤销邀请失败'))
+      .catch((e: ApiError) => notify(e.message || '撤销邀请失败', 'error'))
       .finally(() => setBusy(false))
   }
 
@@ -202,7 +202,7 @@ export function ProjectUsersPage() {
         setUsers((items) => items.map((item) => (item.id === updated.id ? updated : item)))
         notify(`已${verb}项目用户`)
       })
-      .catch((e: ApiError) => notify(e.message || `${verb}项目用户失败`))
+      .catch((e: ApiError) => notify(e.message || `${verb}项目用户失败`, 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -213,7 +213,7 @@ export function ProjectUsersPage() {
       .then(({ revoked_sessions }) => {
         notify(revoked_sessions > 0 ? `已撤销 ${revoked_sessions} 个会话` : '当前没有有效会话')
       })
-      .catch((e: ApiError) => notify(e.message || '撤销会话失败'))
+      .catch((e: ApiError) => notify(e.message || '撤销会话失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -227,7 +227,7 @@ export function ProjectUsersPage() {
         setResetUser(null)
         setPassword('')
       })
-      .catch((e: ApiError) => notify(e.message || '重置密码失败'))
+      .catch((e: ApiError) => notify(e.message || '重置密码失败', 'error'))
       .finally(() => setBusy(''))
   }
 

@@ -150,7 +150,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
       : updateConnectorNamespaces(connector.id, selected)
     update
       .then(() => notify(linux ? '服务范围已更新，Linux Connector 正在热更新' : 'Namespace 范围已更新，Operator 正在调谐权限'))
-      .catch((e: ApiError) => notify(`保存失败：${e.message}`))
+      .catch((e: ApiError) => notify(`保存失败：${e.message}`, 'error'))
       .finally(() => setSaving(false))
   }
 
@@ -161,7 +161,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
         notify(`${targetTypeLabel}环境已更新为${mapEnvironment(environment)}`)
         load()
       })
-      .catch((e: ApiError) => notify(`保存失败：${e.message}`))
+      .catch((e: ApiError) => notify(`保存失败：${e.message}`, 'error'))
       .finally(() => setSaving(false))
   }
 
@@ -174,7 +174,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
         )
         load()
       })
-      .catch((e: ApiError) => notify(`保存失败：${e.message}`))
+      .catch((e: ApiError) => notify(`保存失败：${e.message}`, 'error'))
       .finally(() => setSaving(false))
   }
 
@@ -187,7 +187,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
         notify(`${connector.name} 已进入安全下线流程`)
         load()
       })
-      .catch((e: ApiError) => notify(`移除失败：${e.message}`))
+      .catch((e: ApiError) => notify(`移除失败：${e.message}`, 'error'))
       .finally(() => setDeletingId(''))
   }
 
@@ -206,7 +206,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
         notify(`${connector.name} 已完成下线并归档`)
         navigate(targetMode ? '/targets' : '/connectors')
       })
-      .catch((e: ApiError) => notify(`归档失败：${e.message}`))
+      .catch((e: ApiError) => notify(`归档失败：${e.message}`, 'error'))
       .finally(() => setDeletingId(''))
   }
 

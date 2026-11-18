@@ -58,7 +58,7 @@ export function ApprovalsPage() {
         reload(false)
         notify(allowed ? '审批已通过，Connector 开始执行' : '审批已拒绝，授权申请已关闭')
       })
-      .catch((e: ApiError) => notify(`操作失败：${e.message}`))
+      .catch((e: ApiError) => notify(`操作失败：${e.message}`, 'error'))
       .finally(() => setActing(''))
   }
 

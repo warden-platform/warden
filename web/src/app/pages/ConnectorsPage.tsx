@@ -46,7 +46,7 @@ export function ConnectorsPage() {
     setCheckingId(connector.id)
     checkConnector(connector.id)
       .then((result) => setCheckResults((current) => ({ ...current, [connector.id]: result })))
-      .catch((e: ApiError) => notify(`检查失败：${e.message}`))
+      .catch((e: ApiError) => notify(`检查失败：${e.message}`, 'error'))
       .finally(() => setCheckingId(''))
   }
 

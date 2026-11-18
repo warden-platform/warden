@@ -73,7 +73,7 @@ export function ProjectManagePanel({
   }, [connectors, resources])
 
   const submitCreate = () => {
-    if (!newName.trim()) return notify('请填写项目名称')
+    if (!newName.trim()) return notify('请填写项目名称', 'error')
     setBusy('create')
     createProject({ name: newName.trim(), description: newDesc.trim() })
       .then(() => {
@@ -83,12 +83,12 @@ export function ProjectManagePanel({
         notify('项目已创建')
         onChanged()
       })
-      .catch((e: ApiError) => notify(e.message || '创建项目失败'))
+      .catch((e: ApiError) => notify(e.message || '创建项目失败', 'error'))
       .finally(() => setBusy(''))
   }
 
   const submitRename = (project: ApiProject) => {
-    if (!editName.trim()) return notify('请填写项目名称')
+    if (!editName.trim()) return notify('请填写项目名称', 'error')
     setBusy(project.id)
     updateProject(project.id, { name: editName.trim(), description: project.description })
       .then(() => {
@@ -96,7 +96,7 @@ export function ProjectManagePanel({
         notify('项目已更新')
         onChanged()
       })
-      .catch((e: ApiError) => notify(e.message || '更新项目失败'))
+      .catch((e: ApiError) => notify(e.message || '更新项目失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -109,7 +109,7 @@ export function ProjectManagePanel({
         loadRules()
         onChanged()
       })
-      .catch((e: ApiError) => notify(e.message || '删除项目失败'))
+      .catch((e: ApiError) => notify(e.message || '删除项目失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -120,7 +120,7 @@ export function ProjectManagePanel({
         notify(`「${connector.name}」的资源已划入${projectId ? projectName(projectId) : (defaultProject?.name ?? '默认项目')}`)
         onChanged()
       })
-      .catch((e: ApiError) => notify(e.message || '更新归属失败'))
+      .catch((e: ApiError) => notify(e.message || '更新归属失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -131,12 +131,12 @@ export function ProjectManagePanel({
         notify(`「${connector.name}」已设置为${mapEnvironment(environment)}环境`)
         onChanged()
       })
-      .catch((e: ApiError) => notify(e.message || '更新环境失败'))
+      .catch((e: ApiError) => notify(e.message || '更新环境失败', 'error'))
       .finally(() => setBusy(''))
   }
 
   const submitRule = () => {
-    if (!ruleConnector || !ruleNamespace.trim() || !ruleProject) return notify('请选择执行通道、命名空间和项目')
+    if (!ruleConnector || !ruleNamespace.trim() || !ruleProject) return notify('请选择执行通道、命名空间和项目', 'error')
     setBusy('rule')
     upsertProjectNamespaceRule({ project_id: ruleProject, connector_id: ruleConnector, namespace: ruleNamespace.trim() })
       .then(() => {
@@ -145,7 +145,7 @@ export function ProjectManagePanel({
         loadRules()
         onChanged()
       })
-      .catch((e: ApiError) => notify(e.message || '保存规则失败'))
+      .catch((e: ApiError) => notify(e.message || '保存规则失败', 'error'))
       .finally(() => setBusy(''))
   }
 
@@ -157,7 +157,7 @@ export function ProjectManagePanel({
         loadRules()
         onChanged()
       })
-      .catch((e: ApiError) => notify(e.message || '删除规则失败'))
+      .catch((e: ApiError) => notify(e.message || '删除规则失败', 'error'))
       .finally(() => setBusy(''))
   }
 

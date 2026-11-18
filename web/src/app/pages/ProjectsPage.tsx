@@ -103,7 +103,7 @@ export function ProjectsPage() {
           )
         if (canManage) return listProjectMemberCandidates(project.id).then((people) => setCandidates(people ?? []))
       })
-      .catch((e: ApiError) => notify(e.message || '加载成员失败'))
+      .catch((e: ApiError) => notify(e.message || '加载成员失败', 'error'))
   }
   const addMember = () => {
     if (!memberProject || !candidateID) return
@@ -115,7 +115,7 @@ export function ProjectsPage() {
         setCandidateID('')
         notify('成员已添加')
       })
-      .catch((e: ApiError) => notify(e.message || '添加成员失败'))
+      .catch((e: ApiError) => notify(e.message || '添加成员失败', 'error'))
       .finally(() => setBusy(''))
   }
   const createUser = () => {
@@ -129,7 +129,7 @@ export function ProjectsPage() {
         notify(`项目用户已创建，登录名 ${newUserName.trim()}@${auth.user?.tenant?.slug ?? 'platform'}`)
         return listProjectMemberCandidates(memberProject.id).then((people) => setCandidates(people ?? []))
       })
-      .catch((e: ApiError) => notify(e.message || '创建项目用户失败'))
+      .catch((e: ApiError) => notify(e.message || '创建项目用户失败', 'error'))
       .finally(() => setBusy(''))
   }
   const changeMember = (member: ApiProjectMembership, role: ApiProjectMembership['role'], status: ApiProjectMembership['status']) => {
@@ -140,7 +140,7 @@ export function ProjectsPage() {
         setMembers((items) => items.map((value) => (value.principal_id === item.principal_id ? item : value)))
         notify('成员已更新')
       })
-      .catch((e: ApiError) => notify(e.message || '更新成员失败'))
+      .catch((e: ApiError) => notify(e.message || '更新成员失败', 'error'))
       .finally(() => setBusy(''))
   }
   const disableMember = (member: ApiProjectMembership) => {
@@ -151,7 +151,7 @@ export function ProjectsPage() {
         setMembers((items) => items.map((value) => (value.principal_id === member.principal_id ? { ...value, status: 'DISABLED' } : value)))
         notify('成员已停用')
       })
-      .catch((e: ApiError) => notify(e.message || '停用成员失败'))
+      .catch((e: ApiError) => notify(e.message || '停用成员失败', 'error'))
       .finally(() => setBusy(''))
   }
   const togglePolicy = () => {
@@ -165,7 +165,7 @@ export function ProjectsPage() {
         setPolicyEnforced(value.enforced)
         notify(value.enforced ? '项目成员权限已生效' : '已恢复兼容模式')
       })
-      .catch((e: ApiError) => notify(e.message || '更新策略失败'))
+      .catch((e: ApiError) => notify(e.message || '更新策略失败', 'error'))
   }
 
   const activeResources = resourceStats?.current ?? 0
@@ -198,7 +198,7 @@ export function ProjectsPage() {
         setCreating(false)
         load(false)
       })
-      .catch((e: ApiError) => notify(e.message || '创建项目失败'))
+      .catch((e: ApiError) => notify(e.message || '创建项目失败', 'error'))
       .finally(() => setBusy(''))
   }
   const save = (event: React.FormEvent) => {
@@ -211,7 +211,7 @@ export function ProjectsPage() {
         setEditing(null)
         load(false)
       })
-      .catch((e: ApiError) => notify(e.message || '更新项目失败'))
+      .catch((e: ApiError) => notify(e.message || '更新项目失败', 'error'))
       .finally(() => setBusy(''))
   }
   const remove = (project: ApiProject) => {
@@ -222,7 +222,7 @@ export function ProjectsPage() {
         notify('项目已删除')
         load(false)
       })
-      .catch((e: ApiError) => notify(e.message || '删除项目失败'))
+      .catch((e: ApiError) => notify(e.message || '删除项目失败', 'error'))
       .finally(() => setBusy(''))
   }
 

@@ -246,7 +246,7 @@ export function ResourcesPage() {
   }
   const openAction = (resource: ApiResource, action?: string) => {
     if (!isTenantAdmin && membershipEnforced && !resourceExecutable(resource)) {
-      notify('该资源所属项目你只有查看权限（VIEWER 或未加入），不能发起执行。请联系组织管理员调整项目角色。')
+      notify('该资源所属项目你只有查看权限（VIEWER 或未加入），不能发起执行。请联系组织管理员调整项目角色。', 'error')
       return
     }
     setSelectedResource(resource)
@@ -255,7 +255,7 @@ export function ResourcesPage() {
   }
   const openProject = (resource: ApiResource) => {
     if (!isTenantAdmin) {
-      notify('资源项目范围由租户管理员维护')
+      notify('资源项目范围由租户管理员维护', 'error')
       return
     }
     setProjectResource(resource)

@@ -446,7 +446,7 @@ export function ActionPanel({
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     if (!resource || !actionId) {
-      notify('当前动作没有可用的 ACTIVE 资源或执行通道')
+      notify('当前动作没有可用的 ACTIVE 资源或执行通道', 'error')
       return
     }
     if (databaseExecuteNeedsPreview) {
@@ -454,7 +454,7 @@ export function ActionPanel({
       return
     }
     if (networkInterfaceMutation && !networkPreviewCurrent) {
-      notify('请先完成与当前参数一致的接口变更预检')
+      notify('请先完成与当前参数一致的接口变更预检', 'error')
       return
     }
     setSubmitting(true)
@@ -474,7 +474,7 @@ export function ActionPanel({
       .then((exec) => {
         setExecution(exec)
       })
-      .catch((e: ApiError) => notify(`提交失败：${e.message}`))
+      .catch((e: ApiError) => notify(`提交失败：${e.message}`, 'error'))
       .finally(() => setSubmitting(false))
   }
 

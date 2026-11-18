@@ -38,7 +38,7 @@ export function UnaffiliatedPage() {
         notify(`已加入 ${invite.tenant_name}，请重新登录`)
         setTimeout(() => signOut(), 1200)
       })
-      .catch((e: Error) => notify(e.message || '接受邀请失败'))
+      .catch((e: Error) => notify(e.message || '接受邀请失败', 'error'))
       .finally(() => setBusy(''))
   }
 

@@ -39,16 +39,16 @@ export function DingTalkChannelPanel() {
 
   const save = () => {
     if (!channel) return
-    if (!channel.name.trim()) return notify('请填写渠道名称')
-    if (channel.events.length === 0) return notify('至少选择一个通知事件')
-    if (channel.enabled && (!channel.card_configured || !channel.stream_configured)) return notify('请先完成互动卡片和 Stream 回调配置')
+    if (!channel.name.trim()) return notify('请填写渠道名称', 'error')
+    if (channel.events.length === 0) return notify('至少选择一个通知事件', 'error')
+    if (channel.enabled && (!channel.card_configured || !channel.stream_configured)) return notify('请先完成互动卡片和 Stream 回调配置', 'error')
     setSaving(true)
     updateDingTalkChannel({ name: channel.name.trim(), enabled: channel.enabled, events: channel.events })
       .then((updated) => {
         setChannel(updated)
         notify('钉钉审批通知配置已保存')
       })
-      .catch((e: ApiError) => notify(e.message || '保存失败'))
+      .catch((e: ApiError) => notify(e.message || '保存失败', 'error'))
       .finally(() => setSaving(false))
   }
 
@@ -60,7 +60,7 @@ export function DingTalkChannelPanel() {
         setTestSentAt(new Date())
         notify('测试卡片已发送，请在钉钉群内点击按钮验证回调')
       })
-      .catch((e: ApiError) => notify(e.message || '渠道测试失败'))
+      .catch((e: ApiError) => notify(e.message || '渠道测试失败', 'error'))
       .finally(() => setTesting(false))
   }
 

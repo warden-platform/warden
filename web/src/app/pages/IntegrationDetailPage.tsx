@@ -97,7 +97,7 @@ export function IntegrationDetailPage() {
           `${integration.protocol === 'grafana' ? 'Dashboard' : isDatabase ? 'Schema' : isHuawei ? '云服务' : isAliyunSLS ? 'Region / Project' : 'Job'} 范围已更新，Connector 正在同步`,
         )
       })
-      .catch((e: ApiError) => notify(`保存失败：${e.message}`))
+      .catch((e: ApiError) => notify(`保存失败：${e.message}`, 'error'))
       .finally(() => setActing(''))
   }
 
@@ -127,7 +127,7 @@ export function IntegrationDetailPage() {
         setIntegration(updated)
         notify(next === 'ACTIVE' ? 'Integration 已启用' : 'Integration 已停用')
       })
-      .catch((e: ApiError) => notify(`操作失败：${e.message}`))
+      .catch((e: ApiError) => notify(`操作失败：${e.message}`, 'error'))
       .finally(() => setActing(''))
   }
 
@@ -139,7 +139,7 @@ export function IntegrationDetailPage() {
         notify('Integration 已删除')
         navigate('/integrations')
       })
-      .catch((e: ApiError) => notify(`删除失败：${e.message}`))
+      .catch((e: ApiError) => notify(`删除失败：${e.message}`, 'error'))
       .finally(() => setActing(''))
   }
 

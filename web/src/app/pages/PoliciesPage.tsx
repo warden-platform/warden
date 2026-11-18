@@ -189,7 +189,7 @@ export function PoliciesPage() {
         closeEditor()
         load()
       })
-      .catch((e: ApiError) => notify(e.message || '保存策略规则失败'))
+      .catch((e: ApiError) => notify(e.message || '保存策略规则失败', 'error'))
       .finally(() => setBusy(null))
   }
 
@@ -200,7 +200,7 @@ export function PoliciesPage() {
         notify(rule.enabled ? '规则已停用' : '规则已启用')
         load()
       })
-      .catch((e: ApiError) => notify(e.message || '更新失败'))
+      .catch((e: ApiError) => notify(e.message || '更新失败', 'error'))
       .finally(() => setBusy(null))
   }
 
@@ -211,7 +211,7 @@ export function PoliciesPage() {
         notify('已复制为停用规则，请编辑后启用')
         load()
       })
-      .catch((e: ApiError) => notify(e.message || '复制失败'))
+      .catch((e: ApiError) => notify(e.message || '复制失败', 'error'))
       .finally(() => setBusy(null))
   }
 
@@ -223,7 +223,7 @@ export function PoliciesPage() {
         notify('策略规则已删除')
         load()
       })
-      .catch((e: ApiError) => notify(e.message || '删除失败'))
+      .catch((e: ApiError) => notify(e.message || '删除失败', 'error'))
       .finally(() => setBusy(null))
   }
 
@@ -233,7 +233,7 @@ export function PoliciesPage() {
     setSimulationResult(null)
     simulatePolicyRule(simulation)
       .then(setSimulationResult)
-      .catch((e: ApiError) => notify(e.message || '策略模拟失败'))
+      .catch((e: ApiError) => notify(e.message || '策略模拟失败', 'error'))
       .finally(() => setBusy(null))
   }
 

@@ -60,7 +60,7 @@ export function IntegrationsPage() {
         notify('Integration 已删除')
         setIntegrations((items) => items.filter((item) => item.id !== ig.id))
       })
-      .catch((e: ApiError) => notify(`删除失败：${e.message}`))
+      .catch((e: ApiError) => notify(`删除失败：${e.message}`, 'error'))
       .finally(() => setDeletingId(''))
   }
 

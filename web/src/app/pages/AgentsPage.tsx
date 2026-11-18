@@ -110,7 +110,7 @@ export function AgentsPage() {
         notify('API Key 已撤销')
         return refreshPrincipalKeys(selected.id)
       })
-      .catch((e: ApiError) => notify(`撤销失败：${e.message}`))
+      .catch((e: ApiError) => notify(`撤销失败：${e.message}`, 'error'))
       .finally(() => setBusyKey(''))
   }
   const rotate = (key: ApiPrincipalKey) => {
@@ -122,7 +122,7 @@ export function AgentsPage() {
         notify('Key 已轮换，旧 Key 已撤销')
         return refreshPrincipalKeys(selected.id)
       })
-      .catch((e: ApiError) => notify(`轮换失败：${e.message}`))
+      .catch((e: ApiError) => notify(`轮换失败：${e.message}`, 'error'))
       .finally(() => setBusyKey(''))
   }
   const deleteAgent = () => {
@@ -139,7 +139,7 @@ export function AgentsPage() {
         setSelectedId('')
         notify('Agent 已删除，所有 Key 已失效')
       })
-      .catch((e: ApiError) => notify(`删除失败：${e.message}`))
+      .catch((e: ApiError) => notify(`删除失败：${e.message}`, 'error'))
       .finally(() => setBusyDelete(false))
   }
 

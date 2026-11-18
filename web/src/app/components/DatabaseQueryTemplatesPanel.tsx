@@ -53,7 +53,7 @@ export function DatabaseQueryTemplatesPanel({ integration, resources }: { integr
         setCreating(false)
         load()
       })
-      .catch((err: ApiError) => notify(`创建失败：${err.message}`))
+      .catch((err: ApiError) => notify(`创建失败：${err.message}`, 'error'))
       .finally(() => setActing(''))
   }
 
@@ -64,7 +64,7 @@ export function DatabaseQueryTemplatesPanel({ integration, resources }: { integr
         notify('已发起模板发布审批')
         load()
       })
-      .catch((err: ApiError) => notify(`提交失败：${err.message}`))
+      .catch((err: ApiError) => notify(`提交失败：${err.message}`, 'error'))
       .finally(() => setActing(''))
   }
   const decide = (template: ApiQueryTemplate, request: ApiTemplatePublishRequest, approve: boolean) => {
@@ -79,7 +79,7 @@ export function DatabaseQueryTemplatesPanel({ integration, resources }: { integr
         notify(approve ? '模板已发布，可在执行动作中选择' : '模板发布已拒绝')
         load()
       })
-      .catch((err: ApiError) => notify(`审批失败：${err.message}`))
+      .catch((err: ApiError) => notify(`审批失败：${err.message}`, 'error'))
       .finally(() => setActing(''))
   }
 
