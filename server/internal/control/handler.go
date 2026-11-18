@@ -1492,6 +1492,18 @@ func enforceProductionChangeApproval(decision domain.DecisionResult, environment
 	return decision
 }
 
+// canAccessExecution mirrors the ListExecutions visibility ladder: platform
+// admins see every run, tenant admins see every run in their own tenant (the
+// repository's tenant filter already enforces the boundary), members only
+// their own. Detail and cancel must agree with the list, otherwise tenant
+// admins get "visible in list, 404 by ID" on member and agent executions.
+func canAccessExecution(identity *AuthenticatedIdentity, e *domain.Execution) bool {
+	if identity == nil || identity.Principal == nil {
+		return false
+	}
+	return identity.HasScope("warden:admin") || identity.IsTenantAdministrator() || e.PrincipalID == identity.Principal.ID
+}
+
 func (h *Handler) GetExecution(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
 		databaseUnavailable(w)
@@ -1506,7 +1518,7 @@ func (h *Handler) GetExecution(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
-	if identity := identityFromContext(r.Context()); !identity.HasScope("warden:admin") && e.PrincipalID != identity.Principal.ID {
+	if identity := identityFromContext(r.Context()); !canAccessExecution(identity, e) {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
@@ -1529,7 +1541,7 @@ func (h *Handler) CancelExecution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	identity := identityFromContext(r.Context())
-	if !identity.HasScope("warden:admin") && e.PrincipalID != identity.Principal.ID {
+	if !canAccessExecution(identity, e) {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
