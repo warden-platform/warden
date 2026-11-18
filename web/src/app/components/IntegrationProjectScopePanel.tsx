@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Check, Loader2, Plus, Trash2 } from 'lucide-react'
 import type { ApiError, ApiProject, Integration, IntegrationProjectRule } from '../../shared/api'
 import { getIntegrationProjectScope, listProjects, updateIntegrationProjectScope } from '../../shared/api'

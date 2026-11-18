@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Bot,
-  CheckCircle2,
   Clock3,
   KeyRound,
   Loader2,

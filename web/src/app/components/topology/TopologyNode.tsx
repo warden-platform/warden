@@ -1,6 +1,6 @@
 import { memo } from 'react'
 import { Handle, Position, type NodeProps } from '@xyflow/react'
-import { Boxes, Cloud, Container, Cog, GitBranch, ListChecks, Network, Server, Workflow, type LucideIcon } from 'lucide-react'
+import { Boxes, Cloud, Container, Cog, ListChecks, Network, Server, Workflow, type LucideIcon } from 'lucide-react'
 import type { TopoNodeData, TopoStatus } from '../../lib/topology/buildTopology'
 
 function iconFor(kind: string, entity: string): LucideIcon {

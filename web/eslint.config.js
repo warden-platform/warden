@@ -14,14 +14,15 @@ export default [
       parserOptions: {
         requireConfigFile: false,
         babelOptions: {
-          plugins: ['@babel/plugin-syntax-typescript', '@babel/plugin-syntax-jsx', '@babel/plugin-syntax-import-attributes'],
+          plugins: ['@babel/plugin-syntax-typescript', '@babel/plugin-syntax-jsx'],
         },
       },
       globals: { ...globals.browser },
     },
     rules: {
       // TS 文件中类型位置的使用会导致 no-unused-vars / no-undef 误报，
-      // 未用变量与类型检查统一交给 tsc --noEmit（见 noUnusedLocals）。
+      // 未用变量与类型检查统一交给 tsc（tsconfig 已开 noUnusedLocals/
+      // noUnusedParameters）。
       'no-unused-vars': 'off',
       'no-undef': 'off',
     },

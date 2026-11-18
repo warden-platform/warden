@@ -97,7 +97,7 @@ export function LinuxResources({
     connId: string,
     type: string,
     label: string,
-    icon: ReactNode,
+    _icon: ReactNode,
     items: ApiResource[],
     cardIcon: ReactNode,
     meta?: (r: ApiResource) => ReactNode,
@@ -171,7 +171,7 @@ export function LinuxResources({
                     <Server size={12} />,
                     services,
                     <Server size={20} />,
-                    (r) => (
+                    () => (
                       <div className="res-card-meta">
                         <span>类型</span>
                         <strong>systemd 服务</strong>
@@ -185,7 +185,7 @@ export function LinuxResources({
                     <Container size={12} />,
                     containers,
                     <Container size={20} />,
-                    (r) => (
+                    () => (
                       <div className="res-card-meta">
                         <span>类型</span>
                         <strong>Docker 容器</strong>
