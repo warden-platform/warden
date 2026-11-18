@@ -2,7 +2,7 @@
 
 > **面向**：值班与排障人员。
 > **目标**：按症状快速定位到具体层（配置 / 认证 / 权限 / Connector / 执行 / 数据），并知道哪些问题必须去外部平台处理。
-> 部署见 [installation.md](installation.md)，运维见 [operations.md](operations.md)，SSO 细节见 [oidc-setup.md](oidc-setup.md)。
+> 部署见 [生产部署](guides.md#installation)，运维见 [日常运维](guides.md#operations)，SSO 细节见 [SSO 接入](guides.md#oidc)。
 
 ## 先按顺序做三件事
 
@@ -30,8 +30,8 @@ curl -sS -D - -o /dev/null "$BASE/api/v1/auth/oidc/start" | grep -iE '^HTTP/|^lo
 | 提示 `... or ..._FILE is required` | 必需 Secret 缺失或文件为空 | 检查变量名、`_FILE` 路径、文件权限与内容（trim 后非空） |
 | 明文变量与 `*_FILE` 同时设置 | `config.Secret` 明确禁止 | 只保留一种写法，生产保留 `_FILE` |
 | `数据库连接失败` | DSN 错误、PG 未就绪、网络不通 | 检查 `WARDEN_DATABASE_URL_FILE`、防火墙、容器健康状态 |
-| 启动成功但接口 500 / 缺表 | **忘记执行迁移** | 控制面不会自动跑迁移，按 [operations.md](operations.md) 补齐 |
-| `WARDEN_OIDC_DEFAULT_ROLE must be one of ...` | 把默认角色配成了 `platform_admin` | 改成 `user` 或 `tenant_admin`；超管只能页面指派 |
+| 启动成功但接口 500 / 缺表 | **忘记执行迁移** | 控制面不会自动跑迁移，按 [日常运维](guides.md#operations) 补齐 |
+| `WARDEN_OIDC_DEFAULT_ROLE must be ...` | 把默认角色配成了 `platform_admin` 或其他非法值 | 改成 `user` 或 `tenant_admin`；`platform_admin` 不能作为 OIDC 默认角色，也不能通过普通账号管理入口指派 |
 | 端口被占用 | 本地启动脚本会清理 `WARDEN_PORT` 上的进程 | 换端口或先停掉占用者，注意别误杀别的服务 |
 
 ## 二、登录问题
@@ -69,8 +69,8 @@ curl -sS -D - -o /dev/null "$BASE/api/v1/auth/oidc/start" | grep -iE '^HTTP/|^lo
 | 资源目录为空 | 未接 Connector，或资源同步尚未完成（5min 一轮）、Connector 心跳超 90s | 先查心跳与 `/connectors/{id}/check`，再等一轮同步 |
 | `CONNECTOR_UPGRADE_REQUIRED` | 动作版本与 Connector capabilities 不匹配 | 升级 Connector 二进制到支持该 `name@vN` 的版本 |
 | `LEGACY_ONBOARDING_DISABLED` (410) | 调用了旧清单接入接口 | 新集群用 Operator 配对；旧接口仅迁移期用 `WARDEN_ENABLE_LEGACY_CONNECTOR_KEY=true` |
-| 资源归属项目 / 环境不对 | 继承链是「单资源覆盖 → Integration → Connector」 | 在资源或通道设置页调整，见 [actions.md](actions.md) |
-| 网络 Connector 连不上设备 | 凭据引用、Host Key 指纹或出站网络 | 确认凭据目录文件名、`pam:` 引用、预登记指纹与出站 HTTPS 可达 |
+| 资源归属项目 / 环境不对 | 继承链是「单资源覆盖 → Integration → Connector」 | 在资源或通道设置页调整，见 [动作参考](reference.md#actions) |
+| 网络 Connector 连不上设备 | 凭据引用、Host Key 指纹或出站网络 | 确认凭据目录文件名、`warden:` 引用、预登记指纹与出站 HTTPS 可达 |
 
 ## 五、执行与审批
 
@@ -87,7 +87,7 @@ curl -sS -D - -o /dev/null "$BASE/api/v1/auth/oidc/start" | grep -iE '^HTTP/|^lo
 | 症状 | 常见原因 | 处理 |
 |---|---|---|
 | 审计页缺某类事件 | `audit_events.action` 是 PostgreSQL 枚举，新动作名没配套迁移 → 写入静默失败 | 补 `ALTER TYPE audit_action ADD VALUE` 迁移并登记发布清单；日志里会有审计写入失败记录 |
-| 审计事件 `tenant_id` 为空 | 早期数据，或某些链路（如钉钉审批）缺租户上下文 | 属已知设计债，见 [roadmap.md](roadmap.md) |
+| 审计事件 `tenant_id` 为空 | 早期数据，或某些链路（如钉钉审批）缺租户上下文 | 属已知设计债，见 [现状与路线](architecture.md#roadmap) |
 | 角色改了但审计没有 | 审计与角色变更在同一事务；写入失败会整体回滚 | 看日志与审计枚举，修复后重试 |
 | 迁移重放报错 | 迁移未写成幂等，或顺序不对 | 按 `deploy/release/migrations.txt` 顺序执行；不要跳号 |
 
@@ -104,22 +104,22 @@ curl -sS -D - -o /dev/null "$BASE/api/v1/auth/oidc/start" | grep -iE '^HTTP/|^lo
 
 | 错误码 | 含义 | 去哪查 |
 |---|---|---|
-| `INVALID_OIDC_STATE` | OIDC state 校验失败 | [oidc-setup.md](oidc-setup.md) |
+| `INVALID_OIDC_STATE` | OIDC state 校验失败 | [SSO 接入](guides.md#oidc) |
 | `OIDC_PKCE_MISSING` | 缺 PKCE verifier，拒绝降级 | 同上 |
 | `OIDC_INVALID_SUBJECT` | id_token 缺 `sub` | 同上 |
-| `FEDERATED_AUTH_NOT_CONFIGURED` | 未配置断言验签公钥 | [federated-authorization.md](federated-authorization.md) |
+| `FEDERATED_AUTH_NOT_CONFIGURED` | 未配置断言验签公钥 | [联邦授权](authorization.md#federation) |
 | `PROJECT_BINDING_REQUIRED` | 外部项目未绑定 Warden 项目 | 同上 |
 | `INVALID_ACCOUNT_ROLE` | 角色不在白名单 | [authorization.md](authorization.md) |
 | `BUILTIN_ADMIN_PROTECTED` | 内置应急超管不可修改 | 同上 |
 | `CANNOT_DEMOTE_SELF` | 不能给自己降权 | 同上 |
-| `LAST_PLATFORM_ADMIN` | 不能降权最后一个非内置超管 | 同上 |
+| `LAST_TENANT_ADMIN` | 不能把租户最后一个租户管理员降为普通成员 | 先指派另一名 `tenant_admin`，或保留当前管理员；详见 [authorization.md](authorization.md) |
 | `PLATFORM_TENANT_REQUIRED` | 平台级接口要求 `platform` 租户 | 同上 |
 | `ACCOUNT_NOT_FOUND` | 账号不存在或不在当前租户 | 同上 |
-| `CONNECTOR_UPGRADE_REQUIRED` | Connector 不支持该动作版本 | [onboarding.md](onboarding.md) |
+| `CONNECTOR_UPGRADE_REQUIRED` | Connector 不支持该动作版本 | [接入指南](guides.md#onboarding) |
 | `LEGACY_ONBOARDING_DISABLED` | 旧版清单接入已关闭 | 同上 |
-| `JENKINS_JOB_CONFLICT` | 同名 Job 已存在 | [actions.md](actions.md) |
+| `JENKINS_JOB_CONFLICT` | 同名 Job 已存在 | [动作参考](reference.md#actions) |
 | `RESOURCE_NOT_FOUND` | 对象不存在或不属于当前身份 | [api.md](api.md) |
-| `20029` | 飞书上游回调白名单未配置 | [oidc-setup.md](oidc-setup.md) |
+| `20029` | 飞书上游回调白名单未配置 | [SSO 接入](guides.md#oidc) |
 
 通用状态码：`400` 请求不合法、`401` 未认证、`403` Scope 不足、`404` 不存在、`409` 状态冲突、`500` 服务端错误、`503` 依赖未就绪。
 
@@ -142,7 +142,7 @@ curl -sS -D - -o /dev/null "$BASE/api/v1/auth/oidc/start" | grep -iE '^HTTP/|^lo
 
 ## 下一步
 
-- [operations.md](operations.md)：备份、升级与回滚
-- [oidc-setup.md](oidc-setup.md)：SSO 完整配置
+- [日常运维](guides.md#operations)：备份、升级与回滚
+- [SSO 接入](guides.md#oidc)：SSO 完整配置
 - [authorization.md](authorization.md)：权限规则
-- [configuration.md](configuration.md)：变量核对
+- [配置参考](reference.md#configuration)：变量核对

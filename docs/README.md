@@ -1,17 +1,19 @@
 # 文档地图
 
-这里是 Warden Warden 的**文档入口**。目标很简单：新人看完能回答三个问题——这个项目是干什么的、我怎么把它跑起来、它为什么这样设计。
+这里是 Warden 的**文档入口**。目标很简单：新人看完能回答三个问题——这个项目是干什么的、我怎么把它跑起来、它为什么这样设计。
+
+> 当前文档体系：**9 篇用户文档**，按读者意图分类。操作指南、配置、动作等同类内容已合并为带章节锚点的单篇 hub 文档，减少散落与重复。
 
 ## 组织方式
 
-文档按 [Diátaxis](https://diataxis.fr/) 的四类读者需求分开写，互不混杂。这也是 Teleport、Backstage、Grafana 等成熟开源项目的通用做法：README 只做短门户，真正的入门、操作、参考、解释各自成篇。
+文档按 [Diátaxis](https://diataxis.fr/) 的四类读者需求分开写，互不混杂。这也是 Teleport、Kubernetes、OPA 等成熟开源项目的通用做法：一篇文档只承担一种意图，长主题用**一篇带锚点的 hub 页**，而不是拆成一堆互相链接的短页。
 
-| 类型 | 回答的问题 | 写法要求 |
+| 类型 | 回答的问题 | 本项目的文档 |
 |---|---|---|
-| **教程 Tutorial** | "教我，我是新来的" | 线性步骤、每步都有可验证结果、不给选择题 |
-| **操作指南 How-to** | "帮我完成 X" | 目标先行、假设读者已懂基础、只讲动作不讲原理 |
-| **参考 Reference** | "Y 的准确取值是什么" | 表格化、完整、可检索、不夹叙夹议 |
-| **解释 Explanation** | "为什么是这样设计的" | 讲背景、取舍与边界，不放操作步骤 |
+| **教程 Tutorial** | "教我，我是新来的" | quickstart |
+| **操作指南 How-to** | "帮我完成 X" | guides（含部署/接入/SSO/运维四部分）、troubleshooting |
+| **参考 Reference** | "Y 的准确取值是什么" | reference（配置+动作）、api |
+| **解释 Explanation** | "为什么是这样设计的" | concepts（含术语表）、architecture（含现状路线）、authorization（含联邦授权） |
 
 一篇文档只做一件事。教程中途不列举全部配置项（那是参考），操作指南不展开原理（那是解释），参考不写"让我们一步步来"（那是教程）——需要时用链接串起来。
 
@@ -20,51 +22,27 @@
 | 你是…… | 建议顺序 |
 |---|---|
 | 第一天接手项目的开发者 | [quickstart](quickstart.md) → [concepts](concepts.md) → [architecture](architecture.md) → [api](api.md) |
-| 要部署到生产的人 | [installation](installation.md) → [configuration](configuration.md) → [operations](operations.md) |
-| 要接 SSO / 配账号权限的人 | [oidc-setup](oidc-setup.md) → [authorization](authorization.md) |
-| 要接入新目标系统 / Agent 的人 | [onboarding](onboarding.md) → [actions](actions.md) → [api](api.md) |
-| 值班排障 / 运维 | [troubleshooting](troubleshooting.md) → [operations](operations.md) → [configuration](configuration.md) |
-| 想了解现状与未来 | [roadmap](roadmap.md) → [architecture](architecture.md) |
+| 要部署到生产的人 | [guides · 部署](guides.md#installation) → [reference · 配置](reference.md#configuration) → [guides · 运维](guides.md#operations) |
+| 要接 SSO / 配账号权限的人 | [guides · SSO](guides.md#oidc) → [authorization](authorization.md) |
+| 要接入新目标系统 / Agent 的人 | [guides · 接入](guides.md#onboarding) → [reference · 动作](reference.md#actions) → [api](api.md) |
+| 值班排障 / 运维 | [troubleshooting](troubleshooting.md) → [guides · 运维](guides.md#operations) → [reference · 配置](reference.md#configuration) |
+| 想了解现状与未来 | [architecture · 现状路线](architecture.md#roadmap) → [architecture](architecture.md) |
 | 想贡献代码 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) → [architecture](architecture.md) |
 
 ## 完整目录
 
-### 教程
+| 文档 | 类型 | 面向谁 | 何时维护 |
+|---|---|---|---|
+| [quickstart.md](quickstart.md) | 教程 | 第一次在本地运行项目的开发者 | 启动方式、端口、密钥文件或迁移流程变化时 |
+| [guides.md](guides.md) | 操作指南 | 部署者、接入管理员、运维 | 部署 / 接入 / SSO / 运维任一流程变化时，改对应章节锚点 |
+| [troubleshooting.md](troubleshooting.md) | 操作指南 | 排障者 | 出现新的高频故障或错误码时 |
+| [reference.md](reference.md) | 参考 | 所有人、集成方、策略维护者 | 新增/修改环境变量或动作时，改对应章节锚点 |
+| [api.md](api.md) | 参考 | 前后端与集成方 | 路由、请求结构、权限守卫或错误码变化时 |
+| [concepts.md](concepts.md) | 解释 | 所有新人、需要查术语的人 | 领域模型、租户/项目层级或术语含义变化时 |
+| [architecture.md](architecture.md) | 解释 | 开发者、评审者、决策者 | 组件、链路、状态机或功能完成状态变化时 |
+| [authorization.md](authorization.md) | 解释 | 使用者、管理员、集成方 | 角色、能力清单或联邦授权边界变化时 |
 
-| 文档 | 面向谁 | 何时维护 |
-|---|---|---|
-| [quickstart.md](quickstart.md) | 第一次在本地运行项目的开发者 | 启动方式、端口、密钥文件或迁移流程变化时 |
-
-### 操作指南
-
-| 文档 | 面向谁 | 何时维护 |
-|---|---|---|
-| [installation.md](installation.md) | 部署者 | 镜像、反向代理、TLS 或上线清单变化时 |
-| [oidc-setup.md](oidc-setup.md) | 接入企业 IdP 的管理员 | OIDC 配置项、回调、角色规则或常见错误变化时 |
-| [onboarding.md](onboarding.md) | 接入目标系统的管理员 | Connector 类型、配对流程或 Agent 接入变化时 |
-| [operations.md](operations.md) | 运维 / 值班 | 迁移、备份、升级、密钥轮换流程变化时 |
-| [troubleshooting.md](troubleshooting.md) | 排障者 | 出现新的高频故障或错误码时 |
-
-### 参考
-
-| 文档 | 面向谁 | 何时维护 |
-|---|---|---|
-| [configuration.md](configuration.md) | 所有人 | 新增 / 修改 / 删除环境变量时 |
-| [api.md](api.md) | 前后端与集成方 | 路由、请求结构、权限守卫或错误码变化时 |
-| [actions.md](actions.md) | 集成方与策略维护者 | 新增动作、动作版本或默认策略行为变化时 |
-| [glossary.md](glossary.md) | 所有人 | 引入新术语或术语含义变化时 |
-
-### 解释
-
-| 文档 | 面向谁 | 何时维护 |
-|---|---|---|
-| [concepts.md](concepts.md) | 所有新人 | 领域模型、租户/项目层级变化时 |
-| [architecture.md](architecture.md) | 开发者与评审者 | 组件、执行链路、状态机或分层约定变化时 |
-| [authorization.md](authorization.md) | 使用者、管理员与开发者 | 角色、能力清单或授权边界变化时 |
-| [federated-authorization.md](federated-authorization.md) | 外部平台集成方 | 联邦绑定、断言登录或委托链路变化时 |
-| [roadmap.md](roadmap.md) | 维护者与决策者 | 功能完成状态、优先级或已知设计债变化时 |
-
-### 仓库根目录
+### 根目录文档
 
 | 文档 | 用途 |
 |---|---|
@@ -77,6 +55,18 @@
 
 ---
 
+## hub 文档的章节锚点
+
+合并后的长文档用锚点定位，链接格式为 `guides.md#installation`：
+
+| 文档 | 锚点 |
+|---|---|
+| guides.md | `#installation` `#onboarding` `#oidc` `#operations` |
+| reference.md | `#configuration` `#actions` |
+| concepts.md | `#core-concepts` `#glossary` |
+| architecture.md | `#architecture` `#roadmap` |
+| authorization.md | `#authorization` `#federation` |
+
 ## 唯一权威来源
 
 文档与代码冲突时，**以代码为准**，并顺手修正文档：
@@ -85,7 +75,7 @@
 |---|---|
 | REST 路由与权限守卫 | `server/internal/control/handler.go` 的 `RegisterRoutes` |
 | 角色、Scope、能力清单 | `server/internal/control/authorization.go` |
-| 环境变量与默认值 | `server/internal/config/`、`server/internal/control/`、`server/cmd/`，汇总在 [configuration.md](configuration.md) |
+| 环境变量与默认值 | `server/internal/config/`、`server/internal/control/`、`server/cmd/`，汇总在 [reference.md#configuration](reference.md#configuration) |
 | 数据库表与枚举 | `server/migrations/*.sql` |
 | 发布迁移清单 | `deploy/release/migrations.txt`（新增编号 ≥ 035 的迁移必须登记，有单测强制） |
 | 前端菜单能力门控 | `web/src/app/AppSidebar.tsx` 的 `requires` 声明 |
@@ -95,12 +85,12 @@
 
 ## 写作规范
 
-1. **语言与术语**：中文正文，保留 Principal / Connector / Execution 等代码中的对象名；首次出现的术语给一句话解释并链接 [glossary.md](glossary.md)。
+1. **语言与术语**：中文正文，保留 Principal / Connector / Execution 等代码中的对象名；首次出现的术语给一句话解释并链接 [concepts.md#glossary](concepts.md#glossary)。
 2. **区分状态**：任何专题必须标明「已实现 / 设计中 / 未实现 / 已知限制」，不要把规划写成现状。
 3. **示例可复制但不泄密**：命令用 `<placeholder>`，不得出现真实密码、Token、Cookie、私钥、DSN、内网 IP、用户名、个人绝对路径或生产主机名。`example.com` 与 `127.0.0.1` 是允许的占位。
-4. **每篇开头写清面向谁、读完能做什么**；结尾给「下一步」链接。
-5. **链接用相对路径**，新增或改名文档时同步更新本页与 `README.md` 的导航。
-6. **不重复**：配置只写进 configuration，动作只写进 actions，接口只写进 api；其他文档用链接引用，避免多处副本各自漂移。
+4. **每篇开头写清面向谁、读完能做什么**；合并文档在对应章节内做同样标注。
+5. **链接用相对路径**，跨章节用 `文件.md#锚点`；新增或改名文档时同步更新本页与根 `README.md` 的导航。
+6. **不重复**：配置只写进 reference 的配置章节，动作只写进动作章节，接口只写进 api；其他文档用链接引用，避免多处副本各自漂移。
 7. **迁移编号、命令、路径必须与实际文件一致**；跑不通的命令比没有命令更糟。
 
 ## 版本控制与私有文档

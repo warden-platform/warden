@@ -18,29 +18,16 @@ docs/*
 !docs/README.md
 !docs/api.md
 !docs/authorization.md
-!docs/federated-authorization.md
 # Diátaxis 文档体系：教程 / 操作指南 / 参考 / 解释
 !docs/quickstart.md
 !docs/concepts.md
 !docs/architecture.md
-!docs/glossary.md
-!docs/configuration.md
-!docs/actions.md
-!docs/installation.md
-!docs/oidc-setup.md
-!docs/onboarding.md
-!docs/operations.md
+!docs/guides.md
+!docs/reference.md
 !docs/troubleshooting.md
-!docs/roadmap.md
-!docs/multica/
-docs/multica/*
-!docs/multica/pam-readonly-agent-instructions.md
-!docs/multica/pam-readonly-skill.md
-!docs/multica/pam-aiops-skill.md
-!docs/multica/pam-resource-registration-skill.md
-!docs/e2e/
-docs/e2e/*
-!docs/e2e/03-test-agent.md
+# 演示站界面截图（对外展示，已脱敏）
+!docs/screenshots/
+!docs/screenshots/*.png
 .idea/
 # Editor-local scratch documents (TrAE). Keep the files on disk, never commit.
 .trae/

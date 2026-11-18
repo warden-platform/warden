@@ -42,7 +42,7 @@ npm run build
 
 ## 补充阅读
 
-- 本地启动与代理端口：[`../docs/quickstart.md`](../docs/quickstart.md)、[`../docs/configuration.md`](../docs/configuration.md)
-- SSO 登录入口契约：[`../docs/oidc-setup.md`](../docs/oidc-setup.md)
-- 前端部署（静态产物 + SPA fallback）：[`../docs/installation.md`](../docs/installation.md)
+- 本地启动与代理端口：[`../docs/quickstart.md`](../docs/quickstart.md)、[`../docs/configuration.md`](../docs/reference.md#configuration)
+- SSO 登录入口契约：[`../docs/oidc-setup.md`](../docs/guides.md#oidc)
+- 前端部署（静态产物 + SPA fallback）：[`../docs/installation.md`](../docs/guides.md#installation)
 - 贡献与验证命令：[`../CONTRIBUTING.md`](../CONTRIBUTING.md)

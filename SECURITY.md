@@ -1,6 +1,6 @@
 # 安全策略
 
-> 本文说明受支持的版本、漏洞报告渠道与生产部署的安全边界。实现细节见 [docs/architecture.md](docs/architecture.md)，权限规则见 [docs/authorization.md](docs/authorization.md)，配置红线见 [docs/configuration.md](docs/configuration.md)。
+> 本文说明受支持的版本、漏洞报告渠道与生产部署的安全边界。实现细节见 [docs/architecture.md](docs/architecture.md)，权限规则见 [docs/authorization.md](docs/authorization.md)，配置红线见 [配置参考](docs/reference.md#configuration)。
 
 ## 受支持的版本
 
@@ -29,7 +29,7 @@ Warden 代理的是特权基础设施操作。生产部署必须满足：
 - 保留内置 `admin` 密码登录作为 IdP 故障时的 break-glass 通道，但日常不使用；
 - 升级前做数据库备份，保留可回滚的镜像 ID 与前端产物。
 
-**开发默认值不是生产安全基线**：本地教程为了跑通 HTTP 会关闭 Secure Cookie，切勿照搬到生产。完整上线清单见 [docs/installation.md](docs/installation.md)。
+**开发默认值不是生产安全基线**：本地教程为了跑通 HTTP 会关闭 Secure Cookie，切勿照搬到生产。完整上线清单见 [生产部署](docs/guides.md#installation)。
 
 ## 平台自身的安全设计
 
@@ -48,4 +48,4 @@ Warden 代理的是特权基础设施操作。生产部署必须满足：
 - 静态 `WARDEN_ADMIN_API_KEY` 是全局共享、当前无法在线轮换的超管凭据，应严格限制存放范围。
 - 内置 `admin` 按固定 ID 判定特权，是刻意保留的应急入口。
 - 租户过滤依赖各仓储 SQL，尚无统一 RLS；开启第二个租户前应做覆盖审计。
-- 更多已知限制见 [docs/roadmap.md](docs/roadmap.md)。
+- 更多已知限制见 [现状与路线](docs/architecture.md#roadmap)。

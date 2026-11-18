@@ -36,6 +36,32 @@ Warden 的答案是「不交凭据，只交付一次受约束的执行」：
 
 ---
 
+## 在线体验
+
+不想本地部署，可直接访问公开演示站（数据为预置的虚构演示数据）：
+
+| | |
+|---|---|
+| 地址 | **https://warden.squawksync.cloud/login** |
+| 演示账号 | `demo@acme` |
+| 密码 | `12345678` |
+
+> 这是只读体验用的公共演示账号，请勿在演示环境存放真实凭据或敏感数据。
+
+**界面预览**：
+
+| 运行总览 | 资源目录 | 拓扑图谱 |
+|---|---|---|
+| ![运行总览](docs/screenshots/02-运行总览.png) | ![资源目录](docs/screenshots/03-资源目录.png) | ![拓扑图谱](docs/screenshots/07-拓扑图谱.png) |
+
+| 执行记录 | 访问审批 | 审计追踪 |
+|---|---|---|
+| ![执行记录](docs/screenshots/04-执行记录.png) | ![访问审批](docs/screenshots/05-访问审批.png) | ![审计追踪](docs/screenshots/06-审计追踪.png) |
+
+更多界面见 [docs/screenshots/](docs/screenshots/)（登录页、执行通道等共 8 张）。
+
+---
+
 ## 5 分钟跑起来
 
 前置：Docker、Go（版本见 `server/go.mod`）、Node.js（版本见 `web/Dockerfile`）、`openssl`、`curl`。
@@ -63,7 +89,7 @@ make web-install && make web-dev
 
 ## 文档地图
 
-文档按 [Diátaxis](https://diataxis.fr/) 的四类读者需求组织：**教程**带你上手、**操作指南**解决具体任务、**参考**用于查阅、**解释**帮助理解设计。长主题合并为**带章节锚点的单篇文档**（`文件.md#锚点`），减少散落与重复；历史与目标架构稿放 `docs/design/` 设计档案。
+文档按 [Diátaxis](https://diataxis.fr/) 的四类读者需求组织：**教程**带你上手、**操作指南**解决具体任务、**参考**用于查阅、**解释**帮助理解设计。长主题合并为**带章节锚点的单篇文档**（`文件.md#锚点`），减少散落与重复。
 
 | 我想…… | 读这篇 | 类型 |
 |---|---|---|
@@ -75,7 +101,6 @@ make web-install && make web-dev
 | 理解租户 / 项目 / 资源 / 执行关系，查术语 | [concepts](docs/concepts.md)（`#core-concepts` `#glossary`） | 解释 |
 | 理解组件、链路、状态机、已完成 / 未完成 / 设计债 | [architecture](docs/architecture.md)（`#architecture` `#roadmap`） | 解释 |
 | 理解谁能做什么、权限何时生效、联邦身份与委托 | [authorization](docs/authorization.md)（`#authorization` `#federation`） | 解释 |
-| 追溯历史设计决策（非现行文档） | [design 档案](docs/design/README.md) | 设计档案 |
 
 **建议阅读顺序**：`quickstart` → `concepts` → `architecture` → 再按角色挑 `guides` / `reference` / `api`。完整导航、锚点清单与文档规范见 [docs/README.md](docs/README.md)。
 
