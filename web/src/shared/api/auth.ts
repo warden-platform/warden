@@ -26,7 +26,7 @@ export type AuthUser = {
   tenant: Omit<ApiTenant, 'quota' | 'usage'> | null
   role: 'platform_admin' | 'tenant_admin' | string
   scopes: string[]
-  /** Server-computed capability list: pam:admin is already expanded. */
+  /** Server-computed capability list: warden:admin is already expanded. */
   capabilities?: string[]
   is_platform_admin: boolean
   /** True when this is a federated identity authenticated but not yet placed

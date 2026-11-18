@@ -69,7 +69,7 @@ export function ActionPanel({
   onClose: () => void
 }) {
   const { notify, auth } = useApp()
-  const isTenantAdmin = canUser(auth.user, 'pam:tenant:admin')
+  const isTenantAdmin = canUser(auth.user, 'warden:tenant:admin')
   const [resources, setResources] = useState<ApiResource[]>([])
   const [connectors, setConnectors] = useState<ApiConnector[]>([])
   const [actions, setActions] = useState<ApiAction[]>([])

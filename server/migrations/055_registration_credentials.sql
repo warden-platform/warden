@@ -1,6 +1,6 @@
 -- Purpose-bound credentials for automation that registers Warden resources.
 -- Registration credentials are distinct from execution Agent keys, carry an
--- explicit API audience, and never receive the global pam:admin wildcard.
+-- explicit API audience, and never receive the global warden:admin wildcard.
 ALTER TABLE principal_api_keys
     ADD COLUMN IF NOT EXISTS purpose VARCHAR(32) NOT NULL DEFAULT 'AGENT',
     ADD COLUMN IF NOT EXISTS audience VARCHAR(512);

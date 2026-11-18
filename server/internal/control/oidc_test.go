@@ -16,7 +16,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -192,12 +192,12 @@ func TestLoadOIDCConfigSmartDefaults(t *testing.T) {
 		setOIDCEnv(t, "WARDEN_OIDC_ISSUER", "https://idp.example.com")
 		setOIDCEnv(t, "WARDEN_OIDC_CLIENT_ID", testOIDCClientID)
 		setOIDCEnv(t, "WARDEN_OIDC_CLIENT_SECRET", testOIDCSecret)
-		setOIDCEnv(t, "WARDEN_PUBLIC_CONTROL_URL", "https://pam.example.com/")
+		setOIDCEnv(t, "WARDEN_PUBLIC_CONTROL_URL", "https://warden.example.com/")
 		cfg, err := loadOIDCConfig()
 		if err != nil {
 			t.Fatalf("loadOIDCConfig: %v", err)
 		}
-		if cfg.RedirectURL != "https://pam.example.com/api/v1/auth/oidc/callback" {
+		if cfg.RedirectURL != "https://warden.example.com/api/v1/auth/oidc/callback" {
 			t.Fatalf("RedirectURL = %q, want derived callback", cfg.RedirectURL)
 		}
 		if cfg.DefaultTenantID != "" || cfg.DefaultRole != "user" {
@@ -206,7 +206,7 @@ func TestLoadOIDCConfigSmartDefaults(t *testing.T) {
 	})
 	t.Run("explicit redirect wins over derivation", func(t *testing.T) {
 		fullOIDCEnv(t, "https://idp.example.com")
-		setOIDCEnv(t, "WARDEN_PUBLIC_CONTROL_URL", "https://pam.example.com")
+		setOIDCEnv(t, "WARDEN_PUBLIC_CONTROL_URL", "https://warden.example.com")
 		cfg, err := loadOIDCConfig()
 		if err != nil {
 			t.Fatalf("loadOIDCConfig: %v", err)
@@ -638,7 +638,7 @@ func TestOIDCLogoutRedirectsToIdPEndSession(t *testing.T) {
 			cleared[c.Name] = true
 		}
 	}
-	for _, name := range []string{"pam_session", "oidc_state", "oidc_nonce", "oidc_verifier"} {
+	for _, name := range []string{"warden_session", "oidc_state", "oidc_nonce", "oidc_verifier"} {
 		if !cleared[name] {
 			t.Fatalf("logout did not clear %s", name)
 		}

@@ -9,7 +9,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var credentialReferencePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$`)
@@ -325,7 +325,7 @@ func (h *Handler) UpdateIntegrationProjectScope(w http.ResponseWriter, r *http.R
 
 // prepareHuaweiECSCreate validates the requested Warden project against the
 // Integration allow-list and injects signed, server-owned task context. The
-// Connector never trusts user-provided pam-* labels.
+// Connector never trusts user-provided warden-* labels.
 func (h *Handler) prepareHuaweiECSCreate(ctx context.Context, resource *domain.Resource, principal *domain.Principal, parameters map[string]any) (map[string]any, error) {
 	if resource.IntegrationID == "" {
 		return nil, &configError{"华为云账号资源缺少 Integration"}
@@ -356,11 +356,11 @@ func (h *Handler) prepareHuaweiECSCreate(ctx context.Context, resource *domain.R
 	}
 	prepared := make(map[string]any, len(parameters)+1)
 	for key, value := range parameters {
-		if key != "_pamContext" {
+		if key != "_wardenContext" {
 			prepared[key] = value
 		}
 	}
-	prepared["_pamContext"] = map[string]any{
+	prepared["_wardenContext"] = map[string]any{
 		"projectId": project.ID, "projectName": project.Name, "environment": resource.Environment,
 		"createdBy": principal.ID, "integrationId": integration.ID,
 	}
@@ -368,7 +368,7 @@ func (h *Handler) prepareHuaweiECSCreate(ctx context.Context, resource *domain.R
 }
 
 // prepareHuaweiECSMetadataUpdate derives governance labels from the resource's
-// current Warden ownership. Callers may supply business tags, but never pam-* keys.
+// current Warden ownership. Callers may supply business tags, but never warden-* keys.
 func (h *Handler) prepareHuaweiECSMetadataUpdate(ctx context.Context, resource *domain.Resource, parameters map[string]any) (map[string]any, error) {
 	if resource.IntegrationID == "" {
 		return nil, &configError{"华为云 ECS 资源缺少 Integration"}
@@ -394,11 +394,11 @@ func (h *Handler) prepareHuaweiECSMetadataUpdate(ctx context.Context, resource *
 	}
 	prepared := make(map[string]any, len(parameters)+1)
 	for key, value := range parameters {
-		if key != "_pamContext" {
+		if key != "_wardenContext" {
 			prepared[key] = value
 		}
 	}
-	prepared["_pamContext"] = map[string]any{
+	prepared["_wardenContext"] = map[string]any{
 		"projectId": project.ID, "projectName": project.Name, "environment": resource.Environment,
 		"integrationId": integration.ID,
 	}
@@ -417,12 +417,12 @@ func validateIntegration(input integrationInput) error {
 	if strings.TrimSpace(input.Name) == "" || len(input.Name) > 255 {
 		return &configError{"Integration 名称不能为空且不能超过 255 个字符"}
 	}
-	// A "pam:" prefix references a Warden-managed credential (resolved at runtime
+	// A "warden:" prefix references a Warden-managed credential (resolved at runtime
 	// over the connector channel); otherwise the ref is a K8s Secret name (or
 	// Linux credential file) using the same DNS-1123 shape.
-	if strings.HasPrefix(input.CredentialRef, "pam:") {
-		if !domain.ValidateCredentialName(strings.TrimPrefix(input.CredentialRef, "pam:")) {
-			return &configError{"Credential Reference 的 pam: 名称无效"}
+	if strings.HasPrefix(input.CredentialRef, "warden:") {
+		if !domain.ValidateCredentialName(strings.TrimPrefix(input.CredentialRef, "warden:")) {
+			return &configError{"Credential Reference 的 warden: 名称无效"}
 		}
 	} else if !credentialReferencePattern.MatchString(input.CredentialRef) {
 		return &configError{"Credential Reference 必须是小写字母、数字、点或连字符组成的名称"}

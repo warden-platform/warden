@@ -1,8 +1,8 @@
 # 教程：15 分钟在本地跑起来
 
-> **面向**：第一次接触 Warden Warden 的开发者。
+> **面向**：第一次接触 Warden 的开发者。
 > **读完你会得到**：一个能登录的管理端、一个能响应 API 的控制面、一套可用的本地密钥，以及明确的下一步。
-> 这是教程，只给一条能走通的路。配置项含义查 [configuration.md](configuration.md)，出问题查 [troubleshooting.md](troubleshooting.md)。
+> 这是教程，只给一条能走通的路。配置项含义查 [配置参考](reference.md#configuration)，出问题查 [troubleshooting.md](troubleshooting.md)。
 
 ## 你会搭出什么
 
@@ -49,7 +49,7 @@ sed -i '' "s|^WARDEN_DATABASE_PASSWORD=.*|WARDEN_DATABASE_PASSWORD=$(openssl ran
 升级时复用，备份时必须包含。生产环境请用独立的密钥管理方案。
 `config.yaml` 中 `database.url` 不包含账号密码，`database.username` 和 `database.password`
 分别负责连接身份；密码用 `${WARDEN_DATABASE_PASSWORD}` 指向 `.env`。使用本教程的 Compose
-数据库时，把 `database.url` 改为 `postgres://127.0.0.1:5433/pam`。
+数据库时，把 `database.url` 改为 `postgres://127.0.0.1:5433/warden`。
 
 | 用途 | `.env` 变量 |
 |---|---|
@@ -75,7 +75,7 @@ docker compose --env-file .env -f deploy/docker-compose.yaml ps
 for f in server/migrations/*.sql; do
   echo "==> $(basename "$f")"
   docker compose --env-file .env -f deploy/docker-compose.yaml exec -T postgresql \
-    psql -v ON_ERROR_STOP=1 -U pam -d pam -f "/migrations/$(basename "$f")" >/dev/null || break
+    psql -v ON_ERROR_STOP=1 -U warden -d warden -f "/migrations/$(basename "$f")" >/dev/null || break
 done
 ```
 
@@ -83,10 +83,10 @@ done
 
 ```bash
 docker compose --env-file .env -f deploy/docker-compose.yaml exec -T postgresql \
-  psql -U pam -d pam -tAc "select count(*) from information_schema.tables where table_schema='public';"
+  psql -U warden -d warden -tAc "select count(*) from information_schema.tables where table_schema='public';"
 ```
 
-应返回几十张表；若报错，先看 `psql` 输出定位是哪一条迁移，不要重复执行部分成功的脚本。已有数据的库请按 [operations.md](operations.md) 的发布流程处理，不要重放全部迁移。
+应返回几十张表；若报错，先看 `psql` 输出定位是哪一条迁移，不要重复执行部分成功的脚本。已有数据的库请按 [日常运维](guides.md#operations) 的发布流程处理，不要重放全部迁移。
 
 ## 4. 构建并启动控制面
 
@@ -98,10 +98,10 @@ WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 ```
 
 `config.yaml` 可覆盖整个本地项目的非敏感设置，包括控制面、前端开发服务器、API 代理、OIDC 和 AI，
-完整清单见 [configuration.md](configuration.md)。AI 的模型名、地址放 `config.yaml`，
+完整清单见 [配置参考](reference.md#configuration)。AI 的模型名、地址放 `config.yaml`，
 `WARDEN_AI_API_KEY` 放 `.env`。启动管理员用户名放 `config.yaml` 的 `admin.username`，
 密码在 YAML 中同样有字段，但值是 `${WARDEN_ADMIN_PASSWORD}`，真实密码只放在 `.env`。
-两者均为启动必需项，没有默认密码或隐式文件兜底。
+管理员密码是启动必需项；用户名未设置时回退内置 `admin`，没有默认密码或隐式密码文件兜底。
 
 `warden-control` 启动时由 `server/internal/config` 读取 `config.yaml`、`.env` 和
 `var/warden/secrets.json`；显式传入的进程环境变量优先级最高。
@@ -110,7 +110,7 @@ WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 注意两点：
 
 - 脚本会**清理占用 `server.port`（默认 8080）的已有进程**；如该端口有别的服务，先在 `config.yaml` 中改成 `8090`。
-- 脚本为本地 HTTP 自动设 `WARDEN_COOKIE_SECURE=false`。**生产环境永远不要关掉它**（见 [installation.md](installation.md)）。
+- 脚本为本地 HTTP 自动设 `WARDEN_COOKIE_SECURE=false`。**生产环境永远不要关掉它**（见 [生产部署](guides.md#installation)）。
 
 保持这个终端运行，另开一个终端继续。
 
@@ -138,7 +138,7 @@ make web-install
 make web-dev
 ```
 
-Vite 同样读取根目录 `config.yaml`，默认监听 `http://localhost:4173`，并把 `/api` 代理到 `http://localhost:8080`（可用 `web.host` / `web.port` / `web.control_target` 覆盖，见 [configuration.md](configuration.md)）。
+Vite 同样读取根目录 `config.yaml`，默认监听 `http://localhost:4173`，并把 `/api` 代理到 `http://localhost:8080`（可用 `web.host` / `web.port` / `web.control_target` 覆盖，见 [配置参考](reference.md#configuration)）。
 
 两个登录入口，互不干扰：
 
@@ -171,10 +171,10 @@ make clean                                           # 删除 server/bin、web/d
 
 | 想做的事 | 去哪 |
 |---|---|
-| 接入第一个 Kubernetes / Linux / 网络目标 | [onboarding.md](onboarding.md) |
-| 启用企业 SSO 并给同事配权限 | [oidc-setup.md](oidc-setup.md) |
+| 接入第一个 Kubernetes / Linux / 网络目标 | [接入指南](guides.md#onboarding) |
+| 启用企业 SSO 并给同事配权限 | [SSO 接入](guides.md#oidc) |
 | 理解租户、项目、执行、审批的关系 | [concepts.md](concepts.md) |
 | 看懂组件与执行链路 | [architecture.md](architecture.md) |
-| 查全量环境变量 | [configuration.md](configuration.md) |
+| 查全量环境变量 | [配置参考](reference.md#configuration) |
 | 查接口与错误码 | [api.md](api.md) |
-| 部署到正式环境 | [installation.md](installation.md) |
+| 部署到正式环境 | [生产部署](guides.md#installation) |

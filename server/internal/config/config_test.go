@@ -27,8 +27,8 @@ func TestLoadRuntimeResolvesFilesAndEnvironment(t *testing.T) {
   cors_origin: http://localhost:4173
   cookie_secure: false
 database:
-  url: postgres://localhost:5432/pam
-  username: pam
+  url: postgres://localhost:5432/warden
+  username: warden
   password: ${WARDEN_DATABASE_PASSWORD}
 admin:
   username: admin
@@ -71,7 +71,7 @@ WARDEN_DATABASE_PASSWORD=database-secret
 	if cfg.Admin.Password != "admin-secret" {
 		t.Fatalf("admin password = %q", cfg.Admin.Password)
 	}
-	if got := os.Getenv("WARDEN_DATABASE_URL"); got != "postgres://pam:database-secret@localhost:5432/pam" {
+	if got := os.Getenv("WARDEN_DATABASE_URL"); got != "postgres://warden:database-secret@localhost:5432/warden" {
 		t.Fatalf("database URL = %q", got)
 	}
 	if got := os.Getenv("WARDEN_TASK_SIGNING_KEY"); got != "task-secret" {
@@ -91,7 +91,7 @@ WARDEN_DATABASE_PASSWORD=database-secret
 func TestLoadRuntimeWithoutConfigFileUsesEnvironment(t *testing.T) {
 	t.Chdir(t.TempDir())
 	t.Setenv("WARDEN_PORT", "9095")
-	t.Setenv("WARDEN_DATABASE_URL", "postgres://pam:secret@localhost:5432/pam")
+	t.Setenv("WARDEN_DATABASE_URL", "postgres://warden:secret@localhost:5432/warden")
 	t.Setenv("WARDEN_OIDC_ENABLED", "")
 	t.Setenv("WARDEN_OIDC_ISSUER", "https://idp.example.com")
 
@@ -102,7 +102,7 @@ func TestLoadRuntimeWithoutConfigFileUsesEnvironment(t *testing.T) {
 	if cfg.Server.Port != 9095 {
 		t.Fatalf("port = %d", cfg.Server.Port)
 	}
-	if cfg.Database.URL != "postgres://pam:secret@localhost:5432/pam" {
+	if cfg.Database.URL != "postgres://warden:secret@localhost:5432/warden" {
 		t.Fatalf("database URL = %q", cfg.Database.URL)
 	}
 	// Legacy contract: a configured issuer without an explicit switch must not

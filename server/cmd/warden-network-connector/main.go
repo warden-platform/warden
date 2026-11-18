@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"gitee.com/pam-platform/warden/server/internal/connector"
+	"gitee.com/warden-platform/warden/server/internal/connector"
 )
 
 var version = "0.2.0"
@@ -32,8 +32,8 @@ func main() {
 	runtime := connector.NewTypedRuntime(controlURL, name, environment, version, "network", signingKey,
 		append([]string{}, connector.H3CCapabilities...), runner)
 	resolver := func(ctx context.Context, ref, integrationID string) (string, error) {
-		if strings.HasPrefix(ref, "pam:") {
-			return runtime.FetchCredentialValue(ctx, strings.TrimPrefix(ref, "pam:"), integrationID)
+		if strings.HasPrefix(ref, "warden:") {
+			return runtime.FetchCredentialValue(ctx, strings.TrimPrefix(ref, "warden:"), integrationID)
 		}
 		if strings.ContainsAny(ref, `/\\`) || ref == "." || ref == ".." {
 			return "", fmt.Errorf("network credential reference is not a file name")

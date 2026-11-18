@@ -14,8 +14,8 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -403,7 +403,7 @@ func (h *Handler) Login(w http.ResponseWriter, r *http.Request) {
 }
 
 // establishSession issues a Warden JWT, records the session, and sets the
-// pam_session cookie. It is shared by the password login and OIDC login paths
+// warden_session cookie. It is shared by the password login and OIDC login paths
 // so both produce an identical session contract.
 func (h *Handler) establishSession(w http.ResponseWriter, r *http.Request, principal *domain.Principal) (time.Time, error) {
 	token, expiresAt, err := h.issueJWT(principal)
@@ -421,7 +421,7 @@ func (h *Handler) establishSession(w http.ResponseWriter, r *http.Request, princ
 		log.Printf("更新 last_login_at 失败: %v", err)
 	}
 	h.writeIdentityAudit(r.Context(), "user.login", principal.ID, "")
-	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: token, Path: "/", HttpOnly: true,
+	http.SetCookie(w, &http.Cookie{Name: "warden_session", Value: token, Path: "/", HttpOnly: true,
 		Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, Expires: expiresAt})
 	return expiresAt, nil
 }
@@ -430,7 +430,7 @@ func (h *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	if identity := identityFromContext(r.Context()); identity != nil && identity.Kind == "JWT" && identity.SessionID != "" && h.pool != nil {
 		_, _ = h.pool.Exec(r.Context(), `UPDATE admin_sessions SET revoked_at=now() WHERE jti=$1 AND revoked_at IS NULL`, identity.SessionID)
 	}
-	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: "", Path: "/", HttpOnly: true,
+	http.SetCookie(w, &http.Cookie{Name: "warden_session", Value: "", Path: "/", HttpOnly: true,
 		Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	jsonResp(w, http.StatusOK, map[string]string{"status": "logged_out"})
 }

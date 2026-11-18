@@ -62,23 +62,23 @@ func validOIDCDefaultRole(role string) bool {
 // Scopes are the capability names shared by backend guards (RequireScope)
 // and the console (the capabilities list returned by /auth/me).
 const (
-	ScopeAdmin                = "pam:admin"
-	ScopeTenantAdmin          = "pam:tenant:admin"
-	ScopeResourcesRead        = "pam:resources:read"
-	ScopeExecutionsCreate     = "pam:executions:create"
-	ScopeExecutionsReadSelf   = "pam:executions:read:self"
-	ScopeExecutionsCancelSelf = "pam:executions:cancel:self"
-	ScopeCredentialsManage    = "pam:credentials:manage"
-	ScopeApprove              = "pam:approve"
-	ScopeAuditRead            = "pam:audit:read"
-	ScopeRegistrationRead     = "pam:registration:read"
-	ScopeRegistrationWrite    = "pam:registration:write"
-	ScopeDelegationExchange   = "pam:delegation:exchange"
+	ScopeAdmin                = "warden:admin"
+	ScopeTenantAdmin          = "warden:tenant:admin"
+	ScopeResourcesRead        = "warden:resources:read"
+	ScopeExecutionsCreate     = "warden:executions:create"
+	ScopeExecutionsReadSelf   = "warden:executions:read:self"
+	ScopeExecutionsCancelSelf = "warden:executions:cancel:self"
+	ScopeCredentialsManage    = "warden:credentials:manage"
+	ScopeApprove              = "warden:approve"
+	ScopeAuditRead            = "warden:audit:read"
+	ScopeRegistrationRead     = "warden:registration:read"
+	ScopeRegistrationWrite    = "warden:registration:write"
+	ScopeDelegationExchange   = "warden:delegation:exchange"
 	// ScopeSelfProfile is the sole scope issued to an unaffiliated SSO identity.
 	// It is intentionally not required by any business endpoint; it exists only
 	// because a session token must carry a non-empty scope, and it lets the
 	// console render the "no organization yet" self-service view.
-	ScopeSelfProfile = "pam:self:profile"
+	ScopeSelfProfile = "warden:self:profile"
 )
 
 var allScopes = []string{
@@ -104,7 +104,7 @@ func tenantAdminScopes() []string {
 }
 
 // Capabilities normalizes an identity's scopes into the single capability
-// list consumed by both the backend guards and the console. pam:admin is a
+// list consumed by both the backend guards and the console. warden:admin is a
 // wildcard scope, so it is expanded to every known capability; the console
 // never has to infer privileges from a role name again.
 func Capabilities(scopes []string) []string {

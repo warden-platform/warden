@@ -81,7 +81,7 @@ Reuse `WARDEN_IDEMPOTENCY_KEY` only when retrying the same HTTP request. Never c
 ## Interpret results
 
 - Report the Execution ID, exact resource identity, action, status, and minimal evidence.
-- For mutations, summarize `_pam_safety.before`, `_pam_safety.after`, and `_pam_safety.verification`.
+- For mutations, summarize `_warden_safety.before`, `_warden_safety.after`, and `_warden_safety.verification`.
 - `VERIFIED_ABSENT` confirms a deleted resource could no longer be read.
 - `ACCEPTED_ASYNC` confirms the provider accepted an asynchronous operation; continue read-only observation until the catalog converges, without resubmitting it.
 - An empty query result proves only that no matching data was returned for the stated scope and time window.

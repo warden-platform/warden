@@ -82,9 +82,9 @@ func (h *Handler) DownloadOperatorChart(w http.ResponseWriter, _ *http.Request) 
 func (h *Handler) DownloadChecksums(w http.ResponseWriter, _ *http.Request) {
 	root := artifactRoot()
 	files := map[string]string{
-		"install-linux.sh":                  filepath.Join(root, "deploy", "linux", "install.sh"),
-		"install-network.sh":                filepath.Join(root, "deploy", "network", "install.sh"),
-		"uninstall-linux.sh":                filepath.Join(root, "deploy", "linux", "uninstall.sh"),
+		"install-linux.sh":                     filepath.Join(root, "deploy", "linux", "install.sh"),
+		"install-network.sh":                   filepath.Join(root, "deploy", "network", "install.sh"),
+		"uninstall-linux.sh":                   filepath.Join(root, "deploy", "linux", "uninstall.sh"),
 		"warden-linux-connector-linux-amd64":   filepath.Join(root, "server", "bin", "linux-amd64", "warden-linux-connector"),
 		"warden-linux-helper-linux-amd64":      filepath.Join(root, "server", "bin", "linux-amd64", "warden-linux-helper"),
 		"warden-linux-connector-linux-arm64":   filepath.Join(root, "server", "bin", "linux-arm64", "warden-linux-connector"),

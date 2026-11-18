@@ -8,7 +8,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestProjectUserLifecycleAndTenantIsolation(t *testing.T) {
@@ -149,11 +149,11 @@ func loginProjectUser(t *testing.T, mux *http.ServeMux, password string) *http.C
 		t.Fatalf("project user login status=%d body=%s", response.Code, response.Body.String())
 	}
 	for _, cookie := range response.Result().Cookies() {
-		if cookie.Name == "pam_session" {
+		if cookie.Name == "warden_session" {
 			return cookie
 		}
 	}
-	t.Fatal("project user login did not return pam_session cookie")
+	t.Fatal("project user login did not return warden_session cookie")
 	return nil
 }
 

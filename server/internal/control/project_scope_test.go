@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestPrincipalProjectScope(t *testing.T) {
@@ -21,7 +21,7 @@ func TestPrincipalProjectScope(t *testing.T) {
 		{name: "missing scope remains compatible", identity: &AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{}}}},
 		{name: "explicit empty denies all", identity: &AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{principalProjectIDsMetadataKey: []any{}}}}, scoped: true},
 		{name: "project list", identity: &AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{principalProjectIDsMetadataKey: []any{"project-a", "project-b"}}}}, scoped: true, projects: 2},
-		{name: "admin bypass", identity: &AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{principalProjectIDsMetadataKey: []any{"project-a"}}}, Scopes: []string{"pam:admin"}}},
+		{name: "admin bypass", identity: &AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{principalProjectIDsMetadataKey: []any{"project-a"}}}, Scopes: []string{"warden:admin"}}},
 		{name: "invalid shape", identity: &AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{principalProjectIDsMetadataKey: "project-a"}}}, scoped: true, shouldFail: true},
 		{name: "invalid element", identity: &AuthenticatedIdentity{Principal: &domain.Principal{Metadata: map[string]any{principalProjectIDsMetadataKey: []any{42}}}}, scoped: true, shouldFail: true},
 	}

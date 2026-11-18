@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -143,7 +143,7 @@ func insertKubernetesResource(t *testing.T, pool *pgxpool.Pool) string {
 	ctx := context.Background()
 	var connectorID string
 	if err := pool.QueryRow(ctx, `INSERT INTO connectors (name, connector_type, status, environment, version, capabilities, tenant_id)
-		VALUES ('test-k8s-connector', 'kubernetes', 'ACTIVE', 'testing', '1.0.0', '["provider.request@v1","pam.change-safety@v1"]'::jsonb, 'platform')
+		VALUES ('test-k8s-connector', 'kubernetes', 'ACTIVE', 'testing', '1.0.0', '["provider.request@v1","warden.change-safety@v1"]'::jsonb, 'platform')
 		ON CONFLICT (name, tenant_id) DO UPDATE SET status='ACTIVE', capabilities=EXCLUDED.capabilities
 		RETURNING id`).Scan(&connectorID); err != nil {
 		t.Fatalf("insert connector: %v", err)

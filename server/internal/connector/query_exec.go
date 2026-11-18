@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 // queryPlan is the DB-independent half of query preparation: a canonical plan,

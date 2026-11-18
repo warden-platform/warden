@@ -61,7 +61,7 @@ const mergeProjectStatusCounts = (projects: Array<Record<string, StatusCounts> |
 // rendered with a layout matching its data shape.
 export function ResourcesPage() {
   const { auth, notify } = useApp()
-  const isTenantAdmin = canUser(auth.user, 'pam:tenant:admin')
+  const isTenantAdmin = canUser(auth.user, 'warden:tenant:admin')
   const [apiResources, setApiResources] = useState<ApiResource[]>([])
   const [connectors, setConnectors] = useState<ApiConnector[]>([])
   const [projects, setProjects] = useState<ApiProject[]>([])

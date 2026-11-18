@@ -11,10 +11,10 @@ import type {
 import { createPrincipal, createPrincipalAPIKey, createRegistrationAPIKey } from '../../shared/api'
 
 const scopeOptions = [
-  { value: 'pam:resources:read', label: '读取资源与动作', detail: '查看可执行资源和 Action Schema' },
-  { value: 'pam:executions:create', label: '创建执行', detail: '向 Warden 提交受策略控制的 Execution' },
-  { value: 'pam:executions:read:self', label: '读取自己的执行', detail: '只能查看该 Principal 创建的 Execution' },
-  { value: 'pam:executions:cancel:self', label: '取消自己的执行', detail: '只能取消该 Principal 尚未完成的 Execution' },
+  { value: 'warden:resources:read', label: '读取资源与动作', detail: '查看可执行资源和 Action Schema' },
+  { value: 'warden:executions:create', label: '创建执行', detail: '向 Warden 提交受策略控制的 Execution' },
+  { value: 'warden:executions:read:self', label: '读取自己的执行', detail: '只能查看该 Principal 创建的 Execution' },
+  { value: 'warden:executions:cancel:self', label: '取消自己的执行', detail: '只能取消该 Principal 尚未完成的 Execution' },
 ] as const
 
 function useDialogEscape(onClose: () => void) {
@@ -138,7 +138,7 @@ export function CreateRegistrationBotDrawer({ onClose, onCreated }: { onClose: (
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    const metadata: Record<string, unknown> = { platform: 'multica', verification: 'DECLARED', purpose: 'pam_resource_registration' }
+    const metadata: Record<string, unknown> = { platform: 'multica', verification: 'DECLARED', purpose: 'warden_resource_registration' }
     if (agentId.trim()) metadata.multica_agent_id = agentId.trim()
     if (workspaceId.trim()) metadata.multica_workspace_id = workspaceId.trim()
     const payload: CreatePrincipalRequest = { name: name.trim(), kind: 'workload', metadata }
@@ -174,7 +174,7 @@ export function CreateRegistrationBotDrawer({ onClose, onCreated }: { onClose: (
               <strong>固定最小管理权限</strong>
               <span>
                 Key 只允许读取 Connector、Project、Integration，以及创建或更新 Project、Integration 和项目范围；不包含{' '}
-                <code>pam:admin</code>。
+                <code>warden:admin</code>。
               </span>
             </div>
           </div>
@@ -328,7 +328,7 @@ export function CreateRegistrationKeyDrawer({
 }) {
   useDialogEscape(onClose)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState('pam-resource-registration')
+  const [name, setName] = useState('warden-resource-registration')
   const [expiresOn, setExpiresOn] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -386,7 +386,7 @@ export function CreateRegistrationKeyDrawer({
               <span>
                 <strong>读取注册上下文</strong>
                 <small>Connector、Project、Integration 和项目范围</small>
-                <code>pam:registration:read</code>
+                <code>warden:registration:read</code>
               </span>
             </label>
             <label>
@@ -394,7 +394,7 @@ export function CreateRegistrationKeyDrawer({
               <span>
                 <strong>写入注册配置</strong>
                 <small>创建/更新 Project、Integration 和项目范围</small>
-                <code>pam:registration:write</code>
+                <code>warden:registration:write</code>
               </span>
             </label>
           </fieldset>
@@ -446,7 +446,7 @@ export function OneTimeKeyDialog({
   const download = () => {
     const blob = new Blob([result.apiKey + '\n'], { type: 'text/plain' })
     const url = URL.createObjectURL(blob)
-    const prefix = result.credential.purpose === 'REGISTRATION' ? 'pam-registration' : 'warden-agent'
+    const prefix = result.credential.purpose === 'REGISTRATION' ? 'warden-registration' : 'warden-agent'
     const link = document.createElement('a')
     link.href = url
     link.download = `${prefix}-${principalName.replace(/[^a-zA-Z0-9._-]+/g, '-')}.key`

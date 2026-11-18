@@ -15,14 +15,14 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var defaultAgentScopes = []string{
-	"pam:resources:read", "pam:executions:create", "pam:executions:read:self", "pam:executions:cancel:self", "pam:delegation:exchange",
+	"warden:resources:read", "warden:executions:create", "warden:executions:read:self", "warden:executions:cancel:self", "warden:delegation:exchange",
 }
 
-var registrationCredentialScopes = []string{"pam:registration:read", "pam:registration:write"}
+var registrationCredentialScopes = []string{"warden:registration:read", "warden:registration:write"}
 
 const (
 	defaultRegistrationCredentialTTL = 30 * 24 * time.Hour
@@ -53,7 +53,7 @@ func generatePurposeAPIKey(purpose domain.APIKeyPurpose) (id, plaintext string, 
 	if purpose == domain.APIKeyPurposeRegistration {
 		prefix = "rgk"
 	}
-	plaintext = "pam_" + prefix + "_" + id + "_" + secretText
+	plaintext = "warden_" + prefix + "_" + id + "_" + secretText
 	digest := sha256.Sum256([]byte(secretText))
 	return id, plaintext, digest[:], nil
 }
@@ -65,7 +65,7 @@ func parseAPIKey(value string) (string, string, bool) {
 
 func parsePurposeAPIKey(value string) (string, string, domain.APIKeyPurpose, bool) {
 	parts := strings.SplitN(value, "_", 4)
-	if len(parts) != 4 || parts[0] != "pam" || parts[2] == "" || parts[3] == "" {
+	if len(parts) != 4 || parts[0] != "warden" || parts[2] == "" || parts[3] == "" {
 		return "", "", "", false
 	}
 	purpose := domain.APIKeyPurposeAgent
@@ -80,7 +80,7 @@ func parsePurposeAPIKey(value string) (string, string, domain.APIKeyPurpose, boo
 func (h *Handler) authenticate(ctx context.Context, token, remoteAddr string) (*AuthenticatedIdentity, error) {
 	if subtle.ConstantTimeCompare([]byte(token), []byte(h.adminAPIKey)) == 1 {
 		if h.principals == nil {
-			return &AuthenticatedIdentity{Principal: &domain.Principal{ID: "00000000-0000-0000-0000-000000000003", Kind: domain.PrincipalKindUser, Name: "admin", Status: domain.PrincipalStatusActive, TenantID: "platform"}, TenantID: "platform", IsPlatformAdmin: true, Scopes: []string{"pam:admin"}, Kind: "ADMIN"}, nil
+			return &AuthenticatedIdentity{Principal: &domain.Principal{ID: "00000000-0000-0000-0000-000000000003", Kind: domain.PrincipalKindUser, Name: "admin", Status: domain.PrincipalStatusActive, TenantID: "platform"}, TenantID: "platform", IsPlatformAdmin: true, Scopes: []string{"warden:admin"}, Kind: "ADMIN"}, nil
 		}
 		principal, err := h.principals.GetByID(domain.WithTenantID(ctx, "platform"), "00000000-0000-0000-0000-000000000003")
 		if err != nil {
@@ -92,11 +92,11 @@ func (h *Handler) authenticate(ctx context.Context, token, remoteAddr string) (*
 		if !h.tenantIsActive(ctx, principal.TenantID) {
 			return nil, errors.New("tenant is disabled")
 		}
-		return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: true, Scopes: []string{"pam:admin"}, Kind: "ADMIN"}, nil
+		return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: true, Scopes: []string{"warden:admin"}, Kind: "ADMIN"}, nil
 	}
 	// JWT branch: a JWT has the shape "xxx.yyy.zzz" (3 base64 segments
 	// separated by dots). We try parsing as JWT first; on failure we fall
-	// through to the pam_agk_ API key path so existing agents keep working.
+	// through to the warden_agk_ API key path so existing agents keep working.
 	if strings.Count(token, ".") == 2 {
 		if claims, err := h.parseJWT(token); err == nil && claims != nil {
 			if strings.TrimSpace(claims.Tenant) == "" && h.pool != nil {
@@ -122,7 +122,7 @@ func (h *Handler) authenticate(ctx context.Context, token, remoteAddr string) (*
 			// JWT jti identifies an admin session, not a principal_api_keys UUID.
 			// Keeping the namespaces separate prevents session IDs from being
 			// written into executions/audit_events.credential_id UUID columns.
-			return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: hasScopeValue(scopes, "pam:admin"), SessionID: claims.ID, Scopes: scopes, Kind: "JWT"}, nil
+			return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: hasScopeValue(scopes, "warden:admin"), SessionID: claims.ID, Scopes: scopes, Kind: "JWT"}, nil
 		}
 	}
 	if tokenID, secret, ok := parseDelegationToken(token); ok && h.delegationTokens != nil {
@@ -345,7 +345,7 @@ func (h *Handler) createCredential(ctx context.Context, principalID string, req 
 		if p.Kind != domain.PrincipalKindWorkload {
 			return nil, "", errors.New("registration credentials require a workload principal")
 		}
-		if purpose, _ := p.Metadata["purpose"].(string); purpose != "pam_resource_registration" {
+		if purpose, _ := p.Metadata["purpose"].(string); purpose != "warden_resource_registration" {
 			return nil, "", errors.New("workload principal is not designated for Warden resource registration")
 		}
 		if req.Audience == "" || req.Audience != h.registrationAudience {
@@ -355,7 +355,7 @@ func (h *Handler) createCredential(ctx context.Context, principalID string, req 
 			return nil, "", errors.New("invalid registration scopes")
 		}
 		if req.Name == "" {
-			req.Name = "pam-resource-registration"
+			req.Name = "warden-resource-registration"
 		}
 	} else {
 		if p.Kind != domain.PrincipalKindAgentInstance && p.Kind != domain.PrincipalKindWorkload {

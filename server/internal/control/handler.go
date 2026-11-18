@@ -13,11 +13,11 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/ai"
-	"gitee.com/pam-platform/warden/server/internal/config"
-	"gitee.com/pam-platform/warden/server/internal/domain"
-	"gitee.com/pam-platform/warden/server/internal/policy"
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/ai"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/policy"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -279,33 +279,33 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /api/v1/connectors/credentials/resolve", connectorAuth(h.ResolveCredentialValue))
 
 	protected := http.NewServeMux()
-	protected.HandleFunc("POST /api/v1/executions", RequireScope("pam:executions:create", h.CreateExecution))
-	protected.HandleFunc("GET /api/v1/executions/{id}", RequireScope("pam:executions:read:self", h.GetExecution))
-	protected.HandleFunc("POST /api/v1/executions/{id}/cancel", RequireScope("pam:executions:cancel:self", h.CancelExecution))
-	protected.HandleFunc("GET /api/v1/executions", RequireScope("pam:executions:read:self", h.ListExecutions))
-	protected.HandleFunc("GET /api/v1/resources", RequireScope("pam:resources:read", h.ListResources))
-	protected.HandleFunc("GET /api/v1/resources/stats", RequireScope("pam:resources:read", h.ResourceStats))
-	protected.HandleFunc("GET /api/v1/actions", RequireScope("pam:resources:read", h.ListAvailableActions))
-	protected.HandleFunc("GET /api/v1/resources/{id}/actions", RequireScope("pam:resources:read", h.ListResourceActions))
-	protected.HandleFunc("GET /api/v1/resources/{id}/provider-capabilities", RequireScope("pam:resources:read", h.ListProviderCapabilities))
-	protected.HandleFunc("POST /api/v1/diagnostics", RequireScope("pam:resources:read", h.CreateDiagnosticContext))
-	protected.HandleFunc("GET /api/v1/diagnostics/{traceId}", RequireScope("pam:resources:read", h.GetDiagnosticResult))
-	protected.HandleFunc("GET /api/v1/provider-capabilities", RequireAnyScope([]string{"pam:resources:read", "pam:admin"}, h.ListProviderCapabilityCatalog))
+	protected.HandleFunc("POST /api/v1/executions", RequireScope("warden:executions:create", h.CreateExecution))
+	protected.HandleFunc("GET /api/v1/executions/{id}", RequireScope("warden:executions:read:self", h.GetExecution))
+	protected.HandleFunc("POST /api/v1/executions/{id}/cancel", RequireScope("warden:executions:cancel:self", h.CancelExecution))
+	protected.HandleFunc("GET /api/v1/executions", RequireScope("warden:executions:read:self", h.ListExecutions))
+	protected.HandleFunc("GET /api/v1/resources", RequireScope("warden:resources:read", h.ListResources))
+	protected.HandleFunc("GET /api/v1/resources/stats", RequireScope("warden:resources:read", h.ResourceStats))
+	protected.HandleFunc("GET /api/v1/actions", RequireScope("warden:resources:read", h.ListAvailableActions))
+	protected.HandleFunc("GET /api/v1/resources/{id}/actions", RequireScope("warden:resources:read", h.ListResourceActions))
+	protected.HandleFunc("GET /api/v1/resources/{id}/provider-capabilities", RequireScope("warden:resources:read", h.ListProviderCapabilities))
+	protected.HandleFunc("POST /api/v1/diagnostics", RequireScope("warden:resources:read", h.CreateDiagnosticContext))
+	protected.HandleFunc("GET /api/v1/diagnostics/{traceId}", RequireScope("warden:resources:read", h.GetDiagnosticResult))
+	protected.HandleFunc("GET /api/v1/provider-capabilities", RequireAnyScope([]string{"warden:resources:read", "warden:admin"}, h.ListProviderCapabilityCatalog))
 	protected.HandleFunc("POST /api/v1/provider-capabilities", RequireTenantAdmin(h.CreateProviderCapability))
 	protected.HandleFunc("PUT /api/v1/provider-capabilities/{id}", RequireTenantAdmin(h.UpdateProviderCapability))
 	protected.HandleFunc("DELETE /api/v1/provider-capabilities/{id}", RequireTenantAdmin(h.DeleteProviderCapability))
-	protected.HandleFunc("GET /api/v1/access-requests", RequireScope("pam:approve", h.ListAccessRequests))
+	protected.HandleFunc("GET /api/v1/access-requests", RequireScope("warden:approve", h.ListAccessRequests))
 	protected.HandleFunc("GET /api/v1/my/access-requests", h.ListMyAccessRequests)
-	protected.HandleFunc("POST /api/v1/access-requests/{id}/approve", RequireScope("pam:approve", h.ApproveRequest))
-	protected.HandleFunc("POST /api/v1/access-requests/{id}/reject", RequireScope("pam:approve", h.RejectRequest))
-	protected.HandleFunc("GET /api/v1/audit-events", RequireScope("pam:audit:read", h.ListAuditEvents))
+	protected.HandleFunc("POST /api/v1/access-requests/{id}/approve", RequireScope("warden:approve", h.ApproveRequest))
+	protected.HandleFunc("POST /api/v1/access-requests/{id}/reject", RequireScope("warden:approve", h.RejectRequest))
+	protected.HandleFunc("GET /api/v1/audit-events", RequireScope("warden:audit:read", h.ListAuditEvents))
 	protected.HandleFunc("POST /api/v1/ai/chat", h.AIChat)
-	protected.HandleFunc("GET /api/v1/accounts", RequireScope("pam:admin", RequirePlatformTenant(h.ListAccounts)))
-	protected.HandleFunc("PUT /api/v1/accounts/{id}/role", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateAccountRole)))
-	protected.HandleFunc("POST /api/v1/accounts/{id}/remove", RequireScope("pam:admin", RequirePlatformTenant(h.RemoveAccountFromOrganization)))
-	protected.HandleFunc("POST /api/v1/accounts/{id}/reenable", RequireScope("pam:admin", RequirePlatformTenant(h.ReenableAccount)))
-	protected.HandleFunc("GET /api/v1/unaffiliated-identities", RequireScope("pam:admin", RequirePlatformTenant(h.ListUnaffiliatedIdentities)))
-	protected.HandleFunc("POST /api/v1/unaffiliated-identities/{id}/assign", RequireScope("pam:admin", RequirePlatformTenant(h.AssignUnaffiliatedIdentity)))
+	protected.HandleFunc("GET /api/v1/accounts", RequireScope("warden:admin", RequirePlatformTenant(h.ListAccounts)))
+	protected.HandleFunc("PUT /api/v1/accounts/{id}/role", RequireScope("warden:admin", RequirePlatformTenant(h.UpdateAccountRole)))
+	protected.HandleFunc("POST /api/v1/accounts/{id}/remove", RequireScope("warden:admin", RequirePlatformTenant(h.RemoveAccountFromOrganization)))
+	protected.HandleFunc("POST /api/v1/accounts/{id}/reenable", RequireScope("warden:admin", RequirePlatformTenant(h.ReenableAccount)))
+	protected.HandleFunc("GET /api/v1/unaffiliated-identities", RequireScope("warden:admin", RequirePlatformTenant(h.ListUnaffiliatedIdentities)))
+	protected.HandleFunc("POST /api/v1/unaffiliated-identities/{id}/assign", RequireScope("warden:admin", RequirePlatformTenant(h.AssignUnaffiliatedIdentity)))
 	protected.HandleFunc("GET /api/v1/invitations", RequireTenantAdmin(h.ListInvitations))
 	protected.HandleFunc("POST /api/v1/invitations", RequireTenantAdmin(h.CreateInvitation))
 	protected.HandleFunc("DELETE /api/v1/invitations/{id}", RequireTenantAdmin(h.RevokeInvitation))
@@ -324,7 +324,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("POST /api/v1/external-bindings/revoke-workspace", RequireTenantAdmin(h.RevokeExternalWorkspace))
 	protected.HandleFunc("DELETE /api/v1/external-bindings/{id}", RequireTenantAdmin(h.RevokeExternalBinding))
 	protected.HandleFunc("POST /api/v1/external-delegations/{id}/revoke", RequireTenantAdmin(h.RevokeDelegationToken))
-	protected.HandleFunc("POST /api/v1/external-delegations/exchange", RequireScope("pam:delegation:exchange", h.ExchangeDelegationToken))
+	protected.HandleFunc("POST /api/v1/external-delegations/exchange", RequireScope("warden:delegation:exchange", h.ExchangeDelegationToken))
 	protected.HandleFunc("GET /api/v1/federated/tenants", RequireTenantAdmin(h.ListFederatedTenants))
 	protected.HandleFunc("POST /api/v1/federated/tenants", RequireTenantAdmin(h.BindFederatedTenant))
 	protected.HandleFunc("GET /api/v1/federated/projects", RequireTenantAdmin(h.ListFederatedProjects))
@@ -334,8 +334,8 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("GET /api/v1/install-config", RequireTenantAdmin(h.GetInstallConfig))
 	protected.HandleFunc("POST /api/v1/connectors/onboard", RequireTenantAdmin(h.OnboardCluster))
 	protected.HandleFunc("POST /api/v1/connectors/network", RequireTenantAdmin(h.CreateNetworkConnector))
-	protected.HandleFunc("GET /api/v1/connectors/{id}/integrations", RequireAnyScope([]string{"pam:registration:read"}, h.ListConnectorIntegrations))
-	protected.HandleFunc("GET /api/v1/integrations", RequireAnyScope([]string{"pam:registration:read"}, h.ListIntegrations))
+	protected.HandleFunc("GET /api/v1/connectors/{id}/integrations", RequireAnyScope([]string{"warden:registration:read"}, h.ListConnectorIntegrations))
+	protected.HandleFunc("GET /api/v1/integrations", RequireAnyScope([]string{"warden:registration:read"}, h.ListIntegrations))
 	protected.HandleFunc("POST /api/v1/cluster-pairings/confirm", RequireTenantAdmin(h.ConfirmClusterPairing))
 	protected.HandleFunc("POST /api/v1/cluster-pairings/options", RequireTenantAdmin(h.GetClusterPairingOptions))
 	protected.HandleFunc("POST /api/v1/linux-pairings/options", RequireTenantAdmin(h.GetLinuxPairingOptions))
@@ -358,15 +358,15 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("PUT /api/v1/resources/{id}/project-scope", RequireTenantAdmin(h.UpdateResourceProjectScope))
 	protected.HandleFunc("PUT /api/v1/resources/{id}/environment", RequireTenantAdmin(h.SetResourceEnvironment))
 	protected.HandleFunc("DELETE /api/v1/resources/{id}/environment", RequireTenantAdmin(h.DeleteResourceEnvironment))
-	protected.HandleFunc("GET /api/v1/projects", RequireAnyScope([]string{"pam:registration:read", "pam:resources:read"}, h.ListProjects))
-	protected.HandleFunc("GET /api/v1/projects/{projectId}/members", RequireScope("pam:resources:read", h.ListProjectMembers))
-	protected.HandleFunc("GET /api/v1/projects/{projectId}/member-candidates", RequireScope("pam:resources:read", h.ListProjectMemberCandidates))
+	protected.HandleFunc("GET /api/v1/projects", RequireAnyScope([]string{"warden:registration:read", "warden:resources:read"}, h.ListProjects))
+	protected.HandleFunc("GET /api/v1/projects/{projectId}/members", RequireScope("warden:resources:read", h.ListProjectMembers))
+	protected.HandleFunc("GET /api/v1/projects/{projectId}/member-candidates", RequireScope("warden:resources:read", h.ListProjectMemberCandidates))
 	protected.HandleFunc("POST /api/v1/projects/{projectId}/users", RequireTenantAdmin(h.CreateProjectUser))
-	protected.HandleFunc("POST /api/v1/projects/{projectId}/members", RequireScope("pam:resources:read", h.AddProjectMember))
-	protected.HandleFunc("PUT /api/v1/projects/{projectId}/members/{principalId}", RequireScope("pam:resources:read", h.UpdateProjectMember))
-	protected.HandleFunc("DELETE /api/v1/projects/{projectId}/members/{principalId}", RequireScope("pam:resources:read", h.RemoveProjectMember))
-	protected.HandleFunc("GET /api/v1/me/projects", RequireScope("pam:resources:read", h.ListMyProjects))
-	protected.HandleFunc("GET /api/v1/project-membership-policy", RequireScope("pam:resources:read", h.GetProjectMembershipPolicy))
+	protected.HandleFunc("POST /api/v1/projects/{projectId}/members", RequireScope("warden:resources:read", h.AddProjectMember))
+	protected.HandleFunc("PUT /api/v1/projects/{projectId}/members/{principalId}", RequireScope("warden:resources:read", h.UpdateProjectMember))
+	protected.HandleFunc("DELETE /api/v1/projects/{projectId}/members/{principalId}", RequireScope("warden:resources:read", h.RemoveProjectMember))
+	protected.HandleFunc("GET /api/v1/me/projects", RequireScope("warden:resources:read", h.ListMyProjects))
+	protected.HandleFunc("GET /api/v1/project-membership-policy", RequireScope("warden:resources:read", h.GetProjectMembershipPolicy))
 	protected.HandleFunc("PUT /api/v1/project-membership-policy", RequireTenantAdmin(h.UpdateProjectMembershipPolicy))
 	protected.HandleFunc("GET /api/v1/project-users", RequireTenantAdmin(h.ListProjectUsers))
 	protected.HandleFunc("GET /api/v1/project-users/{principalId}", RequireTenantAdmin(h.GetProjectUser))
@@ -379,26 +379,26 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("GET /api/v1/project-namespace-rules", RequireTenantAdmin(h.ListProjectNamespaceRules))
 	protected.HandleFunc("PUT /api/v1/project-namespace-rules", RequireTenantAdmin(h.UpsertProjectNamespaceRule))
 	protected.HandleFunc("DELETE /api/v1/project-namespace-rules/{id}", RequireTenantAdmin(h.DeleteProjectNamespaceRule))
-	protected.HandleFunc("POST /api/v1/connectors/{id}/integrations", RequireAnyScope([]string{"pam:registration:write"}, h.CreateIntegration))
-	protected.HandleFunc("PUT /api/v1/connectors/{id}/integrations/{integrationId}", RequireAnyScope([]string{"pam:registration:write"}, h.UpdateIntegration))
+	protected.HandleFunc("POST /api/v1/connectors/{id}/integrations", RequireAnyScope([]string{"warden:registration:write"}, h.CreateIntegration))
+	protected.HandleFunc("PUT /api/v1/connectors/{id}/integrations/{integrationId}", RequireAnyScope([]string{"warden:registration:write"}, h.UpdateIntegration))
 	protected.HandleFunc("DELETE /api/v1/connectors/{id}/integrations/{integrationId}", RequireTenantAdmin(h.DeleteIntegration))
-	protected.HandleFunc("GET /api/v1/integrations/{integrationId}/project-scope", RequireAnyScope([]string{"pam:registration:read"}, h.GetIntegrationProjectScope))
-	protected.HandleFunc("PUT /api/v1/integrations/{integrationId}/project-scope", RequireAnyScope([]string{"pam:registration:write"}, h.UpdateIntegrationProjectScope))
+	protected.HandleFunc("GET /api/v1/integrations/{integrationId}/project-scope", RequireAnyScope([]string{"warden:registration:read"}, h.GetIntegrationProjectScope))
+	protected.HandleFunc("PUT /api/v1/integrations/{integrationId}/project-scope", RequireAnyScope([]string{"warden:registration:write"}, h.UpdateIntegrationProjectScope))
 	protected.HandleFunc("GET /api/v1/resources/{id}/consumer-projects", RequireTenantAdmin(h.GetResourceConsumerProjects))
 	protected.HandleFunc("PUT /api/v1/resources/{id}/consumer-projects", RequireTenantAdmin(h.UpdateResourceConsumerProjects))
 	protected.HandleFunc("GET /api/v1/auth/me", h.GetMe)
 	protected.HandleFunc("PUT /api/v1/auth/password", h.ChangeOwnPassword)
-	protected.HandleFunc("GET /api/v1/tenants", RequireScope("pam:admin", RequirePlatformTenant(h.ListTenants)))
-	protected.HandleFunc("POST /api/v1/tenants", RequireScope("pam:admin", RequirePlatformTenant(h.CreateTenant)))
-	protected.HandleFunc("POST /api/v1/tenants/bootstrap", RequireScope("pam:admin", RequirePlatformTenant(h.BootstrapTenant)))
-	protected.HandleFunc("GET /api/v1/tenants/{slug}", RequireScope("pam:admin", RequirePlatformTenant(h.GetTenant)))
-	protected.HandleFunc("GET /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", RequirePlatformTenant(h.ListTenantAdmins)))
-	protected.HandleFunc("POST /api/v1/tenants/{slug}/admins", RequireScope("pam:admin", RequirePlatformTenant(h.CreateTenantAdmin)))
-	protected.HandleFunc("GET /api/v1/tenants/{slug}/members", RequireScope("pam:admin", RequirePlatformTenant(h.ListTenantMembers)))
-	protected.HandleFunc("POST /api/v1/tenants/{slug}/members", RequireScope("pam:admin", RequirePlatformTenant(h.CreateTenantMember)))
-	protected.HandleFunc("PUT /api/v1/tenants/{slug}/quota", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateTenantQuota)))
-	protected.HandleFunc("PUT /api/v1/tenants/{slug}/settings", RequireScope("pam:admin", RequirePlatformTenant(h.UpdateTenantSettings)))
-	protected.HandleFunc("POST /api/v1/tenants/{slug}/disable", RequireScope("pam:admin", RequirePlatformTenant(h.DisableTenant)))
+	protected.HandleFunc("GET /api/v1/tenants", RequireScope("warden:admin", RequirePlatformTenant(h.ListTenants)))
+	protected.HandleFunc("POST /api/v1/tenants", RequireScope("warden:admin", RequirePlatformTenant(h.CreateTenant)))
+	protected.HandleFunc("POST /api/v1/tenants/bootstrap", RequireScope("warden:admin", RequirePlatformTenant(h.BootstrapTenant)))
+	protected.HandleFunc("GET /api/v1/tenants/{slug}", RequireScope("warden:admin", RequirePlatformTenant(h.GetTenant)))
+	protected.HandleFunc("GET /api/v1/tenants/{slug}/admins", RequireScope("warden:admin", RequirePlatformTenant(h.ListTenantAdmins)))
+	protected.HandleFunc("POST /api/v1/tenants/{slug}/admins", RequireScope("warden:admin", RequirePlatformTenant(h.CreateTenantAdmin)))
+	protected.HandleFunc("GET /api/v1/tenants/{slug}/members", RequireScope("warden:admin", RequirePlatformTenant(h.ListTenantMembers)))
+	protected.HandleFunc("POST /api/v1/tenants/{slug}/members", RequireScope("warden:admin", RequirePlatformTenant(h.CreateTenantMember)))
+	protected.HandleFunc("PUT /api/v1/tenants/{slug}/quota", RequireScope("warden:admin", RequirePlatformTenant(h.UpdateTenantQuota)))
+	protected.HandleFunc("PUT /api/v1/tenants/{slug}/settings", RequireScope("warden:admin", RequirePlatformTenant(h.UpdateTenantSettings)))
+	protected.HandleFunc("POST /api/v1/tenants/{slug}/disable", RequireScope("warden:admin", RequirePlatformTenant(h.DisableTenant)))
 	protected.HandleFunc("POST /api/v1/auth/logout", h.Logout)
 	protected.HandleFunc("GET /api/v1/approval-rules", RequireTenantAdmin(h.ListApprovalRules))
 	protected.HandleFunc("PUT /api/v1/approval-rules/{id}", RequireTenantAdmin(h.UpdateApprovalRule))
@@ -1500,7 +1500,7 @@ func (h *Handler) GetExecution(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
-	if identity := identityFromContext(r.Context()); !identity.HasScope("pam:admin") && e.PrincipalID != identity.Principal.ID {
+	if identity := identityFromContext(r.Context()); !identity.HasScope("warden:admin") && e.PrincipalID != identity.Principal.ID {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
@@ -1519,7 +1519,7 @@ func (h *Handler) CancelExecution(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	identity := identityFromContext(r.Context())
-	if !identity.HasScope("pam:admin") && e.PrincipalID != identity.Principal.ID {
+	if !identity.HasScope("warden:admin") && e.PrincipalID != identity.Principal.ID {
 		jsonError(w, http.StatusNotFound, "NOT_FOUND", "执行记录不存在")
 		return
 	}
@@ -2951,7 +2951,7 @@ func acceptsDuplicateTerminalResult(current *domain.Execution, submitted domain.
 
 func executionResultAuditMetadata(result map[string]any) map[string]any {
 	metadata := map[string]any{}
-	safety, ok := result["_pam_safety"].(map[string]any)
+	safety, ok := result["_warden_safety"].(map[string]any)
 	if !ok {
 		return metadata
 	}

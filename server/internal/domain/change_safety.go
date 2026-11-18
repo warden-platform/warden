@@ -1,6 +1,6 @@
 package domain
 
-const ChangeSafetyCapability = "pam.change-safety@v1"
+const ChangeSafetyCapability = "warden.change-safety@v1"
 
 type RollbackMode string
 

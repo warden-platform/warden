@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -121,7 +121,7 @@ type UnaffiliatedIdentity struct {
 
 // ListUnaffiliatedIdentities returns every authenticated-but-unassigned SSO
 // identity so the platform super administrator can see who is waiting to be
-// pulled into an organization. Gated to pam:admin + platform tenant.
+// pulled into an organization. Gated to warden:admin + platform tenant.
 func (h *Handler) ListUnaffiliatedIdentities(w http.ResponseWriter, r *http.Request) {
 	if h.pool == nil {
 		databaseUnavailable(w)

@@ -50,8 +50,8 @@ export function OverviewPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [now, setNow] = useState(() => Date.now())
-  const canApprove = canUser(auth.user, 'pam:approve')
-  const canManage = canUser(auth.user, 'pam:tenant:admin')
+  const canApprove = canUser(auth.user, 'warden:approve')
+  const canManage = canUser(auth.user, 'warden:tenant:admin')
 
   const load = (showSpinner = true) => {
     if (showSpinner) setLoading(true)

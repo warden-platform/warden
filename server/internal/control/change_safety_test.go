@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestConnectorExecutionErrorKeepsKnownJenkinsCodes(t *testing.T) {
@@ -57,7 +57,7 @@ func TestJenkinsJobCreateApprovalExemption(t *testing.T) {
 }
 
 func TestExecutionResultAuditMetadataKeepsOnlySnapshotSummary(t *testing.T) {
-	result := map[string]any{"_pam_safety": map[string]any{
+	result := map[string]any{"_warden_safety": map[string]any{
 		"contractVersion": float64(1), "verification": "VERIFIED", "rollbackMode": "MANUAL",
 		"before": map[string]any{"present": true, "name": "api", "stateHash": "old-hash", "state": map[string]any{"token": "must-not-enter-audit"}},
 		"after":  map[string]any{"present": true, "name": "api", "stateHash": "new-hash", "state": map[string]any{"token": "must-not-enter-audit"}},

@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func newHuaweiTestServer(t *testing.T, rdsStatus int) *httptest.Server {
@@ -578,7 +578,7 @@ func TestHuaweiCloudRunnerCreatesECSWithReservedTagsAndIdempotency(t *testing.T)
 			"projectId": projectID, "region": "cn-north-4", "name": "order-api-01", "flavor": "s6.large.2",
 			"imageId": "image-1", "vpcId": "vpc-1", "subnetId": "subnet-1", "systemDiskSize": float64(80),
 			"securityGroupIds": []any{"sg-1"}, "tags": map[string]any{"service": "order-api"},
-			"_pamContext": map[string]any{"projectId": projectID, "projectName": "订单", "environment": "production", "createdBy": "agent-1", "integrationId": "ig-1"},
+			"_wardenContext": map[string]any{"projectId": projectID, "projectName": "订单", "environment": "production", "createdBy": "agent-1", "integrationId": "ig-1"},
 		},
 		Grant: domain.TaskGrant{ExpiresAt: time.Now().Add(time.Minute)},
 	}
@@ -591,7 +591,7 @@ func TestHuaweiCloudRunnerCreatesECSWithReservedTagsAndIdempotency(t *testing.T)
 	}
 	encoded, _ := json.Marshal(tagBody)
 	bodyText := string(encoded)
-	for _, expected := range []string{"pam-managed-by", "pam-project-id", projectID, "pam-execution-id", task.ExecutionID, "service", "order-api"} {
+	for _, expected := range []string{"warden-managed-by", "warden-project-id", projectID, "warden-execution-id", task.ExecutionID, "service", "order-api"} {
 		if !strings.Contains(bodyText, expected) {
 			t.Fatalf("create request is missing %q: %s", expected, bodyText)
 		}
@@ -614,8 +614,8 @@ func TestHuaweiCloudRunnerCreatesECSWithReservedTagsAndIdempotency(t *testing.T)
 		}
 	}
 
-	task.Parameters["tags"] = map[string]any{"pam-project-id": "spoofed"}
-	if _, _, err := runner.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "reserved pam-*") {
+	task.Parameters["tags"] = map[string]any{"warden-project-id": "spoofed"}
+	if _, _, err := runner.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "reserved warden-*") {
 		t.Fatalf("reserved tag override was not rejected: %v", err)
 	}
 }
@@ -695,7 +695,7 @@ func TestHuaweiCloudRunnerUpdatesECSMetadataWithoutAllowingReservedTagOverrides(
 		Action:   domain.TaskAction{Name: "huawei.ecs.update_metadata"},
 		Parameters: map[string]any{
 			"description": "订单服务", "tags": map[string]any{"service": "orders"},
-			"_pamContext": map[string]any{"projectId": projectID, "projectName": "订单", "environment": "production", "integrationId": "ig-1"},
+			"_wardenContext": map[string]any{"projectId": projectID, "projectName": "订单", "environment": "production", "integrationId": "ig-1"},
 		},
 		Grant: domain.TaskGrant{ExpiresAt: time.Now().Add(time.Minute)},
 	}
@@ -704,7 +704,7 @@ func TestHuaweiCloudRunnerUpdatesECSMetadataWithoutAllowingReservedTagOverrides(
 	}
 	encoded, _ := json.Marshal(tagBody)
 	text := string(encoded)
-	for _, expected := range []string{"pam-managed-by", "pam-project-id", projectID, "pam-project-name", "service", "orders"} {
+	for _, expected := range []string{"warden-managed-by", "warden-project-id", projectID, "warden-project-name", "service", "orders"} {
 		if !strings.Contains(text, expected) {
 			t.Fatalf("tag update is missing %q: %s", expected, text)
 		}
@@ -713,8 +713,8 @@ func TestHuaweiCloudRunnerUpdatesECSMetadataWithoutAllowingReservedTagOverrides(
 		t.Fatalf("description update missing server body: %#v", descriptionBody)
 	}
 
-	task.Parameters["tags"] = map[string]any{"pam-project-id": "spoofed"}
-	if _, _, err := runner.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "reserved pam-*") {
+	task.Parameters["tags"] = map[string]any{"warden-project-id": "spoofed"}
+	if _, _, err := runner.Execute(context.Background(), task); err == nil || !strings.Contains(err.Error(), "reserved warden-*") {
 		t.Fatalf("reserved tag override was not rejected: %v", err)
 	}
 }

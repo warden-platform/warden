@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	dingcard "github.com/open-dingtalk/dingtalk-stream-sdk-go/card"
 )
 

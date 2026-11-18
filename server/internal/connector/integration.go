@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 // rejectMetadataEndpoint prevents accidentally forwarding integration
@@ -31,7 +31,7 @@ func rejectMetadataEndpoint(endpoint *url.URL) error {
 // CredentialResolver returns the API token for an integration given its
 // credential reference (a K8s Secret name on the cluster connector, or a file
 // name on the Linux connector). The integrationID is passed through so the
-// control plane can enforce a "pam:" credential's binding scope.
+// control plane can enforce a "warden:" credential's binding scope.
 type CredentialResolver func(ctx context.Context, credentialRef, integrationID string) (string, error)
 
 // NewIntegrationReconciler returns a callback suitable for

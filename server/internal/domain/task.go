@@ -13,7 +13,7 @@ import (
 // dispatching an approved ad-hoc database query. It lives inside Parameters so
 // v1 task-envelope signatures remain compatible with older Connectors, while a
 // new Connector can distinguish approval-backed and automatic Grants.
-const QueryApprovalContextParameter = "_pamQueryApproval"
+const QueryApprovalContextParameter = "_wardenQueryApproval"
 
 type TaskEnvelope struct {
 	Version       int                   `json:"version"`

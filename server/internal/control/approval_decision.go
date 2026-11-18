@@ -5,7 +5,7 @@ import (
 	"errors"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -22,13 +22,13 @@ func decisionError(status int, code, message string) error {
 }
 
 // decideApproval is the single transaction boundary for Web and DingTalk
-// decisions. Callers must authenticate the actor and verify pam:approve before
+// decisions. Callers must authenticate the actor and verify warden:approve before
 // entering this method.
 func (h *Handler) decideApproval(ctx context.Context, id string, approve bool, actor *AuthenticatedIdentity) (*domain.AccessRequest, error) {
 	if h.pool == nil {
 		return nil, decisionError(503, "DATABASE_UNAVAILABLE", "数据库不可用")
 	}
-	if actor == nil || actor.Principal == nil || !actor.HasScope("pam:approve") {
+	if actor == nil || actor.Principal == nil || !actor.HasScope("warden:approve") {
 		return nil, decisionError(403, "FORBIDDEN", "当前身份没有审批权限")
 	}
 	req, err := h.requests.GetByID(ctx, id)

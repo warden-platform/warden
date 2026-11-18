@@ -10,9 +10,9 @@ import (
 	"syscall"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
-	"gitee.com/pam-platform/warden/server/internal/control"
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/control"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 )
 
 func main() {

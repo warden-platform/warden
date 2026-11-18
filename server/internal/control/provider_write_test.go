@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -168,7 +168,7 @@ func insertJenkinsWriteResource(t *testing.T, pool *pgxpool.Pool) string {
 	ctx := context.Background()
 	var connectorID string
 	if err := pool.QueryRow(ctx, `INSERT INTO connectors (name, connector_type, status, environment, version, capabilities, last_heartbeat, tenant_id)
-		VALUES ('test-jenkins-connector', 'jenkins', 'ACTIVE', 'testing', '1.0.0', '["provider.write@v1","pam.change-safety@v1"]'::jsonb, now(), 'platform')
+		VALUES ('test-jenkins-connector', 'jenkins', 'ACTIVE', 'testing', '1.0.0', '["provider.write@v1","warden.change-safety@v1"]'::jsonb, now(), 'platform')
 		ON CONFLICT (name, tenant_id) DO UPDATE SET status='ACTIVE', capabilities=EXCLUDED.capabilities, last_heartbeat=EXCLUDED.last_heartbeat
 		RETURNING id`).Scan(&connectorID); err != nil {
 		t.Fatalf("insert connector: %v", err)

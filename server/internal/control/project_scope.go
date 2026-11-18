@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const principalProjectIDsMetadataKey = "project_ids"
@@ -22,7 +22,7 @@ const (
 // identity. An absent project_ids field keeps existing principals unrestricted;
 // an explicitly empty field grants no resource access.
 func principalProjectScope(identity *AuthenticatedIdentity) (map[string]struct{}, bool, error) {
-	if identity == nil || identity.Principal == nil || identity.HasScope("pam:admin") {
+	if identity == nil || identity.Principal == nil || identity.HasScope("warden:admin") {
 		return nil, false, nil
 	}
 	raw, exists := identity.Principal.Metadata[principalProjectIDsMetadataKey]

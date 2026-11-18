@@ -9,7 +9,7 @@ import (
 	"os"
 	"strings"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func configuredRegistrationAudience() (string, error) {

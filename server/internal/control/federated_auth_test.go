@@ -23,7 +23,7 @@ func TestFederatedAssertionVerifierAcceptsShortLivedRS256Assertion(t *testing.T)
 		RegisteredClaims: jwt.RegisteredClaims{
 			Issuer:    "https://idp.example.com",
 			Subject:   "user-1",
-			Audience:  jwt.ClaimStrings{"pam"},
+			Audience:  jwt.ClaimStrings{"warden"},
 			ID:        "assertion-1",
 			IssuedAt:  jwt.NewNumericDate(now),
 			ExpiresAt: jwt.NewNumericDate(now.Add(2 * time.Minute)),
@@ -34,7 +34,7 @@ func TestFederatedAssertionVerifierAcceptsShortLivedRS256Assertion(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
-	verified, err := (&federatedAssertionVerifier{key: &key.PublicKey, issuer: claims.Issuer, audience: "pam"}).verify(raw)
+	verified, err := (&federatedAssertionVerifier{key: &key.PublicKey, issuer: claims.Issuer, audience: "warden"}).verify(raw)
 	if err != nil {
 		t.Fatalf("verify: %v", err)
 	}
@@ -62,7 +62,7 @@ func TestFederatedAssertionVerifierRejectsReplayUnsafeClaims(t *testing.T) {
 			claims := federatedAssertionClaims{
 				EnterpriseID: "enterprise-1", WorkspaceID: "workspace-1", Nonce: "nonce-1",
 				RegisteredClaims: jwt.RegisteredClaims{
-					Issuer: "https://idp.example.com", Subject: "user-1", Audience: jwt.ClaimStrings{"pam"}, ID: tc.name,
+					Issuer: "https://idp.example.com", Subject: "user-1", Audience: jwt.ClaimStrings{"warden"}, ID: tc.name,
 					IssuedAt: jwt.NewNumericDate(now), ExpiresAt: jwt.NewNumericDate(now.Add(2 * time.Minute)),
 				},
 			}
@@ -72,7 +72,7 @@ func TestFederatedAssertionVerifierRejectsReplayUnsafeClaims(t *testing.T) {
 			if signErr != nil {
 				t.Fatal(signErr)
 			}
-			if _, verifyErr := (&federatedAssertionVerifier{key: &key.PublicKey, issuer: claims.Issuer, audience: "pam"}).verify(raw); verifyErr == nil {
+			if _, verifyErr := (&federatedAssertionVerifier{key: &key.PublicKey, issuer: claims.Issuer, audience: "warden"}).verify(raw); verifyErr == nil {
 				t.Fatal("expected assertion verification failure")
 			}
 		})
@@ -82,7 +82,7 @@ func TestFederatedAssertionVerifierRejectsReplayUnsafeClaims(t *testing.T) {
 func TestFederatedAssertionVerifierRejectsHMACEvenWithValidClaims(t *testing.T) {
 	key := []byte("not-a-federated-rsa-key")
 	claims := federatedAssertionClaims{EnterpriseID: "enterprise-1", WorkspaceID: "workspace-1", Nonce: "nonce-1", RegisteredClaims: jwt.RegisteredClaims{
-		Issuer: "https://idp.example.com", Subject: "user-1", Audience: jwt.ClaimStrings{"pam"}, ID: "assertion-hmac",
+		Issuer: "https://idp.example.com", Subject: "user-1", Audience: jwt.ClaimStrings{"warden"}, ID: "assertion-hmac",
 		IssuedAt: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Minute)),
 	}}
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
@@ -90,7 +90,7 @@ func TestFederatedAssertionVerifierRejectsHMACEvenWithValidClaims(t *testing.T) 
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := (&federatedAssertionVerifier{key: key, issuer: claims.Issuer, audience: "pam"}).verify(raw); err == nil {
+	if _, err := (&federatedAssertionVerifier{key: key, issuer: claims.Issuer, audience: "warden"}).verify(raw); err == nil {
 		t.Fatal("expected HMAC assertion to be rejected")
 	}
 }

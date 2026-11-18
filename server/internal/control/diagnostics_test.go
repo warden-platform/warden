@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -22,7 +22,7 @@ func insertDiagnosticResource(t *testing.T, pool *pgxpool.Pool, name, namespace,
 	var connectorID string
 	err := pool.QueryRow(ctx, `INSERT INTO connectors (name, connector_type, status, environment, version, capabilities, last_heartbeat, tenant_id)
 		VALUES ($1, 'kubernetes', 'ACTIVE', $2, '1.0.0',
-		        '["provider.request@v1","provider.write@v1","pam.change-safety@v1"]'::jsonb, now(), 'platform')
+		        '["provider.request@v1","provider.write@v1","warden.change-safety@v1"]'::jsonb, now(), 'platform')
 		ON CONFLICT (name, tenant_id) DO UPDATE SET status='ACTIVE', environment=EXCLUDED.environment,
 			capabilities=EXCLUDED.capabilities, last_heartbeat=EXCLUDED.last_heartbeat
 		RETURNING id`, "diag-"+name+"-conn", environment).Scan(&connectorID)

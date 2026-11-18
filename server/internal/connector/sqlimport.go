@@ -243,8 +243,8 @@ type sqlImportParser struct {
 	tables  []ImportedTable
 }
 
-func (p *sqlImportParser) cur() sqlTok  { return p.toks[p.i] }
-func (p *sqlImportParser) atEnd() bool  { return p.cur().kind == sqlEOF }
+func (p *sqlImportParser) cur() sqlTok { return p.toks[p.i] }
+func (p *sqlImportParser) atEnd() bool { return p.cur().kind == sqlEOF }
 func (p *sqlImportParser) advance() sqlTok {
 	t := p.toks[p.i]
 	if p.i < len(p.toks)-1 {

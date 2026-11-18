@@ -34,19 +34,19 @@ const UnaffiliatedPage = lazy(() => import('./pages/UnaffiliatedPage').then((m) 
 
 function PlatformOnly({ children }: { children: React.ReactElement }) {
   const { auth } = useApp()
-  return canUser(auth.user, 'pam:admin') ? children : <Navigate to="/overview" replace />
+  return canUser(auth.user, 'warden:admin') ? children : <Navigate to="/overview" replace />
 }
 
 function TenantAdminOnly({ children }: { children: React.ReactElement }) {
   const { auth } = useApp()
-  return canUser(auth.user, 'pam:tenant:admin') ? children : <Navigate to="/overview" replace />
+  return canUser(auth.user, 'warden:tenant:admin') ? children : <Navigate to="/overview" replace />
 }
 
 // The super admin's home is the platform management domain, not an empty
 // business overview; everyone else lands on their organization's overview.
 function HomeRedirect() {
   const { auth } = useApp()
-  if (canUser(auth.user, 'pam:admin')) {
+  if (canUser(auth.user, 'warden:admin')) {
     return <Navigate to={getObservedTenant() ? '/overview' : '/platform/tenants'} replace />
   }
   return <Navigate to="/overview" replace />
@@ -132,7 +132,7 @@ function AppRoutes() {
     <Routes>
       <Route
         path="/login"
-        element={auth.user ? <Navigate to={canUser(auth.user, 'pam:admin') ? '/platform/tenants' : '/overview'} replace /> : <LoginPage />}
+        element={auth.user ? <Navigate to={canUser(auth.user, 'warden:admin') ? '/platform/tenants' : '/overview'} replace /> : <LoginPage />}
       />
       <Route path="/platform/login" element={auth.user ? <Navigate to="/platform/tenants" replace /> : <PlatformLoginPage />} />
       <Route path="*" element={auth.user ? <AppShell /> : <Navigate to="/login" replace />} />

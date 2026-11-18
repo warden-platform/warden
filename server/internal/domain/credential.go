@@ -19,8 +19,8 @@ func IsControlPlaneAction(name string) bool {
 // package: lowercase letters, digits, dots and hyphens, 1-253 characters.
 var credentialNamePattern = regexp.MustCompile(`^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$`)
 
-// ValidateCredentialName reports whether name is a valid pam: credential
-// reference (used both by the create parameter schema and by pam: consumers).
+// ValidateCredentialName reports whether name is a valid warden: credential
+// reference (used both by the create parameter schema and by warden: consumers).
 func ValidateCredentialName(name string) bool {
 	return credentialNamePattern.MatchString(name)
 }

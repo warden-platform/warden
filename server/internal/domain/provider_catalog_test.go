@@ -64,10 +64,10 @@ func TestProviderCapabilitiesForKindsFiltersByKindAndProtocol(t *testing.T) {
 
 func TestSplitCapabilityKey(t *testing.T) {
 	cases := []struct {
-		key       string
-		name      string
-		version   int
-		ok        bool
+		key     string
+		name    string
+		version int
+		ok      bool
 	}{
 		{"grafana.dashboard.read@v1", "grafana.dashboard.read", 1, true},
 		{"provider.request", "provider.request", 0, true},

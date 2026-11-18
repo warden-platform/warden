@@ -15,7 +15,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -315,7 +315,7 @@ func TestCredentialGovernanceLifecycle(t *testing.T) {
 	ctx := context.Background()
 
 	secret := "super-secret-token-123456"
-	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='pam/control-plane' LIMIT 1`)
+	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='warden/control-plane' LIMIT 1`)
 
 	// 1. credential.create requires approval; the plaintext is stripped from
 	//    executions.parameters and held as pending_secret until approval.
@@ -356,7 +356,7 @@ func TestCredentialGovernanceLifecycle(t *testing.T) {
 	if bytes.Contains(encrypted, []byte(secret)) {
 		t.Fatal("credentials.encrypted_value contains plaintext")
 	}
-	credResID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential' AND external_id='pam/credential/gitlab-token' LIMIT 1`)
+	credResID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential' AND external_id='warden/credential/gitlab-token' LIMIT 1`)
 	assertAuditRedacted(t, pool, createExec.ID, "credential.created", secret)
 
 	// 2. credential.get is allowed without approval and only returns masked data.
@@ -439,7 +439,7 @@ func TestCredentialGovernanceDeny(t *testing.T) {
 	pool := newTestDatabasePool(t)
 	_, mux := newTestDatabaseHandler(t, pool)
 	ctx := context.Background()
-	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='pam/control-plane' LIMIT 1`)
+	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='warden/control-plane' LIMIT 1`)
 	if _, err := pool.Exec(ctx, `INSERT INTO policy_matrix_rules (name, resource_type, action_name, environment, principal_kind, decision, tenant_id)
 		VALUES ('deny-credential-create', 'credential_vault', 'credential.create', 'testing', 'user', 'DENY', 'platform')`); err != nil {
 		t.Fatalf("insert deny matrix rule: %v", err)
@@ -467,7 +467,7 @@ func TestCredentialActionTimeoutMapsToUnknown(t *testing.T) {
 	pool := newTestDatabasePool(t)
 	_, mux := newTestDatabaseHandler(t, pool)
 	ctx := domain.WithTenantID(context.Background(), "platform")
-	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='pam/control-plane' LIMIT 1`)
+	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='warden/control-plane' LIMIT 1`)
 	// Timeout=0 makes the action context already expired when the executor starts.
 	if _, err := pool.Exec(ctx, `UPDATE action_definitions SET timeout_seconds=0 WHERE name='credential.list' AND version=1`); err != nil {
 		t.Fatal(err)
@@ -496,7 +496,7 @@ func TestExecuteCredentialActionDeadline(t *testing.T) {
 	pool := newTestDatabasePool(t)
 	h, _ := newTestDatabaseHandler(t, pool)
 	ctx := domain.WithTenantID(context.Background(), "platform")
-	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='pam/control-plane' LIMIT 1`)
+	vaultID := testResourceID(t, pool, `SELECT id FROM resources WHERE resource_type='credential_vault' AND external_id='warden/control-plane' LIMIT 1`)
 	res, err := h.resources.GetByID(ctx, vaultID)
 	if err != nil || res == nil {
 		t.Fatalf("load vault resource: %v", err)
@@ -595,7 +595,7 @@ func TestCredentialResolveEndpoint(t *testing.T) {
 	// A real integration owned by this Connector unblocks resolution.
 	var integrationID string
 	if err := pool.QueryRow(ctx, `INSERT INTO integrations (connector_id, protocol, name, endpoint, username, credential_ref, scope, status, tenant_id)
-		VALUES ($1, 'jenkins', 'jenkins-main', 'https://jenkins.example.test', 'admin', 'pam:gitlab-token', '{}'::jsonb, 'ACTIVE', 'platform') RETURNING id`, connectorID).Scan(&integrationID); err != nil {
+		VALUES ($1, 'jenkins', 'jenkins-main', 'https://jenkins.example.test', 'admin', 'warden:gitlab-token', '{}'::jsonb, 'ACTIVE', 'platform') RETURNING id`, connectorID).Scan(&integrationID); err != nil {
 		t.Fatalf("insert integration: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `UPDATE credentials SET scope=jsonb_build_object('bindings', jsonb_build_array(jsonb_build_object('target_type', 'integration', 'target_name', $1::text))) WHERE name='gitlab-token'`, integrationID); err != nil {

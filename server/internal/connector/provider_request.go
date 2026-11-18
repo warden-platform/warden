@@ -15,7 +15,7 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 // ProviderResolver is deliberately smaller than net.Resolver so tests and

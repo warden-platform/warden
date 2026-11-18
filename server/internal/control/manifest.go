@@ -228,7 +228,7 @@ metadata:
   namespace: {{.ConnectorNamespace}}
   labels:
     app.kubernetes.io/name: warden-connector
-    pam.io/cluster: {{.Name}}
+    warden.io/cluster: {{.Name}}
 spec:
   replicas: 1
   selector:
@@ -238,7 +238,7 @@ spec:
     metadata:
       labels:
         app.kubernetes.io/name: warden-connector
-        pam.io/cluster: {{.Name}}
+        warden.io/cluster: {{.Name}}
     spec:
       serviceAccountName: warden-connector-bootstrap
       automountServiceAccountToken: false

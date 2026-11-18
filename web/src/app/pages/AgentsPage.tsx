@@ -23,13 +23,13 @@ import { CreateAgentDrawer, CreateAgentKeyDrawer, OneTimeKeyDialog } from '../co
 import { CreateRegistrationBotDrawer, CreateRegistrationKeyDrawer } from '../components/AgentCredentialDialogs'
 
 const scopeLabels: Record<string, string> = {
-  'pam:resources:read': '资源读取',
-  'pam:executions:create': '创建执行',
-  'pam:executions:read:self': '读取自己',
-  'pam:executions:cancel:self': '取消自己',
-  'pam:delegation:exchange': '委托 Token 交换',
-  'pam:registration:read': '注册读取',
-  'pam:registration:write': '注册写入',
+  'warden:resources:read': '资源读取',
+  'warden:executions:create': '创建执行',
+  'warden:executions:read:self': '读取自己',
+  'warden:executions:cancel:self': '取消自己',
+  'warden:delegation:exchange': '委托 Token 交换',
+  'warden:registration:read': '注册读取',
+  'warden:registration:write': '注册写入',
 }
 
 const formatTime = (value?: string) => (value ? new Date(value).toLocaleString('zh-CN', { hour12: false }) : '从未使用')
@@ -54,7 +54,7 @@ export function AgentsPage() {
     setError('')
     Promise.all([listPrincipals('agent_instance'), listPrincipals('workload')])
       .then(async ([agentItems, workloadItems]) => {
-        const registrationBots = (workloadItems ?? []).filter((item) => item.metadata?.purpose === 'pam_resource_registration')
+        const registrationBots = (workloadItems ?? []).filter((item) => item.metadata?.purpose === 'warden_resource_registration')
         const agents = [...(agentItems ?? []), ...registrationBots]
         const keyPairs = await Promise.all(
           agents.map(async (agent) => {

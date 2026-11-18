@@ -45,7 +45,7 @@ export function LoginPage() {
       .then(() => getMe())
       .then((user) => {
         signIn(user)
-        navigate(canUser(user, 'pam:admin') ? '/platform/tenants' : '/overview')
+        navigate(canUser(user, 'warden:admin') ? '/platform/tenants' : '/overview')
       })
       .catch((err: ApiError) => {
         setError(err.code === 'INVALID_CREDENTIALS' ? '用户名或密码错误' : err.message || '登录失败')

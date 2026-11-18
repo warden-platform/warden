@@ -15,7 +15,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 type Runtime struct {
@@ -242,7 +242,7 @@ func (r *Runtime) syncIntegrations(ctx context.Context) error {
 	return nil
 }
 
-// FetchCredentialValue resolves a "pam:" credential reference against the
+// FetchCredentialValue resolves a "warden:" credential reference against the
 // control plane's managed credential ledger. The request is HMAC-signed and
 // authenticated as this connector; the control plane enforces the credential's
 // binding scope (integration + connector) before returning the plaintext.

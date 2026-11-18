@@ -18,33 +18,33 @@ const QueryASTVersion = 1
 // Static limits (§12.1). These bound the work a single governed query can
 // request before it ever reaches the database.
 const (
-	maxQuerySources        = 10  // distinct base tables
-	maxQueryJoins          = 8   // join clauses (inner + left)
-	maxQuerySelectItems    = 50  // output columns / aggregate slots
-	maxQueryGroupBy        = 20  // group-by expressions
-	maxQueryHaving         = 20  // having expressions
-	maxQueryOrderBy        = 10  // sort keys
-	maxQueryPredicateDepth = 8   // where/on/having nesting depth
-	maxQueryLogicalBranches = 12 // children of a single and/or node
-	maxQueryInValues       = 100 // values in an IN list
-	maxQueryLimit          = 1000
-	maxQueryBindings       = 100
+	maxQuerySources         = 10  // distinct base tables
+	maxQueryJoins           = 8   // join clauses (inner + left)
+	maxQuerySelectItems     = 50  // output columns / aggregate slots
+	maxQueryGroupBy         = 20  // group-by expressions
+	maxQueryHaving          = 20  // having expressions
+	maxQueryOrderBy         = 10  // sort keys
+	maxQueryPredicateDepth  = 8   // where/on/having nesting depth
+	maxQueryLogicalBranches = 12  // children of a single and/or node
+	maxQueryInValues        = 100 // values in an IN list
+	maxQueryLimit           = 1000
+	maxQueryBindings        = 100
 )
 
 // QueryAST is the top-level query node. JSON tags mirror the design §4.3 wire
 // shape; decoding is strict (unknown fields are rejected), so the tags are the
 // contract.
 type QueryAST struct {
-	Version  int            `json:"astVersion"`
-	Sources  []QuerySource  `json:"sources"`
-	Joins    []QueryJoin    `json:"joins,omitempty"`
-	Select   []QuerySelect  `json:"select"`
+	Version  int             `json:"astVersion"`
+	Sources  []QuerySource   `json:"sources"`
+	Joins    []QueryJoin     `json:"joins,omitempty"`
+	Select   []QuerySelect   `json:"select"`
 	Where    *QueryPredicate `json:"where,omitempty"`
-	GroupBy  []QueryField   `json:"groupBy,omitempty"`
-	Having   []QueryHaving  `json:"having,omitempty"`
-	OrderBy  []QueryOrder   `json:"orderBy,omitempty"`
-	Limit    *int           `json:"limit,omitempty"`
-	Bindings map[string]any `json:"bindings,omitempty"`
+	GroupBy  []QueryField    `json:"groupBy,omitempty"`
+	Having   []QueryHaving   `json:"having,omitempty"`
+	OrderBy  []QueryOrder    `json:"orderBy,omitempty"`
+	Limit    *int            `json:"limit,omitempty"`
+	Bindings map[string]any  `json:"bindings,omitempty"`
 }
 
 // QuerySource declares a base table under a query-local alias. resourceId is a
@@ -64,9 +64,9 @@ type QueryField struct {
 
 // QueryJoin is a single join clause. Only INNER and LEFT are supported (§4.4).
 type QueryJoin struct {
-	Type   string            `json:"type"`
-	Source QuerySource       `json:"source"`
-	On     []QueryJoinOn     `json:"on"`
+	Type   string        `json:"type"`
+	Source QuerySource   `json:"source"`
+	On     []QueryJoinOn `json:"on"`
 }
 
 // QueryJoinOn is one equi-join condition between two query fields.

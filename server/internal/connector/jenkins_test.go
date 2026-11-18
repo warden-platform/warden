@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestJenkinsRunnerDiscoversScopedResourcesWithoutSecrets(t *testing.T) {

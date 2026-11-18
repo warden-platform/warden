@@ -35,14 +35,14 @@ WHERE execution.resource_id=resource.id
 UPDATE audit_events
 SET connector_id=NULL
 WHERE connector_id IN (
-    SELECT id FROM connectors WHERE name='pam-control-plane' AND connector_type='control_plane'
+    SELECT id FROM connectors WHERE name='warden-control-plane' AND connector_type='control_plane'
 );
 
 UPDATE resources
 SET management_type='control_plane', connector_id=NULL
 WHERE metadata->>'managedBy'='control_plane'
    OR connector_id IN (
-       SELECT id FROM connectors WHERE name='pam-control-plane' AND connector_type='control_plane'
+       SELECT id FROM connectors WHERE name='warden-control-plane' AND connector_type='control_plane'
    );
 
 CREATE UNIQUE INDEX IF NOT EXISTS idx_resources_control_plane_identity
@@ -53,14 +53,14 @@ INSERT INTO resources
     (resource_type, external_id, name, namespace, connector_id, management_type,
      environment, status, metadata, tenant_id)
 VALUES
-    ('credential_vault', 'pam/control-plane', 'PAM 凭据库', '', NULL,
+    ('credential_vault', 'warden/control-plane', 'Warden 凭据库', '', NULL,
      'control_plane', 'testing', 'ACTIVE', '{"managedBy":"control_plane"}'::jsonb, 'platform')
 ON CONFLICT (tenant_id, resource_type, external_id)
     WHERE management_type='control_plane'
 DO UPDATE SET name=EXCLUDED.name, status='ACTIVE', updated_at=now();
 
 DELETE FROM connectors
-WHERE name='pam-control-plane' AND connector_type='control_plane';
+WHERE name='warden-control-plane' AND connector_type='control_plane';
 
 ALTER TABLE resources DROP CONSTRAINT IF EXISTS resources_management_type_check;
 ALTER TABLE resources ADD CONSTRAINT resources_management_type_check CHECK (

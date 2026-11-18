@@ -9,7 +9,7 @@ import (
 	"sort"
 	"strings"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const defaultTableEngine = "InnoDB"
@@ -204,10 +204,10 @@ func (r *DatabaseRunner) tablePreview(ctx context.Context, task domain.TaskEnvel
 		return nil, lease, err
 	}
 	return map[string]any{
-		"schema":     schema,
-		"name":       spec.Name,
-		"ddl":        ddl,
-		"exists":     exists,
+		"schema":      schema,
+		"name":        spec.Name,
+		"ddl":         ddl,
+		"exists":      exists,
 		"previewHash": fingerprint,
 	}, lease, nil
 }

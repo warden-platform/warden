@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/config"
 )
 
 type Config struct {

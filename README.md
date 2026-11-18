@@ -57,33 +57,27 @@ WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 make web-install && make web-dev
 ```
 
-完整可复制的步骤（含密钥文件、迁移、登录、第一次 API 调用与验证点）见 **[docs/quickstart.md](docs/quickstart.md)**。生产部署请读 **[docs/installation.md](docs/installation.md)**，不要照抄本地配置。
+完整可复制的步骤（含密钥文件、迁移、登录、第一次 API 调用与验证点）见 **[docs/quickstart.md](docs/quickstart.md)**。生产部署请读 **[生产部署](docs/guides.md#installation)**，不要照抄本地配置。
 
 ---
 
 ## 文档地图
 
-文档按 [Diátaxis](https://diataxis.fr/) 的四类读者需求组织：**教程**带你上手、**操作指南**解决具体任务、**参考**用于查阅、**解释**帮助理解设计。同一件事不混在一篇里写。
+文档按 [Diátaxis](https://diataxis.fr/) 的四类读者需求组织：**教程**带你上手、**操作指南**解决具体任务、**参考**用于查阅、**解释**帮助理解设计。长主题合并为**带章节锚点的单篇文档**（`文件.md#锚点`），减少散落与重复；历史与目标架构稿放 `docs/design/` 设计档案。
 
 | 我想…… | 读这篇 | 类型 |
 |---|---|---|
 | 第一次接触，把项目在本地跑起来 | [quickstart](docs/quickstart.md) | 教程 |
-| 把系统部署到正式环境 | [installation](docs/installation.md) | 操作指南 |
-| 接入企业单点登录、给 SSO 用户配权限 | [oidc-setup](docs/oidc-setup.md) | 操作指南 |
-| 接入 K8s / Linux / 网络设备 / Agent | [onboarding](docs/onboarding.md) | 操作指南 |
-| 做备份、升级、执行迁移、轮换密钥 | [operations](docs/operations.md) | 操作指南 |
+| 部署 / 接入目标系统 / 配 SSO / 日常运维 | [guides](docs/guides.md)（`#installation` `#onboarding` `#oidc` `#operations`） | 操作指南 |
 | 排查登录失败、功能不显示、Connector 掉线 | [troubleshooting](docs/troubleshooting.md) | 操作指南 |
-| 查某个环境变量 / Secret 文件 | [configuration](docs/configuration.md) | 参考 |
+| 查环境变量 / Secret 文件，查支持哪些动作、默认策略 | [reference](docs/reference.md)（`#configuration` `#actions`） | 参考 |
 | 查某个 REST 接口、请求体、错误码 | [api](docs/api.md) | 参考 |
-| 查系统支持哪些动作、默认策略怎么判 | [actions](docs/actions.md) | 参考 |
-| 查一个术语到底指什么 | [glossary](docs/glossary.md) | 参考 |
-| 理解租户 / 项目 / 资源 / 执行是什么关系 | [concepts](docs/concepts.md) | 解释 |
-| 理解组件、链路、状态机与设计取舍 | [architecture](docs/architecture.md) | 解释 |
-| 理解谁能做什么、权限何时生效 | [authorization](docs/authorization.md) | 解释 |
-| 理解外部平台联邦身份与委托 | [federated-authorization](docs/federated-authorization.md) | 解释 |
-| 了解已完成 / 未完成 / 已知设计债 | [roadmap](docs/roadmap.md) | 解释 |
+| 理解租户 / 项目 / 资源 / 执行关系，查术语 | [concepts](docs/concepts.md)（`#core-concepts` `#glossary`） | 解释 |
+| 理解组件、链路、状态机、已完成 / 未完成 / 设计债 | [architecture](docs/architecture.md)（`#architecture` `#roadmap`） | 解释 |
+| 理解谁能做什么、权限何时生效、联邦身份与委托 | [authorization](docs/authorization.md)（`#authorization` `#federation`） | 解释 |
+| 追溯历史设计决策（非现行文档） | [design 档案](docs/design/README.md) | 设计档案 |
 
-**建议阅读顺序**：`quickstart` → `concepts` → `architecture` → 再按角色挑 `installation` / `configuration` / `api`。完整导航与文档规范见 [docs/README.md](docs/README.md)。
+**建议阅读顺序**：`quickstart` → `concepts` → `architecture` → 再按角色挑 `guides` / `reference` / `api`。完整导航、锚点清单与文档规范见 [docs/README.md](docs/README.md)。
 
 ---
 
@@ -133,21 +127,21 @@ flowchart LR
 ## 认证与权限
 
 - 支持管理员密码会话、**企业 OIDC/SSO**（授权码 + PKCE S256）、Agent / Registration API Key、Connector 独立签名凭据、委托令牌与联邦断言登录。
-- 认证与授权分离：**IdP 只证明"你是谁"，Warden 决定"你能做什么"**。首次 SSO 登录一律按最小权限 `user` 建档；提权只能在「平台管理 → 账号与权限」由超级管理员手工指派，且会立即撤销目标会话强制重登。
+- 认证与授权分离：**IdP 只证明"你是谁"，Warden 决定"你能做什么"**。首次 SSO 登录按配置的默认角色建档（生产建议 `user`）；未匹配组织的新身份进入 `unaffiliated`，只有自助资料权限。普通账号只能指派 `user` / `tenant_admin`，角色变更会立即撤销目标会话强制重登。
 - 启动管理员密码账号是 IdP 故障时的 break-glass 应急入口，登录名由部署者配置，不应日常使用。
 - 后端接口守卫与前端菜单读同一份 `capabilities` 能力清单，不再按角色名硬编码门控。
 
-详见 [docs/authorization.md](docs/authorization.md) 与 [docs/oidc-setup.md](docs/oidc-setup.md)。
+详见 [docs/authorization.md](docs/authorization.md) 与 [SSO 接入](docs/guides.md#oidc)。
 
 ---
 
 ## 当前状态
 
-**已具备**：多租户隔离、动作目录与策略决策、审批与限时授权、原子任务领取与 HMAC 任务信封、多种 Connector 与 Integration、审计与 Outbox、Admin Web、OIDC/SSO、统一权限模型与账号管理页。
+**已具备**：多租户隔离、动作目录与策略决策、审批与限时授权、原子任务领取与 HMAC 任务信封、多种 Connector 与 Integration、审计与 Outbox、Admin Web、OIDC/SSO、统一权限模型、身份分配与邀请、账号管理页，以及权限继承的 AI 只读助手（OpenAI 兼容、SSE 流式）。
 
 **尚未实现**：MFA 与按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、完整 Execution Attempt 与取消协议、Outbox Publisher、SCIM、结果脱敏增强。OpenBao / Teleport 目前未集成。
 
-完整清单与已知设计债见 [docs/roadmap.md](docs/roadmap.md)。
+完整清单与已知设计债见 [现状与路线](docs/architecture.md#roadmap)。
 
 ---
 
@@ -157,7 +151,7 @@ flowchart LR
 server/
 ├── cmd/                      7 个可执行入口：控制面 + 各类 Connector/Operator/Helper
 ├── internal/{config,control,domain,policy,connector,storage}/
-├── migrations/               顺序 SQL 迁移（001–097）
+├── migrations/               顺序 SQL 迁移（001–105）
 └── Dockerfile*               控制面/Connector 镜像
 web/                          React + Vite 管理端
 deploy/                       本地 compose、Helm Chart、K8s 基线、安装脚本、发布迁移清单

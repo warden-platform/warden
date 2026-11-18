@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
-const safetyResultKey = "_pam_safety"
+const safetyResultKey = "_warden_safety"
 
 var errHuaweiCreatePartial = errors.New("Huawei ECS creation partially completed")
 

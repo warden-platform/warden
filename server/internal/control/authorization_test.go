@@ -10,7 +10,7 @@ import (
 func TestCapabilitiesExpandsAdminWildcard(t *testing.T) {
 	admin := Capabilities([]string{ScopeAdmin})
 	if len(admin) != len(allScopes) {
-		t.Fatalf("pam:admin expanded to %d capabilities, want %d", len(admin), len(allScopes))
+		t.Fatalf("warden:admin expanded to %d capabilities, want %d", len(admin), len(allScopes))
 	}
 	for _, scope := range allScopes {
 		found := false

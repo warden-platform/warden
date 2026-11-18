@@ -3,7 +3,7 @@ package control
 import (
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestDelegationTokenRoundTrip(t *testing.T) {
@@ -18,10 +18,10 @@ func TestDelegationTokenRoundTrip(t *testing.T) {
 	if len(hash) != 32 {
 		t.Fatalf("delegation token hash length = %d", len(hash))
 	}
-	if _, _, ok := parseDelegationToken("pam_dtk_" + id); ok {
+	if _, _, ok := parseDelegationToken("warden_dtk_" + id); ok {
 		t.Fatal("truncated delegation token was accepted")
 	}
-	if _, _, ok := parseDelegationToken("pam_agk_" + id + "_secret"); ok {
+	if _, _, ok := parseDelegationToken("warden_agk_" + id + "_secret"); ok {
 		t.Fatal("agent API key was accepted as delegation token")
 	}
 }

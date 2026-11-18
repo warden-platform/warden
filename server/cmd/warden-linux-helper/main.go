@@ -7,7 +7,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"gitee.com/pam-platform/warden/server/internal/connector"
+	"gitee.com/warden-platform/warden/server/internal/connector"
 )
 
 func main() {

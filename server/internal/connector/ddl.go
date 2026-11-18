@@ -28,11 +28,11 @@ type ColumnDefault struct {
 }
 
 type TableColumnSpec struct {
-	Name          string          `json:"name"`
-	Type          ColumnTypeSpec  `json:"type"`
-	Nullable      bool            `json:"nullable,omitempty"`
-	AutoIncrement bool            `json:"autoIncrement,omitempty"`
-	Default       *ColumnDefault  `json:"default,omitempty"`
+	Name          string         `json:"name"`
+	Type          ColumnTypeSpec `json:"type"`
+	Nullable      bool           `json:"nullable,omitempty"`
+	AutoIncrement bool           `json:"autoIncrement,omitempty"`
+	Default       *ColumnDefault `json:"default,omitempty"`
 }
 
 type UniqueConstraint struct {
@@ -64,10 +64,10 @@ type TableCreateSpec struct {
 }
 
 type SchemaCreateSpec struct {
-	Name            string `json:"name"`
-	CharacterSet    string `json:"characterSet,omitempty"`
-	Collation       string `json:"collation,omitempty"`
-	PreviewHash     string `json:"previewHash,omitempty"`
+	Name             string `json:"name"`
+	CharacterSet     string `json:"characterSet,omitempty"`
+	Collation        string `json:"collation,omitempty"`
+	PreviewHash      string `json:"previewHash,omitempty"`
 	PreviewExecution string `json:"previewExecutionId,omitempty"`
 }
 

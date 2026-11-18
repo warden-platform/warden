@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 type gzipResponseWriter struct {
@@ -110,7 +110,7 @@ func (i *AuthenticatedIdentity) HasScope(scope string) bool {
 		return false
 	}
 	for _, candidate := range i.Scopes {
-		if candidate == "pam:admin" || candidate == scope {
+		if candidate == "warden:admin" || candidate == scope {
 			return true
 		}
 	}
@@ -118,7 +118,7 @@ func (i *AuthenticatedIdentity) HasScope(scope string) bool {
 }
 
 func (i *AuthenticatedIdentity) IsTenantAdministrator() bool {
-	return i != nil && (i.IsPlatformAdmin || i.HasScope("pam:tenant:admin"))
+	return i != nil && (i.IsPlatformAdmin || i.HasScope("warden:tenant:admin"))
 }
 
 type identityContextKey struct{}
@@ -192,7 +192,7 @@ func IdentityAuthMiddleware(authenticate AuthenticateFunc, next http.Handler) ht
 		cookieAuth := false
 		if strings.HasPrefix(authHeader, prefix) {
 			token = strings.TrimSpace(authHeader[len(prefix):])
-		} else if cookie, err := r.Cookie("pam_session"); err == nil {
+		} else if cookie, err := r.Cookie("warden_session"); err == nil {
 			token = cookie.Value
 			cookieAuth = true
 		}
@@ -253,7 +253,7 @@ func RequireTenantAdmin(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 		jsonResp(w, http.StatusForbidden, map[string]any{
-			"error": "INSUFFICIENT_SCOPE", "message": "需要租户管理员权限", "requiredScopes": []string{"pam:tenant:admin"},
+			"error": "INSUFFICIENT_SCOPE", "message": "需要租户管理员权限", "requiredScopes": []string{"warden:tenant:admin"},
 		})
 	}
 }

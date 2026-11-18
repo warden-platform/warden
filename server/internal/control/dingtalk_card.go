@@ -12,8 +12,8 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	dingcard "github.com/open-dingtalk/dingtalk-stream-sdk-go/card"
 	streamclient "github.com/open-dingtalk/dingtalk-stream-sdk-go/client"
 )
@@ -236,7 +236,7 @@ func (h *Handler) handleDingTalkCardCallback(ctx context.Context, request *dingc
 	if err != nil || principal == nil || principal.Status != domain.PrincipalStatusActive || principal.Kind != domain.PrincipalKindUser || principal.ID != adminPrincipalID {
 		return nil, errors.New("DingTalk card principal unavailable")
 	}
-	actor := &AuthenticatedIdentity{Principal: principal, Scopes: []string{"pam:approve"}, Kind: "DINGTALK_CARD_STREAM", AuditMetadata: map[string]any{
+	actor := &AuthenticatedIdentity{Principal: principal, Scopes: []string{"warden:approve"}, Kind: "DINGTALK_CARD_STREAM", AuditMetadata: map[string]any{
 		"auth_channel": "dingtalk_card_stream", "dingtalk_user_id": userID, "dingtalk_user_name": approverName,
 	}}
 	approvedRequest, err := h.decideApproval(ctx, requestID, approve, actor)

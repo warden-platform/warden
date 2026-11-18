@@ -12,8 +12,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 
-	"gitee.com/pam-platform/warden/server/internal/connector"
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/connector"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var version = "0.3.2"
@@ -52,11 +52,11 @@ func main() {
 	// materialized as runners on the shared MultiRunner. Credentials are read
 	// from K8s Secrets in the connector namespace via the bootstrap SA (which
 	// the operator binds to the warden-secret-reader Role), or resolved from the
-	// Warden-managed credential ledger when the reference uses the "pam:" prefix.
+	// Warden-managed credential ledger when the reference uses the "warden:" prefix.
 	secretNamespace := envOr("WARDEN_CONNECTOR_NAMESPACE", "warden-system")
 	resolver := func(ctx context.Context, ref, integrationID string) (string, error) {
-		if strings.HasPrefix(ref, "pam:") {
-			return runtime.FetchCredentialValue(ctx, strings.TrimPrefix(ref, "pam:"), integrationID)
+		if strings.HasPrefix(ref, "warden:") {
+			return runtime.FetchCredentialValue(ctx, strings.TrimPrefix(ref, "warden:"), integrationID)
 		}
 		return readSecretToken(credentials.BootstrapClient(), secretNamespace)(ctx, ref, integrationID)
 	}

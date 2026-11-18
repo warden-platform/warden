@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -227,7 +227,7 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Revoke live sessions so a demotion takes effect immediately instead of
-	// waiting for the old JWT (and its pam:admin scope) to expire.
+	// waiting for the old JWT (and its warden:admin scope) to expire.
 	tag, err := tx.Exec(ctx, `
 		UPDATE admin_sessions SET revoked_at=now()
 		WHERE principal_id::text=$1 AND revoked_at IS NULL`, targetID)

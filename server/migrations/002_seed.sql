@@ -4,7 +4,7 @@
 INSERT INTO principals (id, kind, name, status, metadata) VALUES
     ('00000000-0000-0000-0000-000000000001', 'agent_type', 'deploy-agent', 'ACTIVE', '{"description": "标准部署 Agent"}'),
     ('00000000-0000-0000-0000-000000000002', 'agent_instance', 'demo-agent-001', 'ACTIVE', '{"agent_type": "deploy-agent"}'),
-    ('00000000-0000-0000-0000-000000000003', 'user', 'admin', 'ACTIVE', '{"email": "admin@pam.local"}');
+    ('00000000-0000-0000-0000-000000000003', 'user', 'admin', 'ACTIVE', '{"email": "admin@warden.local"}');
 
 -- 2. 种子动作定义 (Kubernetes)
 INSERT INTO action_definitions (id, name, version, display_name, description, resource_type, risk_level, execution_mode, parameter_schema, timeout_seconds) VALUES
@@ -23,7 +23,7 @@ INSERT INTO policies (id, name, description, status) VALUES
 
 INSERT INTO policy_versions (id, policy_id, version, rego_content, status, published_at) VALUES
     ('f1000000-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-000000000001', 1,
-     'package pam.kubernetes
+     'package warden.kubernetes
 
 default allow = false
 

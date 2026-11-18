@@ -20,7 +20,7 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const huaweiMaxResponse = 4 << 20
@@ -1408,13 +1408,13 @@ func (r *HuaweiCloudRunner) waitECSStatus(ctx context.Context, serverID, targetS
 }
 
 func (r *HuaweiCloudRunner) updateECSMetadata(ctx context.Context, serverID string, parameters map[string]any, lease Lease) (map[string]any, Lease, error) {
-	allowedParameters := map[string]bool{"description": true, "tags": true, "_pamContext": true}
+	allowedParameters := map[string]bool{"description": true, "tags": true, "_wardenContext": true}
 	for key := range parameters {
 		if !allowedParameters[key] {
 			return nil, lease, fmt.Errorf("unsupported ECS metadata parameter %q", key)
 		}
 	}
-	contextValues, ok := parameters["_pamContext"].(map[string]any)
+	contextValues, ok := parameters["_wardenContext"].(map[string]any)
 	if !ok {
 		return nil, lease, fmt.Errorf("trusted Warden execution context is missing")
 	}
@@ -1427,10 +1427,10 @@ func (r *HuaweiCloudRunner) updateECSMetadata(ctx context.Context, serverID stri
 		return nil, lease, err
 	}
 	trustedTags := map[string]string{
-		"pam-managed-by": "pam", "pam-project-id": projectID,
-		"pam-project-name":   huaweiTagValue(stringValue(contextValues["projectName"])),
-		"pam-environment":    huaweiTagValue(stringValue(contextValues["environment"])),
-		"pam-integration-id": huaweiTagValue(stringValue(contextValues["integrationId"])),
+		"warden-managed-by": "warden", "warden-project-id": projectID,
+		"warden-project-name":   huaweiTagValue(stringValue(contextValues["projectName"])),
+		"warden-environment":    huaweiTagValue(stringValue(contextValues["environment"])),
+		"warden-integration-id": huaweiTagValue(stringValue(contextValues["integrationId"])),
 	}
 	for key, value := range trustedTags {
 		tags[key] = value
@@ -1505,8 +1505,8 @@ func huaweiBusinessTags(value any, limit int) (map[string]string, error) {
 	for key, value := range raw {
 		text, ok := value.(string)
 		if !ok || strings.TrimSpace(key) == "" || len([]rune(key)) > 36 || len([]rune(text)) > 43 ||
-			strings.HasPrefix(strings.ToLower(key), "pam-") || strings.ContainsAny(key+text, "=,*<>\\|/") {
-			return nil, fmt.Errorf("business tags must be strings and cannot use the reserved pam-* prefix")
+			strings.HasPrefix(strings.ToLower(key), "warden-") || strings.ContainsAny(key+text, "=,*<>\\|/") {
+			return nil, fmt.Errorf("business tags must be strings and cannot use the reserved warden-* prefix")
 		}
 		tags[key] = text
 	}
@@ -1518,7 +1518,7 @@ func (r *HuaweiCloudRunner) createECS(ctx context.Context, task domain.TaskEnvel
 	allowedParameters := map[string]bool{
 		"projectId": true, "region": true, "name": true, "description": true, "flavor": true,
 		"imageId": true, "vpcId": true, "subnetId": true, "securityGroupIds": true,
-		"systemDiskSize": true, "tags": true, "_pamContext": true,
+		"systemDiskSize": true, "tags": true, "_wardenContext": true,
 	}
 	for key := range parameters {
 		if !allowedParameters[key] {
@@ -1560,7 +1560,7 @@ func (r *HuaweiCloudRunner) createECS(ctx context.Context, task domain.TaskEnvel
 	if len(securityGroups) == 0 || len(securityGroups) > 20 {
 		return nil, lease, fmt.Errorf("securityGroupIds must contain between 1 and 20 ids")
 	}
-	contextValues, ok := parameters["_pamContext"].(map[string]any)
+	contextValues, ok := parameters["_wardenContext"].(map[string]any)
 	if !ok {
 		return nil, lease, fmt.Errorf("trusted Warden execution context is missing")
 	}
@@ -1576,17 +1576,17 @@ func (r *HuaweiCloudRunner) createECS(ctx context.Context, task domain.TaskEnvel
 		for key, value := range raw {
 			text, ok := value.(string)
 			if !ok || strings.TrimSpace(key) == "" || len([]rune(key)) > 36 || len([]rune(text)) > 43 ||
-				strings.HasPrefix(strings.ToLower(key), "pam-") || strings.ContainsAny(key+text, "=,*<>\\|/") {
-				return nil, lease, fmt.Errorf("custom tags must be strings and cannot use the reserved pam-* prefix")
+				strings.HasPrefix(strings.ToLower(key), "warden-") || strings.ContainsAny(key+text, "=,*<>\\|/") {
+				return nil, lease, fmt.Errorf("custom tags must be strings and cannot use the reserved warden-* prefix")
 			}
 			tags[key] = text
 		}
 	}
 	trustedTags := map[string]string{
-		"pam-managed-by": "pam", "pam-project-id": contextProjectID,
-		"pam-project-name": huaweiTagValue(stringValue(contextValues["projectName"])), "pam-environment": huaweiTagValue(stringValue(contextValues["environment"])),
-		"pam-created-by": huaweiTagValue(stringValue(contextValues["createdBy"])), "pam-execution-id": huaweiTagValue(task.ExecutionID),
-		"pam-integration-id": huaweiTagValue(stringValue(contextValues["integrationId"])),
+		"warden-managed-by": "warden", "warden-project-id": contextProjectID,
+		"warden-project-name": huaweiTagValue(stringValue(contextValues["projectName"])), "warden-environment": huaweiTagValue(stringValue(contextValues["environment"])),
+		"warden-created-by": huaweiTagValue(stringValue(contextValues["createdBy"])), "warden-execution-id": huaweiTagValue(task.ExecutionID),
+		"warden-integration-id": huaweiTagValue(stringValue(contextValues["integrationId"])),
 	}
 	for key, value := range trustedTags {
 		tags[key] = value

@@ -20,11 +20,11 @@ func TestValidateColumnType(t *testing.T) {
 		}
 	}
 	invalid := []ColumnTypeSpec{
-		{Kind: "VARCHAR"},                  // missing length
-		{Kind: "VARCHAR", Length: 0},       // zero length
-		{Kind: "DECIMAL", Precision: 0},    // missing precision
+		{Kind: "VARCHAR"},                           // missing length
+		{Kind: "VARCHAR", Length: 0},                // zero length
+		{Kind: "DECIMAL", Precision: 0},             // missing precision
 		{Kind: "DECIMAL", Precision: 10, Scale: 11}, // scale > precision
-		{Kind: "DATETIME", Precision: 9},   // precision out of range
+		{Kind: "DATETIME", Precision: 9},            // precision out of range
 		{Kind: "HACK"},
 	}
 	for _, spec := range invalid {
@@ -36,11 +36,11 @@ func TestValidateColumnType(t *testing.T) {
 
 func TestRenderColumnType(t *testing.T) {
 	cases := map[ColumnTypeSpec]string{
-		{Kind: "BIGINT", Unsigned: true}:  "BIGINT UNSIGNED",
-		{Kind: "VARCHAR", Length: 64}:     "VARCHAR(64)",
+		{Kind: "BIGINT", Unsigned: true}:           "BIGINT UNSIGNED",
+		{Kind: "VARCHAR", Length: 64}:              "VARCHAR(64)",
 		{Kind: "DECIMAL", Precision: 18, Scale: 2}: "DECIMAL(18,2)",
-		{Kind: "DATETIME", Precision: 3}:  "DATETIME(3)",
-		{Kind: "BOOLEAN"}:                 "BOOLEAN",
+		{Kind: "DATETIME", Precision: 3}:           "DATETIME(3)",
+		{Kind: "BOOLEAN"}:                          "BOOLEAN",
 	}
 	for spec, want := range cases {
 		if got := renderColumnType(spec); got != want {
@@ -147,7 +147,7 @@ func TestCompileTableRejectsUnknownColumn(t *testing.T) {
 func TestCompileTableRejectsDuplicateColumn(t *testing.T) {
 	r := &DatabaseRunner{protocol: "mysql", allowCreateSchemas: true}
 	spec := TableCreateSpec{
-		Name:    "orders",
+		Name: "orders",
 		Columns: []TableColumnSpec{
 			{Name: "id", Type: ColumnTypeSpec{Kind: "BIGINT"}},
 			{Name: "id", Type: ColumnTypeSpec{Kind: "BIGINT"}},

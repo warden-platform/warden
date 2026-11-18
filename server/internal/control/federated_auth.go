@@ -13,9 +13,9 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
-	"gitee.com/pam-platform/warden/server/internal/domain"
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -65,7 +65,7 @@ func loadFederatedAssertionVerifier() (*federatedAssertionVerifier, error) {
 		return nil, errors.New("federated assertion key must be RSA, ECDSA, or Ed25519")
 	}
 	issuer := strings.TrimSpace(getenvDefault("WARDEN_FEDERATED_ASSERTION_ISSUER", "https://idp.example.com"))
-	audience := strings.TrimSpace(getenvDefault("WARDEN_FEDERATED_ASSERTION_AUDIENCE", "pam"))
+	audience := strings.TrimSpace(getenvDefault("WARDEN_FEDERATED_ASSERTION_AUDIENCE", "warden"))
 	if issuer == "" || audience == "" {
 		return nil, errors.New("federated assertion issuer and audience must not be empty")
 	}

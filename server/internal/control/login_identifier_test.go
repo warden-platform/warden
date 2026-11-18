@@ -7,12 +7,12 @@ import "testing"
 // "admin" remains a break-glass API alias. Everything else bare is rejected.
 func TestParseLoginIdentifier(t *testing.T) {
 	cases := []struct {
-		name     string
-		username string
-		tenant   string
-		wantName string
+		name       string
+		username   string
+		tenant     string
+		wantName   string
 		wantTenant string
-		wantOK   bool
+		wantOK     bool
 	}{
 		{"qualified", "zhangsan@acme", "", "zhangsan", "acme", true},
 		{"tenant lowercased", "zhangsan@ACME", "", "zhangsan", "acme", true},

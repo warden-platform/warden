@@ -40,35 +40,35 @@ const navGroups: NavGroup[] = [
       { to: '/overview', label: '运行总览', icon: LayoutDashboard },
       { to: '/executions', label: '执行记录', icon: TerminalSquare },
       { to: '/my-requests', label: '我的申请', icon: FileClock },
-      { to: '/audit', label: '审计追踪', icon: Fingerprint, requires: 'pam:audit:read' },
+      { to: '/audit', label: '审计追踪', icon: Fingerprint, requires: 'warden:audit:read' },
     ],
   },
   {
     caption: '资产',
     en: 'Assets',
     items: [
-      { to: '/topology', label: '拓扑图谱', icon: Share2, requires: 'pam:tenant:admin' },
-      { to: '/targets', label: '主机与集群', icon: Boxes, requires: 'pam:tenant:admin' },
-      { to: '/integrations', label: '中间件', icon: ServerCog, requires: 'pam:registration:read' },
+      { to: '/topology', label: '拓扑图谱', icon: Share2, requires: 'warden:tenant:admin' },
+      { to: '/targets', label: '主机与集群', icon: Boxes, requires: 'warden:tenant:admin' },
+      { to: '/integrations', label: '中间件', icon: ServerCog, requires: 'warden:registration:read' },
       { to: '/resources', label: '资源目录', icon: Boxes },
-      { to: '/connectors', label: '执行通道', icon: Network, requires: 'pam:tenant:admin' },
+      { to: '/connectors', label: '执行通道', icon: Network, requires: 'warden:tenant:admin' },
     ],
   },
   {
     caption: '身份',
     en: 'Identity',
     items: [
-      { to: '/agents', label: 'Agent 身份', icon: Bot, requires: 'pam:tenant:admin' },
+      { to: '/agents', label: 'Agent 身份', icon: Bot, requires: 'warden:tenant:admin' },
       { to: '/projects', label: '项目', icon: FolderKanban },
-      { to: '/project-users', label: '项目用户', icon: Users, requires: 'pam:tenant:admin' },
+      { to: '/project-users', label: '项目用户', icon: Users, requires: 'warden:tenant:admin' },
     ],
   },
   {
     caption: '治理',
     en: 'Governance',
     items: [
-      { to: '/approvals', label: '访问审批', icon: FileClock, requires: 'pam:approve' },
-      { to: '/policies', label: '策略中心', icon: ShieldCheck, requires: 'pam:tenant:admin' },
+      { to: '/approvals', label: '访问审批', icon: FileClock, requires: 'warden:approve' },
+      { to: '/policies', label: '策略中心', icon: ShieldCheck, requires: 'warden:tenant:admin' },
     ],
   },
 ]
@@ -76,7 +76,7 @@ const navGroups: NavGroup[] = [
 export function AppSidebar({ mobileOpen, onClose }: { mobileOpen: boolean; onClose: () => void }) {
   const { pendingApprovals, auth } = useApp()
   const can = (scope?: string) => !scope || canUser(auth.user, scope)
-  const platformAdmin = canUser(auth.user, 'pam:admin')
+  const platformAdmin = canUser(auth.user, 'warden:admin')
   // While the super admin observes a business organization, the full business
   // console becomes available in that organization's context.
   const observing = platformAdmin && Boolean(getObservedTenant())

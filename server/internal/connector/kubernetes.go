@@ -25,7 +25,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var dashboardConfigMapNamePattern = regexp.MustCompile(`^grafana-dashboard-[a-z0-9](?:[a-z0-9.-]{0,61}[a-z0-9])?$`)
@@ -790,7 +790,7 @@ func (r *KubernetesRunner) applyDashboardConfigMap(ctx context.Context, client k
 		current.Labels = map[string]string{}
 	}
 	current.Labels["grafana_dashboard"] = "1"
-	current.Labels["app.kubernetes.io/managed-by"] = "pam"
+	current.Labels["app.kubernetes.io/managed-by"] = "warden"
 	current.Data = map[string]string{key: string(payload)}
 	if created {
 		current, err = configMaps.Create(ctx, current, metav1.CreateOptions{})

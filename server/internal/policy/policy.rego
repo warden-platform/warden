@@ -1,5 +1,5 @@
 # Embedded by the Go policy provider. Keep in sync with deploy/opa/policy.rego.
-package pam.kubernetes
+package warden.kubernetes
 
 import rego.v1
 

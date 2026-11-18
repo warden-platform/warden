@@ -68,7 +68,7 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
   const clock = useClock()
   const [passwordOpen, setPasswordOpen] = useState(false)
   const [avatarFailed, setAvatarFailed] = useState(false)
-  const isSuperAdmin = canUser(auth.user, 'pam:admin')
+  const isSuperAdmin = canUser(auth.user, 'warden:admin')
   const [orgs, setOrgs] = useState<ApiTenant[]>([])
   const observed = getObservedTenant()
   useEffect(() => {
@@ -130,17 +130,17 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
         {auth.user && (
           <span
             className={`role-badge ${
-              canUser(auth.user, 'pam:admin') ? 'role-super' : canUser(auth.user, 'pam:tenant:admin') ? 'role-admin' : 'role-member'
+              canUser(auth.user, 'warden:admin') ? 'role-super' : canUser(auth.user, 'warden:tenant:admin') ? 'role-admin' : 'role-member'
             }`}
             title={
-              canUser(auth.user, 'pam:admin')
+              canUser(auth.user, 'warden:admin')
                 ? '唯一超级管理员：跨租户管理组织与账号'
-                : canUser(auth.user, 'pam:tenant:admin')
+                : canUser(auth.user, 'warden:tenant:admin')
                   ? '组织管理员：管理本组织的资产、成员与审批'
                   : '成员：在本组织内发起并跟踪自己的执行'
             }
           >
-            {canUser(auth.user, 'pam:admin') ? '超级管理员' : canUser(auth.user, 'pam:tenant:admin') ? '组织管理员' : '成员'}
+            {canUser(auth.user, 'warden:admin') ? '超级管理员' : canUser(auth.user, 'warden:tenant:admin') ? '组织管理员' : '成员'}
           </span>
         )}
         {auth.user && (

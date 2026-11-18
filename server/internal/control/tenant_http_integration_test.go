@@ -9,7 +9,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestTenantAdminLoginAndHTTPIsolation(t *testing.T) {
@@ -49,7 +49,7 @@ func TestTenantAdminLoginAndHTTPIsolation(t *testing.T) {
 		t.Fatalf("login status=%d body=%s", login.Code, login.Body.String())
 	}
 	cookie := login.Result().Cookies()
-	if len(cookie) == 0 || cookie[0].Name != "pam_session" {
+	if len(cookie) == 0 || cookie[0].Name != "warden_session" {
 		t.Fatalf("login did not issue session cookie: %#v", cookie)
 	}
 
@@ -70,7 +70,7 @@ func TestTenantAdminLoginAndHTTPIsolation(t *testing.T) {
 	if err := json.Unmarshal(me.Body.Bytes(), &current); err != nil {
 		t.Fatalf("decode auth/me: %v", err)
 	}
-	if current.Tenant.Slug != tenant || current.Role != "tenant_admin" || current.IsPlatformAdmin || !hasScopeValue(current.Scopes, "pam:tenant:admin") {
+	if current.Tenant.Slug != tenant || current.Role != "tenant_admin" || current.IsPlatformAdmin || !hasScopeValue(current.Scopes, "warden:tenant:admin") {
 		t.Fatalf("unexpected auth/me identity: %#v", current)
 	}
 
@@ -96,7 +96,7 @@ func TestTenantAdminLoginAndHTTPIsolation(t *testing.T) {
 	}
 	var platformIntegration string
 	if err := pool.QueryRow(ctx, `INSERT INTO integrations(connector_id,protocol,name,endpoint,credential_ref,status,tenant_id)
-		VALUES ($1,'jenkins','http-platform-integration','https://jenkins.example.test','pam:test','ACTIVE','platform') RETURNING id`, platformConnector).Scan(&platformIntegration); err != nil {
+		VALUES ($1,'jenkins','http-platform-integration','https://jenkins.example.test','warden:test','ACTIVE','platform') RETURNING id`, platformConnector).Scan(&platformIntegration); err != nil {
 		t.Fatal(err)
 	}
 	defer pool.Exec(ctx, `DELETE FROM integrations WHERE id=$1`, platformIntegration)

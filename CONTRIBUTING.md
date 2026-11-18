@@ -1,6 +1,6 @@
 # 贡献指南
 
-> **面向**：要给 Warden Warden 提交代码或文档的人。
+> **面向**：要给 Warden 提交代码或文档的人。
 > 第一次上手先跑一遍 [docs/quickstart.md](docs/quickstart.md)，改架构相关的代码前读 [docs/architecture.md](docs/architecture.md)。
 
 ## 基本要求
@@ -46,10 +46,10 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 - 依赖方向：`domain` 是叶子包；`policy` / `connector` / `storage/postgres` 依赖 `domain`；`control` 聚合上述包；`cmd` 只做装配。不要反向依赖。
 - 新增 REST 路由：在 `server/internal/control/handler.go` 的 `RegisterRoutes` 注册，并同步更新 [docs/api.md](docs/api.md)。
 - 新增权限点：只在 `server/internal/control/authorization.go` 定义，后端守卫与前端菜单的 `requires` 共用同一批字符串；同步 [docs/authorization.md](docs/authorization.md)。
-- 新增环境变量：同步 [docs/configuration.md](docs/configuration.md)；敏感项复用 `config.Secret` 的 `*_FILE` 约定。
+- 新增环境变量：同步 [配置参考](docs/reference.md#configuration)；敏感项复用 `config.Secret` 的 `*_FILE` 约定。
 - 新增审计动作名：**必须补一条 `ALTER TYPE audit_action ADD VALUE` 迁移**，否则审计会静默丢失。
 - 新增迁移：编号 ≥ 035 的必须登记 `deploy/release/migrations.txt`，且写成可重复重放。
-- 新增动作 / 版本：同步 [docs/actions.md](docs/actions.md) 与 Connector capabilities。
+- 新增动作 / 版本：同步 [动作参考](docs/reference.md#actions) 与 Connector capabilities。
 
 ## 安全相关改动
 

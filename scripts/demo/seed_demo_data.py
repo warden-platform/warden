@@ -144,15 +144,15 @@ for name, pid in AGENTS.items():
     KEYS[name] = kid
     digest = hashlib.sha256(f'demo-key-{name}'.encode()).digest()
     key_rows.append([sql_str(kid), sql_str(pid), sql_str('default-key'), sql_str('wdn_agt_' + name[:4]),
-                     sql_str('\\x' + digest.hex()), "'ACTIVE'", j(['pam:execution:create', 'pam:execution:read']),
+                     sql_str('\\x' + digest.hex()), "'ACTIVE'", j(['warden:execution:create', 'warden:execution:read']),
                      sql_str(ts(-60 * 24 * 60)), sql_str(ts(5)), "'10.20.0.8'", sql_str(DEMO), sql_str(ts(60 * 24 * 10)), 'NULL', 'NULL', 'NULL', "'AGENT'", 'NULL'])
 revoked = uid('key:ops-copilot:old')
 key_rows.append([sql_str(revoked), sql_str(AGENTS['ops-copilot']), sql_str('legacy-key'), sql_str('wdn_agt_old0'),
-                 sql_str('\\x' + hashlib.sha256(b'demo-key-old').digest().hex()), "'REVOKED'", j(['pam:execution:create']),
+                 sql_str('\\x' + hashlib.sha256(b'demo-key-old').digest().hex()), "'REVOKED'", j(['warden:execution:create']),
                  'NULL', sql_str(ts(60 * 24 * 3)), "'10.20.0.8'", sql_str(DEMO), sql_str(ts(60 * 24 * 40)), sql_str(ts(60 * 24 * 2)), sql_str(DEMO), 'NULL', "'AGENT'", 'NULL'])
 reg_key = uid('key:multica-registry:reg')
 key_rows.append([sql_str(reg_key), sql_str(REGISTRY), sql_str('registration'), sql_str('wdn_reg_mult'),
-                 sql_str('\\x' + hashlib.sha256(b'demo-key-reg').digest().hex()), "'ACTIVE'", j(['pam:registration:write']),
+                 sql_str('\\x' + hashlib.sha256(b'demo-key-reg').digest().hex()), "'ACTIVE'", j(['warden:registration:write']),
                  sql_str(ts(-60 * 24 * 90)), 'NULL', 'NULL', sql_str(DEMO), sql_str(ts(60 * 24 * 15)), 'NULL', 'NULL', 'NULL', "'REGISTRATION'", sql_str('multica')])
 insert('principal_api_keys', ['id', 'principal_id', 'name', 'key_prefix', 'key_hash', 'status', 'scopes', 'expires_at', 'last_used_at', 'last_used_ip', 'created_by', 'created_at', 'revoked_at', 'revoked_by', 'rotation_parent_id', 'purpose', 'audience'], key_rows)
 

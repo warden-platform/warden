@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func (h *Handler) GetDingTalkChannel(w http.ResponseWriter, r *http.Request) {

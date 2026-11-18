@@ -84,13 +84,13 @@ export function ExecutionResult({ execution, actionName, onClose }: { execution:
             ))}
         </section>
       ) : null}
-      {unknown && Boolean(result._pam_safety) && (
+      {unknown && Boolean(result._warden_safety) && (
         <section className="execution-output">
           <div>
             <strong>重新读取到的目标状态</strong>
-            <CopyButton value={JSON.stringify(result._pam_safety, null, 2)} />
+            <CopyButton value={JSON.stringify(result._warden_safety, null, 2)} />
           </div>
-          <pre>{JSON.stringify(result._pam_safety, null, 2)}</pre>
+          <pre>{JSON.stringify(result._warden_safety, null, 2)}</pre>
         </section>
       )}
       {terminal && !succeeded && (

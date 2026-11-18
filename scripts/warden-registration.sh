@@ -5,7 +5,7 @@ endpoint=${WARDEN_API_ENDPOINT:-}
 key=${WARDEN_REGISTRATION_API_KEY:-}
 
 fail() {
-  echo "pam-registration: $*" >&2
+  echo "warden-registration: $*" >&2
   exit 1
 }
 
@@ -21,7 +21,7 @@ case "$endpoint" in
   http://localhost:*|http://127.0.0.1:*|https://*) ;;
   *) fail "non-local WARDEN_API_ENDPOINT must use HTTPS" ;;
 esac
-[[ "$key" == pam_rgk_* ]] || fail "WARDEN_REGISTRATION_API_KEY must be a pam_rgk_ registration credential"
+[[ "$key" == warden_rgk_* ]] || fail "WARDEN_REGISTRATION_API_KEY must be a warden_rgk_ registration credential"
 
 api() {
   local method=$1 path=$2 body_file=${3:-}

@@ -10,9 +10,9 @@ import (
 	"strings"
 	"unicode/utf8"
 
-	"gitee.com/pam-platform/warden/server/internal/ai"
-	"gitee.com/pam-platform/warden/server/internal/domain"
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/ai"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/cloudwego/eino/components/tool"
 	"github.com/cloudwego/eino/components/tool/utils"
 	"github.com/cloudwego/eino/schema"
@@ -241,7 +241,7 @@ func (h *Handler) aiTools() ([]tool.BaseTool, error) {
 
 func (h *Handler) queryAIResources(ctx context.Context, input *aiResourceQuery) (string, error) {
 	identity := identityFromContext(ctx)
-	if !identity.HasScope("pam:resources:read") {
+	if !identity.HasScope("warden:resources:read") {
 		return "", errors.New("当前身份没有资源查询权限")
 	}
 	if input.Domain != "" && !validAIResourceDomain(input.Domain) {
@@ -301,7 +301,7 @@ func (h *Handler) queryAIResources(ctx context.Context, input *aiResourceQuery) 
 
 func (h *Handler) queryAIExecutions(ctx context.Context, input *aiExecutionQuery) (string, error) {
 	identity := identityFromContext(ctx)
-	if !identity.HasScope("pam:executions:read:self") {
+	if !identity.HasScope("warden:executions:read:self") {
 		return "", errors.New("当前身份没有执行记录查询权限")
 	}
 	var executions []domain.Execution
@@ -339,7 +339,7 @@ func (h *Handler) queryAIExecutions(ctx context.Context, input *aiExecutionQuery
 }
 
 func (h *Handler) queryAIAuditEvents(ctx context.Context, input *aiAuditQuery) (string, error) {
-	if !identityFromContext(ctx).HasScope("pam:audit:read") {
+	if !identityFromContext(ctx).HasScope("warden:audit:read") {
 		return "", errors.New("当前身份没有审计查询权限")
 	}
 	events, err := h.audit.List(ctx, postgres.AuditListFilter{

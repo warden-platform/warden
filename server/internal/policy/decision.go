@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"os"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/open-policy-agent/opa/rego"
 )
 
@@ -73,8 +73,8 @@ type EmbeddedProvider struct {
 
 func NewEmbeddedProvider(policy string) (*EmbeddedProvider, error) {
 	query, err := rego.New(
-		rego.Query("data.pam.kubernetes.decision"),
-		rego.Module("pam-kubernetes.rego", policy),
+		rego.Query("data.warden.kubernetes.decision"),
+		rego.Module("warden-kubernetes.rego", policy),
 	).PrepareForEval(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("prepare embedded Rego policy: %w", err)

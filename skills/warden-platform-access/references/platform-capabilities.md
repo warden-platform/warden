@@ -48,7 +48,7 @@ Typical resources include regional cloud account, ECS, RDS, ELB, OBS bucket, and
 
 - Reads cover account capability, ECS detail/metrics, RDS/ELB detail, OBS metadata, and bounded LTS queries.
 - ECS creation targets an exact `huawei_cloud_account` Region and requires the live Schema's Warden project, Region, image, flavor, network, and security group fields.
-- ECS lifecycle and metadata actions target one discovered `huawei_ecs_instance`. Reserved `pam-*` tags come only from trusted Warden context.
+- ECS lifecycle and metadata actions target one discovered `huawei_ecs_instance`. Reserved `warden-*` tags come only from trusted Warden context.
 - ECS deletion requires an exact `confirmServerName` match and explicit public-IP/volume choices. Submit once. `VERIFIED_ABSENT` confirms immediate absence; `ACCEPTED_ASYNC` requires read-only catalog observation and must never be replayed automatically.
 
 ## Alibaba Cloud

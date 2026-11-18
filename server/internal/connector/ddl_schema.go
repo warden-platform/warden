@@ -62,12 +62,12 @@ func (r *DatabaseRunner) schemaPreview(ctx context.Context, parameters map[strin
 		return nil, lease, err
 	}
 	return map[string]any{
-		"name":        spec.Name,
+		"name":         spec.Name,
 		"characterSet": spec.CharacterSet,
-		"collation":   spec.Collation,
-		"ddl":         ddl,
-		"exists":      exists,
-		"previewHash": fingerprint,
+		"collation":    spec.Collation,
+		"ddl":          ddl,
+		"exists":       exists,
+		"previewHash":  fingerprint,
 	}, lease, nil
 }
 

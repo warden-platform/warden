@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -262,7 +262,7 @@ func (h *Handler) credentialList(ctx context.Context, tx pgx.Tx, exec *domain.Ex
 }
 
 // ResolveCredentialValue lets an authenticated Connector fetch the plaintext
-// of a "pam:" credential reference for an integration bound to that
+// of a "warden:" credential reference for an integration bound to that
 // credential. It is a runtime resolution, not an Agent action: no execution,
 // approval or grant is involved, and the plaintext is only ever sent over TLS
 // to the requesting Connector. The credential's binding scope is enforced:
@@ -385,7 +385,7 @@ func credentialAuditEvent(action string, exec *domain.Execution, credential *dom
 // directory and lets the Web show credential lifecycle state.
 func (h *Handler) syncCredentialCatalogResource(ctx context.Context, tx pgx.Tx, c *domain.Credential) (*domain.Resource, error) {
 	resource := &domain.Resource{
-		ResourceType: "credential", ExternalID: "pam/credential/" + c.Name, Name: c.Name,
+		ResourceType: "credential", ExternalID: "warden/credential/" + c.Name, Name: c.Name,
 		ManagementType: domain.ManagementControlPlane, Environment: "testing", Status: domain.ResourceActive,
 		Labels: map[string]any{}, Annotations: map[string]any{}, Metadata: credentialCatalogMetadata(c),
 	}

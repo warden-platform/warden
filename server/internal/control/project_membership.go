@@ -7,8 +7,8 @@ import (
 	"net/http"
 	"strings"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 )
 
 type projectMembershipAccessError struct{ Code, Message string }

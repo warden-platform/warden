@@ -17,7 +17,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/config"
 )
 
 const dingTalkChannelType = "dingtalk"

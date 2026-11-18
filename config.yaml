@@ -9,8 +9,8 @@ server:
 
 database:
   # 不要在这里写账号密码；用 username/password 字段，密码指向 .env。
-  url: postgres://localhost:5432/pam
-  username: pam
+  url: postgres://localhost:5432/warden
+  username: warden
   password: ${WARDEN_DATABASE_PASSWORD}
 
 admin:

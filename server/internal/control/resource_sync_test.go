@@ -6,8 +6,8 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 )
 
 func TestResourceSyncSnapshotIsAtomic(t *testing.T) {
@@ -140,7 +140,7 @@ func TestResourceStatsCatalogCountsByProjectDomainAndStatus(t *testing.T) {
 	}
 	if err := pool.QueryRow(ctx, `INSERT INTO integrations
 		(connector_id, protocol, name, endpoint, credential_ref, status, project_id, tenant_id)
-		VALUES ($1, 'jenkins', 'catalog-jenkins', 'https://jenkins.example.test', 'pam:test', 'ACTIVE', $2, 'platform')
+		VALUES ($1, 'jenkins', 'catalog-jenkins', 'https://jenkins.example.test', 'warden:test', 'ACTIVE', $2, 'platform')
 		RETURNING id`, connectorID, defaultProjectID).Scan(&integrationID); err != nil {
 		t.Fatalf("insert integration: %v", err)
 	}

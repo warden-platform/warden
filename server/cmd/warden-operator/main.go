@@ -518,7 +518,7 @@ func upsertClusterRoleBinding(ctx context.Context, client kubernetes.Interface, 
 }
 func upsertDeployment(ctx context.Context, client kubernetes.Interface, namespace, name, sa, image string, env map[string]string,
 	extraEnv []corev1.EnvVar, secret, imagePullSecret string) error {
-	labels := map[string]string{"app.kubernetes.io/name": "warden-connector", "pam.io/managed-by": "warden-operator"}
+	labels := map[string]string{"app.kubernetes.io/name": "warden-connector", "warden.io/managed-by": "warden-operator"}
 	values := make([]corev1.EnvVar, 0, len(env)+1)
 	keys := make([]string, 0, len(env))
 	for key := range env {

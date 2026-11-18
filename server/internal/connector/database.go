@@ -14,7 +14,7 @@ import (
 	mysql "github.com/go-sql-driver/mysql"
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 var DatabaseResourceTypes = []string{"database_instance", "database_schema", "database_table"}
@@ -929,11 +929,11 @@ func (r *DatabaseRunner) describeTableConstraints(ctx context.Context, schema, t
 	}
 	defer rows.Close()
 	type constraintAccumulator struct {
-		kind        string
-		columns     []string
-		refSchema   string
-		refTable    string
-		refColumns  []string
+		kind       string
+		columns    []string
+		refSchema  string
+		refTable   string
+		refColumns []string
 	}
 	order := make([]string, 0)
 	byName := make(map[string]*constraintAccumulator)

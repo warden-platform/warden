@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 // TenantMember is a login identity belonging to a tenant, shown in the tenant

@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -378,9 +378,9 @@ func (r *ResourceRepo) EffectiveProjectID(ctx context.Context, resourceID string
 		) rr ON true
 		LEFT JOIN integrations ig ON ig.id=res.integration_id
 		LEFT JOIN projects tp ON tp.id=CASE
-			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'pam-project-id',res.metadata->>'pam-project-id','')
+			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'warden-project-id',res.metadata->>'warden-project-id','')
 				~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-			THEN COALESCE(res.labels->>'pam-project-id',res.metadata->>'pam-project-id')::uuid ELSE NULL END
+			THEN COALESCE(res.labels->>'warden-project-id',res.metadata->>'warden-project-id')::uuid ELSE NULL END
 			AND (tp.id=ig.project_id OR EXISTS (SELECT 1 FROM integration_project_bindings binding
 				WHERE binding.integration_id=ig.id AND binding.project_id=tp.id))
 		LEFT JOIN project_namespace_rules pnr ON res.integration_id IS NULL
@@ -617,9 +617,9 @@ func (r *ResourceRepo) Stats(ctx context.Context) (map[string]any, error) {
 		) rr ON true
 		LEFT JOIN integrations ig ON ig.id=res.integration_id
 		LEFT JOIN projects tp ON tp.id=CASE
-			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'pam-project-id',res.metadata->>'pam-project-id','')
+			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'warden-project-id',res.metadata->>'warden-project-id','')
 				~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-			THEN COALESCE(res.labels->>'pam-project-id',res.metadata->>'pam-project-id')::uuid ELSE NULL END
+			THEN COALESCE(res.labels->>'warden-project-id',res.metadata->>'warden-project-id')::uuid ELSE NULL END
 			AND (tp.id=ig.project_id OR EXISTS (SELECT 1 FROM integration_project_bindings binding
 				WHERE binding.integration_id=ig.id AND binding.project_id=tp.id))
 		LEFT JOIN project_namespace_rules pnr ON res.integration_id IS NULL
@@ -760,9 +760,9 @@ func (r *ResourceRepo) List(ctx context.Context, resourceType, domainFilter, exc
 			AND instance_parent.status<>'ORPHANED'
 		LEFT JOIN resource_environment_overrides ireo ON ireo.resource_id=instance_parent.id
 		LEFT JOIN projects tp ON tp.id=CASE
-			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'pam-project-id', res.metadata->>'pam-project-id', '')
+			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'warden-project-id', res.metadata->>'warden-project-id', '')
 				~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-			THEN COALESCE(res.labels->>'pam-project-id', res.metadata->>'pam-project-id')::uuid ELSE NULL END
+			THEN COALESCE(res.labels->>'warden-project-id', res.metadata->>'warden-project-id')::uuid ELSE NULL END
 			AND (tp.id=ig.project_id OR EXISTS (SELECT 1 FROM integration_project_bindings binding
 				WHERE binding.integration_id=ig.id AND binding.project_id=tp.id))
 		LEFT JOIN project_namespace_rules pnr ON res.integration_id IS NULL
@@ -880,9 +880,9 @@ func (r *ResourceRepo) ListAvailable(ctx context.Context, resourceType string) (
 			AND instance_parent.status<>'ORPHANED'
 		LEFT JOIN resource_environment_overrides ireo ON ireo.resource_id=instance_parent.id
 		LEFT JOIN projects tp ON tp.id=CASE
-			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'pam-project-id',res.metadata->>'pam-project-id','')
+			WHEN res.integration_id IS NOT NULL AND COALESCE(res.labels->>'warden-project-id',res.metadata->>'warden-project-id','')
 				~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-			THEN COALESCE(res.labels->>'pam-project-id',res.metadata->>'pam-project-id')::uuid ELSE NULL END
+			THEN COALESCE(res.labels->>'warden-project-id',res.metadata->>'warden-project-id')::uuid ELSE NULL END
 			AND (tp.id=ig.project_id OR EXISTS (SELECT 1 FROM integration_project_bindings binding
 				WHERE binding.integration_id=ig.id AND binding.project_id=tp.id))
 		LEFT JOIN project_namespace_rules pnr ON res.integration_id IS NULL
@@ -1214,7 +1214,7 @@ func (r *ActionRepo) ListAvailable(ctx context.Context) ([]domain.ActionDefiniti
 				  AND (res.integration_id IS NULL OR ig.status='ACTIVE')
 				  AND c.last_heartbeat IS NOT NULL AND c.last_heartbeat > now() - interval '90 seconds'
 				  AND (c.capabilities ? a.name OR c.capabilities ? (a.name || '@v' || a.version::text))
-				  AND (a.risk_level='low' OR c.capabilities ? 'pam.change-safety@v1')))
+				  AND (a.risk_level='low' OR c.capabilities ? 'warden.change-safety@v1')))
 			OR
 			-- The provider_resource action is synthetic and never owns real
 			-- resources. It is advertised once any active connector declares
@@ -1228,7 +1228,7 @@ func (r *ActionRepo) ListAvailable(ctx context.Context) ([]domain.ActionDefiniti
 				WHERE pc.status='ACTIVE' AND pc.archived_at IS NULL AND pc.tenant_id=$1
 				  AND pc.last_heartbeat IS NOT NULL AND pc.last_heartbeat > now() - interval '90 seconds'
 				  AND (pc.capabilities ? a.name OR pc.capabilities ? (a.name || '@v' || a.version::text))
-				  AND (a.risk_level='low' OR pc.capabilities ? 'pam.change-safety@v1')))
+				  AND (a.risk_level='low' OR pc.capabilities ? 'warden.change-safety@v1')))
 		)
 		ORDER BY a.name, a.version DESC`
 	rows, err := r.pool.Query(ctx, query, tenantID)
@@ -1801,9 +1801,9 @@ func (r *ExecutionRepo) ListByTraceID(ctx context.Context, traceID string) ([]Tr
 		LEFT JOIN projects op ON op.id = rpo.project_id
 		LEFT JOIN integrations ig ON ig.id = r.integration_id
 		LEFT JOIN projects tp ON tp.id = CASE
-			WHEN r.integration_id IS NOT NULL AND COALESCE(r.labels->>'pam-project-id', r.metadata->>'pam-project-id','')
+			WHEN r.integration_id IS NOT NULL AND COALESCE(r.labels->>'warden-project-id', r.metadata->>'warden-project-id','')
 				~ '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$'
-			THEN COALESCE(r.labels->>'pam-project-id', r.metadata->>'pam-project-id')::uuid ELSE NULL END
+			THEN COALESCE(r.labels->>'warden-project-id', r.metadata->>'warden-project-id')::uuid ELSE NULL END
 			AND (tp.id=ig.project_id OR EXISTS (SELECT 1 FROM integration_project_bindings binding
 				WHERE binding.integration_id=ig.id AND binding.project_id=tp.id))
 		LEFT JOIN project_namespace_rules pnr ON r.integration_id IS NULL
@@ -2999,7 +2999,7 @@ func (r *CredentialRepo) GetByName(ctx context.Context, name string) (*domain.Cr
 }
 
 // GetSecretByName loads a credential including its encrypted value. This is
-// reserved for the pam: reference resolution path where a Connector holding a
+// reserved for the warden: reference resolution path where a Connector holding a
 // task key is authenticated to receive the plaintext over the signed channel.
 func (r *CredentialRepo) GetSecretByName(ctx context.Context, name string) (*domain.Credential, error) {
 	tenantID := repositoryTenant(ctx)
@@ -3033,7 +3033,7 @@ func (r *CredentialRepo) List(ctx context.Context) ([]domain.Credential, error) 
 }
 
 // ListExpired returns ACTIVE credentials whose expires_at has passed. The
-// control plane marks them EXPIRED so pam: resolution refuses them.
+// control plane marks them EXPIRED so warden: resolution refuses them.
 func (r *CredentialRepo) ListExpired(ctx context.Context) ([]domain.Credential, error) {
 	tenantID := repositoryTenant(ctx)
 	rows, err := r.pool.Query(ctx, `SELECT `+credentialMetadataColumns+`
@@ -3082,7 +3082,7 @@ func (r *CredentialRepo) SetScopeTx(ctx context.Context, tx pgx.Tx, id string, s
 	return err
 }
 
-// MarkUsed stamps last_used_at=now() after a successful pam: reference
+// MarkUsed stamps last_used_at=now() after a successful warden: reference
 // resolution so operators can see which credentials are actually consumed.
 func (r *CredentialRepo) MarkUsed(ctx context.Context, id string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE credentials SET last_used_at=now(), updated_at=now() WHERE id=$1 AND tenant_id=$2`, id, repositoryTenant(ctx))

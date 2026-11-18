@@ -12,7 +12,7 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/fake"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestTokenRequestSpecUsesServerDefaultAudienceWhenEmpty(t *testing.T) {
@@ -122,7 +122,7 @@ func TestKubernetesRunnerAppliesAndDeletesOnlyDashboardConfigMap(t *testing.T) {
 		t.Fatalf("unexpected apply result: %#v", result)
 	}
 	cm, err := client.CoreV1().ConfigMaps("observability").Get(context.Background(), "grafana-dashboard-api", metav1.GetOptions{})
-	if err != nil || cm.Labels["app.kubernetes.io/managed-by"] != "pam" || cm.Data["api.json"] == "" {
+	if err != nil || cm.Labels["app.kubernetes.io/managed-by"] != "warden" || cm.Data["api.json"] == "" {
 		t.Fatalf("dashboard ConfigMap was not safely materialized: %#v %v", cm, err)
 	}
 	deleteTask := domain.TaskEnvelope{Resource: domain.TaskResource{Type: "configmap", Name: "grafana-dashboard-api", Namespace: "observability"}, Action: domain.TaskAction{Name: "configmap.dashboard.delete"}, Grant: grant, Parameters: map[string]any{"name": "grafana-dashboard-api", "namespace": "observability"}}

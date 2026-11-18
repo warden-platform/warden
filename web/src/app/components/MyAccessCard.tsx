@@ -13,13 +13,13 @@ const projectRoleMeta: Record<string, { label: string; hint: string }> = {
 }
 
 const capabilityNotes: Array<{ scope: string; label: string }> = [
-  { scope: 'pam:resources:read', label: '浏览本组织资源目录' },
-  { scope: 'pam:executions:create', label: '发起受控执行（按项目权限）' },
-  { scope: 'pam:executions:cancel:self', label: '取消自己发起的执行' },
-  { scope: 'pam:approve', label: '审批他人的授权申请' },
-  { scope: 'pam:audit:read', label: '查看本组织审计追踪' },
-  { scope: 'pam:tenant:admin', label: '管理本组织资产、成员与策略' },
-  { scope: 'pam:admin', label: '跨租户管理平台组织与账号' },
+  { scope: 'warden:resources:read', label: '浏览本组织资源目录' },
+  { scope: 'warden:executions:create', label: '发起受控执行（按项目权限）' },
+  { scope: 'warden:executions:cancel:self', label: '取消自己发起的执行' },
+  { scope: 'warden:approve', label: '审批他人的授权申请' },
+  { scope: 'warden:audit:read', label: '查看本组织审计追踪' },
+  { scope: 'warden:tenant:admin', label: '管理本组织资产、成员与策略' },
+  { scope: 'warden:admin', label: '跨租户管理平台组织与账号' },
 ]
 
 export function MyAccessCard() {
@@ -33,7 +33,7 @@ export function MyAccessCard() {
       .catch(() => setMyProjects([]))
   }, [user?.id])
   if (!user) return null
-  const roleLabel = canUser(user, 'pam:admin') ? '超级管理员' : canUser(user, 'pam:tenant:admin') ? '组织管理员' : '成员'
+  const roleLabel = canUser(user, 'warden:admin') ? '超级管理员' : canUser(user, 'warden:tenant:admin') ? '组织管理员' : '成员'
   const held = capabilityNotes.filter((c) => canUser(user, c.scope))
   return (
     <section className="panel my-access-card">

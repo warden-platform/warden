@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 func TestExternalDelegationExchangeBindsContextAndProject(t *testing.T) {
@@ -30,7 +30,7 @@ func TestExternalDelegationExchangeBindsContextAndProject(t *testing.T) {
 	}
 	if err := pool.QueryRow(ctx, `INSERT INTO principal_api_keys
 		(principal_id,name,key_prefix,key_hash,status,purpose,scopes)
-		VALUES ($1,'delegation-parent','pam_agk_test',decode(repeat('00',32),'hex'),'ACTIVE','AGENT',$2)
+		VALUES ($1,'delegation-parent','warden_agk_test',decode(repeat('00',32),'hex'),'ACTIVE','AGENT',$2)
 		RETURNING id`, agentID, defaultAgentScopes).Scan(&keyID); err != nil {
 		t.Fatal(err)
 	}

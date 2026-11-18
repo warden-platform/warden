@@ -13,7 +13,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/config"
 )
 
 type RemoteProvider struct {
@@ -53,7 +53,7 @@ func (p *RemoteProvider) Evaluate(ctx context.Context, input Input) (*Output, er
 	if err != nil {
 		return nil, fmt.Errorf("marshal opa input: %w", err)
 	}
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint+"/v1/data/pam/kubernetes/decision", bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, p.endpoint+"/v1/data/warden/kubernetes/decision", bytes.NewReader(body))
 	if err != nil {
 		return nil, fmt.Errorf("create opa request: %w", err)
 	}

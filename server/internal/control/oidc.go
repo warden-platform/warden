@@ -15,9 +15,9 @@ import (
 	"strings"
 	"sync"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
-	"gitee.com/pam-platform/warden/server/internal/domain"
-	"gitee.com/pam-platform/warden/server/internal/storage/postgres"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/storage/postgres"
 	"github.com/coreos/go-oidc/v3/oidc"
 	"golang.org/x/oauth2"
 )
@@ -295,7 +295,7 @@ func (h *Handler) OIDCLoginStart(w http.ResponseWriter, r *http.Request) {
 // OIDCLoginCallback completes the authorization-code flow: it validates the
 // state, nonce and PKCE verifier, exchanges the code, verifies the id_token,
 // provisions a passwordless Warden user via the existing federated identity
-// mechanism, then establishes a normal pam_session cookie and redirects to
+// mechanism, then establishes a normal warden_session cookie and redirects to
 // the console.
 func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 	if h.oidc == nil {
@@ -326,7 +326,7 @@ func (h *Handler) OIDCLoginCallback(w http.ResponseWriter, r *http.Request) {
 	if state == "" || state != r.URL.Query().Get("state") {
 		// Do not log the values. The extra fields distinguish a SameSite /
 		// Secure / wrong-host cookie problem from an IdP that dropped the state.
-		_, sessionErr := r.Cookie("pam_session")
+		_, sessionErr := r.Cookie("warden_session")
 		log.Printf("OIDC state mismatch: cookie_present=%t query_present=%t host=%s referer=%.120s secure_cookie=%t session_cookie=%t expected_origin=%s",
 			state != "", r.URL.Query().Get("state") != "", r.Host, r.Referer(),
 			os.Getenv("WARDEN_COOKIE_SECURE") != "false", sessionErr == nil,
@@ -487,13 +487,13 @@ func (h *Handler) OIDCLogout(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusFound)
 		return
 	}
-	if sessionCookie, err := r.Cookie("pam_session"); err == nil && h.pool != nil {
+	if sessionCookie, err := r.Cookie("warden_session"); err == nil && h.pool != nil {
 		if claims, err := h.parseJWT(sessionCookie.Value); err == nil && claims != nil && claims.ID != "" {
 			_, _ = h.pool.Exec(r.Context(),
 				`UPDATE admin_sessions SET revoked_at=now() WHERE jti=$1 AND revoked_at IS NULL`, claims.ID)
 		}
 	}
-	http.SetCookie(w, &http.Cookie{Name: "pam_session", Value: "", Path: "/", HttpOnly: true,
+	http.SetCookie(w, &http.Cookie{Name: "warden_session", Value: "", Path: "/", HttpOnly: true,
 		Secure: os.Getenv("WARDEN_COOKIE_SECURE") != "false", SameSite: http.SameSiteStrictMode, MaxAge: -1})
 	clearOIDCCookies(w)
 

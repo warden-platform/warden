@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const databaseQueryPreviewValidity = 30 * time.Minute

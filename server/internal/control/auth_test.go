@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
 
@@ -60,8 +60,8 @@ func TestIssueAndParseJWT(t *testing.T) {
 	if claims.Name != "admin" {
 		t.Fatalf("name = %q want admin", claims.Name)
 	}
-	if len(claims.Scope) != 1 || claims.Scope[0] != "pam:admin" {
-		t.Fatalf("scope = %v want [pam:admin]", claims.Scope)
+	if len(claims.Scope) != 1 || claims.Scope[0] != "warden:admin" {
+		t.Fatalf("scope = %v want [warden:admin]", claims.Scope)
 	}
 }
 
@@ -73,9 +73,9 @@ func TestIssueJWTScopesByUserRole(t *testing.T) {
 		want      string
 		dontWant  string
 	}{
-		{name: "project member", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000001", Name: "member", Metadata: map[string]any{}}, want: "pam:resources:read", dontWant: "pam:tenant:admin"},
-		{name: "tenant admin", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000002", Name: "tenant-admin", Metadata: map[string]any{"role": "tenant_admin"}}, want: "pam:tenant:admin", dontWant: "pam:admin"},
-		{name: "federated platform admin", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000004", Name: "federated:platform", Metadata: map[string]any{"role": "platform_admin", "source": "oidc"}}, want: "pam:admin", dontWant: "pam:resources:read"},
+		{name: "project member", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000001", Name: "member", Metadata: map[string]any{}}, want: "warden:resources:read", dontWant: "warden:tenant:admin"},
+		{name: "tenant admin", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000002", Name: "tenant-admin", Metadata: map[string]any{"role": "tenant_admin"}}, want: "warden:tenant:admin", dontWant: "warden:admin"},
+		{name: "federated platform admin", principal: &domain.Principal{ID: "10000000-0000-4000-8000-000000000004", Name: "federated:platform", Metadata: map[string]any{"role": "platform_admin", "source": "oidc"}}, want: "warden:admin", dontWant: "warden:resources:read"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -116,7 +116,7 @@ func TestIssueJWTUnaffiliatedHasNoBusinessScope(t *testing.T) {
 	if err != nil {
 		t.Fatalf("unaffiliated session must still be parseable: %v", err)
 	}
-	for _, banned := range []string{"pam:resources:read", "pam:executions:create", "pam:tenant:admin", "pam:admin", "pam:audit:read"} {
+	for _, banned := range []string{"warden:resources:read", "warden:executions:create", "warden:tenant:admin", "warden:admin", "warden:audit:read"} {
 		if hasScopeValue(claims.Scope, banned) {
 			t.Fatalf("unaffiliated JWT must not carry business scope %s, got %v", banned, claims.Scope)
 		}
@@ -142,7 +142,7 @@ func TestParseJWTRejectsTampered(t *testing.T) {
 
 func TestParseJWTRejectsTokenSignedWithTaskKey(t *testing.T) {
 	h := newTestHandler()
-	claims := wardenClaims{Name: "admin", Scope: []string{"pam:admin"}, RegisteredClaims: jwt.RegisteredClaims{
+	claims := wardenClaims{Name: "admin", Scope: []string{"warden:admin"}, RegisteredClaims: jwt.RegisteredClaims{
 		Subject: adminPrincipalID, Issuer: jwtIssuer, Audience: jwt.ClaimStrings{jwtAudience},
 		IssuedAt: jwt.NewNumericDate(time.Now()), ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour)),
 	}}
@@ -174,7 +174,7 @@ func TestParseJWTRejectsExpired(t *testing.T) {
 	h := newTestHandler()
 	claims := wardenClaims{
 		Name:  "admin",
-		Scope: []string{"pam:admin"},
+		Scope: []string{"warden:admin"},
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   adminPrincipalID,
 			Issuer:    jwtIssuer,
@@ -376,8 +376,8 @@ func TestAuthenticateAcceptsJWT(t *testing.T) {
 	if identity.SessionID == "" {
 		t.Fatal("JWT identity is missing session ID")
 	}
-	if !identity.HasScope("pam:admin") {
-		t.Fatal("JWT identity lacks pam:admin scope")
+	if !identity.HasScope("warden:admin") {
+		t.Fatal("JWT identity lacks warden:admin scope")
 	}
 }
 
@@ -545,7 +545,7 @@ func getMeBody(t *testing.T, metadata map[string]any) map[string]any {
 			Kind: domain.PrincipalKindUser, Status: domain.PrincipalStatusActive,
 			TenantID: "platform", Metadata: metadata,
 		},
-		TenantID: "platform", Scopes: []string{"pam:resources:read"}, Kind: "JWT",
+		TenantID: "platform", Scopes: []string{"warden:resources:read"}, Kind: "JWT",
 	}
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/me", nil)
 	req = req.WithContext(context.WithValue(req.Context(), identityContextKey{}, identity))

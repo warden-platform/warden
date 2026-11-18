@@ -57,7 +57,7 @@ export function ProjectsPage() {
   const [newUserName, setNewUserName] = useState('')
   const [newUserPassword, setNewUserPassword] = useState('')
   const [policyEnforced, setPolicyEnforced] = useState(false)
-  const isTenantAdmin = canUser(auth.user, 'pam:tenant:admin')
+  const isTenantAdmin = canUser(auth.user, 'warden:tenant:admin')
   const canManageMembers =
     isTenantAdmin ||
     Boolean(

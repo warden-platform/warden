@@ -1,5 +1,5 @@
 # Deployed OPA bundle. Keep in sync with server/internal/policy/policy.rego.
-package pam.kubernetes
+package warden.kubernetes
 
 import rego.v1
 

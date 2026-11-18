@@ -12,7 +12,7 @@ import (
 	"testing"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 type fakeAPIKeyStore struct {
@@ -97,7 +97,7 @@ func TestRegistrationCredentialAuthenticationRequiresAudienceAndWorkload(t *test
 	}
 	h := &Handler{apiKeys: store, registrationAudience: "https://warden.example.test/api/v1"}
 	identity, err := h.authenticate(context.Background(), plaintext, "192.0.2.10:1234")
-	if err != nil || identity == nil || identity.Kind != "REGISTRATION" || !identity.HasScope("pam:registration:write") || !store.used {
+	if err != nil || identity == nil || identity.Kind != "REGISTRATION" || !identity.HasScope("warden:registration:write") || !store.used {
 		t.Fatalf("registration authentication = %#v err=%v used=%v", identity, err, store.used)
 	}
 
@@ -112,7 +112,7 @@ func TestRegistrationCredentialAuthenticationRequiresAudienceAndWorkload(t *test
 func TestCreateRegistrationCredentialUsesFixedScopesAndPurpose(t *testing.T) {
 	principals := newFakePrincipalStore()
 	principal := &domain.Principal{ID: "33333333-3333-4333-8333-333333333333", Name: "registration-bot",
-		Kind: domain.PrincipalKindWorkload, Status: domain.PrincipalStatusActive, Metadata: map[string]any{"purpose": "pam_resource_registration"}}
+		Kind: domain.PrincipalKindWorkload, Status: domain.PrincipalStatusActive, Metadata: map[string]any{"purpose": "warden_resource_registration"}}
 	principals.byID[principal.ID] = principal
 	store := &fakeAPIKeyStore{}
 	h := &Handler{principals: principals, apiKeys: store, registrationAudience: "https://warden.example.test/api/v1"}
@@ -126,13 +126,13 @@ func TestCreateRegistrationCredentialUsesFixedScopesAndPurpose(t *testing.T) {
 		t.Fatal(err)
 	}
 	if key.Purpose != domain.APIKeyPurposeRegistration || key.Audience != h.registrationAudience ||
-		!sameScopes(key.Scopes, registrationCredentialScopes) || !strings.HasPrefix(plaintext, "pam_rgk_") || store.created != key {
+		!sameScopes(key.Scopes, registrationCredentialScopes) || !strings.HasPrefix(plaintext, "warden_rgk_") || store.created != key {
 		t.Fatalf("registration credential = %#v plaintext prefix=%q", key, plaintext[:8])
 	}
 }
 
 func TestSameScopesRejectsDuplicates(t *testing.T) {
-	if sameScopes([]string{"pam:registration:read", "pam:registration:read"}, registrationCredentialScopes) {
+	if sameScopes([]string{"warden:registration:read", "warden:registration:read"}, registrationCredentialScopes) {
 		t.Fatal("duplicate registration scope was accepted as the fixed scope set")
 	}
 }
@@ -140,7 +140,7 @@ func TestSameScopesRejectsDuplicates(t *testing.T) {
 func TestCreateRegistrationAPIKeyDefaultsToBoundThirtyDayCredential(t *testing.T) {
 	principals := newFakePrincipalStore()
 	principal := &domain.Principal{ID: "44444444-4444-4444-8444-444444444444", Name: "registration-bot",
-		Kind: domain.PrincipalKindWorkload, Status: domain.PrincipalStatusActive, Metadata: map[string]any{"purpose": "pam_resource_registration"}}
+		Kind: domain.PrincipalKindWorkload, Status: domain.PrincipalStatusActive, Metadata: map[string]any{"purpose": "warden_resource_registration"}}
 	principals.byID[principal.ID] = principal
 	store := &fakeAPIKeyStore{}
 	h := &Handler{principals: principals, apiKeys: store, registrationAudience: "https://warden.example.test/api/v1"}
@@ -148,7 +148,7 @@ func TestCreateRegistrationAPIKeyDefaultsToBoundThirtyDayCredential(t *testing.T
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/principals/"+principal.ID+"/registration-api-keys", body)
 	req.SetPathValue("id", principal.ID)
 	req = req.WithContext(context.WithValue(req.Context(), identityContextKey{}, &AuthenticatedIdentity{
-		Principal: &domain.Principal{ID: "00000000-0000-0000-0000-000000000003", Kind: domain.PrincipalKindUser}, Scopes: []string{"pam:admin"},
+		Principal: &domain.Principal{ID: "00000000-0000-0000-0000-000000000003", Kind: domain.PrincipalKindUser}, Scopes: []string{"warden:admin"},
 	}))
 	resp := httptest.NewRecorder()
 	h.CreateRegistrationAPIKey(resp, req)
@@ -164,7 +164,7 @@ func TestCreateRegistrationAPIKeyDefaultsToBoundThirtyDayCredential(t *testing.T
 		t.Fatal(err)
 	}
 	if response.Credential.Purpose != domain.APIKeyPurposeRegistration || response.Endpoint != h.registrationAudience ||
-		!strings.HasPrefix(response.APIKey, "pam_rgk_") || response.Credential.ExpiresAt == nil {
+		!strings.HasPrefix(response.APIKey, "warden_rgk_") || response.Credential.ExpiresAt == nil {
 		t.Fatalf("response = %#v", response)
 	}
 	remaining := time.Until(*response.Credential.ExpiresAt)
@@ -174,15 +174,15 @@ func TestCreateRegistrationAPIKeyDefaultsToBoundThirtyDayCredential(t *testing.T
 }
 
 func TestRequireScopeAllowsAdminAndRejectsMissingScope(t *testing.T) {
-	next := RequireScope("pam:approve", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
+	next := RequireScope("warden:approve", func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
 
 	for _, tc := range []struct {
 		name   string
 		scopes []string
 		want   int
 	}{
-		{name: "exact scope", scopes: []string{"pam:approve"}, want: http.StatusNoContent},
-		{name: "admin wildcard", scopes: []string{"pam:admin"}, want: http.StatusNoContent},
+		{name: "exact scope", scopes: []string{"warden:approve"}, want: http.StatusNoContent},
+		{name: "admin wildcard", scopes: []string{"warden:admin"}, want: http.StatusNoContent},
 		{name: "agent denied", scopes: defaultAgentScopes, want: http.StatusForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -205,11 +205,11 @@ func TestRegistrationScopesDoNotGrantExecutionApprovalOrDestructiveAdmin(t *test
 		scopes []string
 		want   int
 	}{
-		{name: "registration read", scopes: []string{"pam:registration:read"}, want: http.StatusNoContent},
-		{name: "registration write", scopes: []string{"pam:registration:write"}, want: http.StatusNoContent},
-		{name: "execution denied", scopes: []string{"pam:executions:create"}, want: http.StatusForbidden},
-		{name: "approval denied", scopes: []string{"pam:approve"}, want: http.StatusForbidden},
-		{name: "admin delete denied", scopes: []string{"pam:admin"}, want: http.StatusForbidden},
+		{name: "registration read", scopes: []string{"warden:registration:read"}, want: http.StatusNoContent},
+		{name: "registration write", scopes: []string{"warden:registration:write"}, want: http.StatusNoContent},
+		{name: "execution denied", scopes: []string{"warden:executions:create"}, want: http.StatusForbidden},
+		{name: "approval denied", scopes: []string{"warden:approve"}, want: http.StatusForbidden},
+		{name: "admin delete denied", scopes: []string{"warden:admin"}, want: http.StatusForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			handler := RequireAnyScope(tc.scopes, func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusNoContent) })
@@ -225,7 +225,7 @@ func TestRegistrationScopesDoNotGrantExecutionApprovalOrDestructiveAdmin(t *test
 }
 
 func TestProjectCatalogAllowsRegistrationAndResourceReaders(t *testing.T) {
-	handler := RequireAnyScope([]string{"pam:registration:read", "pam:resources:read"}, func(w http.ResponseWriter, _ *http.Request) {
+	handler := RequireAnyScope([]string{"warden:registration:read", "warden:resources:read"}, func(w http.ResponseWriter, _ *http.Request) {
 		w.WriteHeader(http.StatusNoContent)
 	})
 	for _, tc := range []struct {
@@ -233,9 +233,9 @@ func TestProjectCatalogAllowsRegistrationAndResourceReaders(t *testing.T) {
 		scopes []string
 		want   int
 	}{
-		{name: "registration reader", scopes: []string{"pam:registration:read"}, want: http.StatusNoContent},
-		{name: "resource reader", scopes: []string{"pam:resources:read"}, want: http.StatusNoContent},
-		{name: "execution only denied", scopes: []string{"pam:executions:create"}, want: http.StatusForbidden},
+		{name: "registration reader", scopes: []string{"warden:registration:read"}, want: http.StatusNoContent},
+		{name: "resource reader", scopes: []string{"warden:resources:read"}, want: http.StatusNoContent},
+		{name: "execution only denied", scopes: []string{"warden:executions:create"}, want: http.StatusForbidden},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/projects", nil)

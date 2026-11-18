@@ -12,7 +12,7 @@ import (
 	"strings"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 )
 
 const (
@@ -344,11 +344,11 @@ func (h *Handler) ExchangeDelegationToken(w http.ResponseWriter, r *http.Request
 	}
 	scopes := make([]string, 0, len(defaultAgentScopes)-1)
 	for _, scope := range defaultAgentScopes {
-		if scope != "pam:delegation:exchange" && identity.HasScope(scope) {
+		if scope != "warden:delegation:exchange" && identity.HasScope(scope) {
 			scopes = append(scopes, scope)
 		}
 	}
-	if !hasScopeValue(scopes, "pam:executions:create") {
+	if !hasScopeValue(scopes, "warden:executions:create") {
 		jsonError(w, http.StatusForbidden, "INSUFFICIENT_DELEGATION_SCOPE", "长期 Key 没有执行权限")
 		return
 	}
@@ -394,12 +394,12 @@ func generateDelegationToken() (id, plaintext string, hash []byte, err error) {
 	id = fmt.Sprintf("%08x-%04x-%04x-%04x-%012x", idBytes[0:4], idBytes[4:6], idBytes[6:8], idBytes[8:10], idBytes[10:16])
 	secretText := base64.RawURLEncoding.EncodeToString(secret)
 	digest := sha256.Sum256([]byte(secretText))
-	return id, "pam_dtk_" + id + "_" + secretText, digest[:], nil
+	return id, "warden_dtk_" + id + "_" + secretText, digest[:], nil
 }
 
 func parseDelegationToken(value string) (string, string, bool) {
 	parts := strings.SplitN(value, "_", 4)
-	if len(parts) != 4 || parts[0] != "pam" || parts[1] != "dtk" || parts[2] == "" || parts[3] == "" {
+	if len(parts) != 4 || parts[0] != "warden" || parts[1] != "dtk" || parts[2] == "" || parts[3] == "" {
 		return "", "", false
 	}
 	return parts[2], parts[3], true

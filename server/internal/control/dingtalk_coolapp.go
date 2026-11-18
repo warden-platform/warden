@@ -15,13 +15,13 @@ import (
 	"sync"
 	"time"
 
-	"gitee.com/pam-platform/warden/server/internal/config"
-	"gitee.com/pam-platform/warden/server/internal/domain"
+	"gitee.com/warden-platform/warden/server/internal/config"
+	"gitee.com/warden-platform/warden/server/internal/domain"
 	"github.com/golang-jwt/jwt/v5"
 )
 
 const (
-	dingTalkCookieName = "pam_dingtalk_session"
+	dingTalkCookieName = "warden_dingtalk_session"
 	dingTalkAudience   = "warden-dingtalk-coolapp"
 )
 
@@ -386,7 +386,7 @@ func (h *Handler) dingTalkIdentity(r *http.Request) (*AuthenticatedIdentity, *di
 	if err != nil || principal == nil || principal.Status != domain.PrincipalStatusActive || principal.Kind != domain.PrincipalKindUser {
 		return nil, nil, errors.New("DingTalk principal unavailable")
 	}
-	identity := &AuthenticatedIdentity{Principal: principal, Scopes: []string{"pam:approve"}, Kind: "DINGTALK_COOLAPP", AuditMetadata: map[string]any{
+	identity := &AuthenticatedIdentity{Principal: principal, Scopes: []string{"warden:approve"}, Kind: "DINGTALK_COOLAPP", AuditMetadata: map[string]any{
 		"auth_channel": "dingtalk_coolapp", "dingtalk_user_id": claims.UserID, "dingtalk_user_name": claims.DisplayName,
 	}}
 	return identity, claims, nil
