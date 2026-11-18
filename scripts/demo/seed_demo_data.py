@@ -7,8 +7,12 @@ and an audit trail — enough to populate every console page with realistic
 data. Idempotent: deterministic UUIDs + ON CONFLICT DO NOTHING.
 
 Usage:
-  python3 scripts/demo/seed_demo_data.py           # seed (skip existing rows)
-  python3 scripts/demo/seed_demo_data.py --reset   # delete demo tenant data, reseed
+  python3 scripts/demo/seed_demo_data.py --confirm-demo-environment           # seed (skip existing rows)
+  python3 scripts/demo/seed_demo_data.py --confirm-demo-environment --reset   # delete demo tenant data, reseed
+  python3 scripts/demo/seed_demo_data.py --dry-run                            # write SQL to /tmp, no DB access
+
+The confirmation flag is a deliberate guardrail: demo logins use the public
+weak password "12345678" and must never reach a production database.
 
 Demo logins (tenant "acme"): demo / zhangsan / lisi, all with password
 "12345678" — deliberately independent of the built-in admin password.
@@ -415,6 +419,16 @@ insert('audit_events', ['id', 'action', 'actor_id', 'actor_type', 'resource_id',
 
 
 # ---------------------------------------------------------------- apply
+# Guardrail: this script seeds demo accounts with the publicly documented weak
+# password "12345678". Refuse to touch any database unless the operator
+# explicitly confirms the target is a disposable demo environment. --dry-run
+# only writes a SQL file and needs no confirmation.
+if '--confirm-demo-environment' not in sys.argv and '--dry-run' not in sys.argv:
+    sys.exit(
+        'refusing to seed: this script creates demo accounts with the public weak password "12345678".\n'
+        'Only run it against a disposable demo database, never production.\n'
+        'Re-run with --confirm-demo-environment to confirm (or --dry-run to inspect the SQL).'
+    )
 url = urlparse(database_url())
 env = dict(os.environ, PGPASSWORD=url.password or '')
 psql = find_psql()

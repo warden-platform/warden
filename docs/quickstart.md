@@ -178,6 +178,7 @@ make clean                                           # 删除 server/bin、web/d
 
 | 想做的事 | 去哪 |
 |---|---|
+| 给控制台灌一套演示数据（独立 acme 租户） | 下方「本地演示数据」 |
 | 接入第一个 Kubernetes / Linux / 网络目标 | [接入指南](guides.md#onboarding) |
 | 启用企业 SSO 并给同事配权限 | [SSO 接入](guides.md#oidc) |
 | 理解租户、项目、执行、审批的关系 | [concepts.md](concepts.md) |
@@ -185,3 +186,16 @@ make clean                                           # 删除 server/bin、web/d
 | 查全量环境变量 | [配置参考](reference.md#configuration) |
 | 查接口与错误码 | [api.md](api.md) |
 | 部署到正式环境 | [生产部署](guides.md#installation) |
+
+## 本地演示数据
+
+想让每个控制台页面都有真实感的数据（资源、执行、待审批、审计），可以灌入一个**独立的演示租户 acme**，不污染 platform：
+
+```bash
+python3 scripts/demo/seed_demo_data.py --confirm-demo-environment          # 幂等，跳过已存在行
+python3 scripts/demo/seed_demo_data.py --confirm-demo-environment --reset  # 清空演示租户后重灌
+```
+
+演示登录：租户 `acme`，用户 `demo` / `zhangsan` / `lisi`，密码均为 `12345678`（刻意公开的弱密码，与内置管理员无关）。
+
+> **护栏**：脚本必须显式带 `--confirm-demo-environment` 才会写库——弱密码演示账号绝不能进生产库。`--dry-run` 只生成 SQL 到 `/tmp/warden-demo-seed.sql`，不需要确认。
