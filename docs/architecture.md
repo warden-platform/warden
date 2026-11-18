@@ -263,7 +263,7 @@ stateDiagram-v2
 
 ### 尚未完成 / 已知限制
 
-MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、完整 Execution Attempt 与取消协议、Outbox Publisher、SCIM、细粒度 RLS、静态 Admin Key 轮换；以及非内置 `platform_admin` 的 JWT 兼容识别、钉钉审批链路缺租户上下文、联邦断言短 JWT 未写 `admin_sessions`、项目权限三套并行判定等设计债。完整列表见 [现状与路线](#roadmap)。
+MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、完整 Execution Attempt 与取消协议、Outbox Publisher、SCIM、细粒度 RLS、静态 Admin Key 轮换；以及非内置 `platform_admin` 的 JWT 兼容识别、联邦断言短 JWT 未写 `admin_sessions`、项目权限三套并行判定等设计债。完整列表见 [现状与路线](#roadmap)。
 
 
 ---

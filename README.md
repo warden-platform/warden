@@ -169,9 +169,9 @@ flowchart LR
 
 ## 当前状态
 
-**已具备**：多租户隔离、动作目录与策略决策、审批与限时授权、原子任务领取与 HMAC 任务信封、多种 Connector 与 Integration、审计与 Outbox、Admin Web、OIDC/SSO、统一权限模型、身份分配与邀请、账号管理页，以及权限继承的 AI 只读助手（OpenAI 兼容、SSE 流式）。
+**已具备**：多租户隔离、动作目录与策略决策、审批与限时授权、原子任务领取与 HMAC 任务信封、多种 Connector 与 Integration、审计、Admin Web、OIDC/SSO、统一权限模型、身份分配与邀请、账号管理页，以及权限继承的 AI 只读助手（OpenAI 兼容、SSE 流式）。
 
-**尚未实现**：MFA 与按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、完整 Execution Attempt 与取消协议、Outbox Publisher、SCIM、结果脱敏增强。OpenBao / Teleport 目前未集成。
+**尚未实现**：MFA 与按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、完整 Execution Attempt 与取消协议、Outbox 投递（事务写入钩子已具备且默认关闭，Publisher/消费者未实现）、SCIM、结果脱敏增强。OpenBao / Teleport 目前未集成。
 
 完整清单与已知设计债见 [现状与路线](docs/architecture.md#roadmap)。
 

@@ -150,7 +150,7 @@ Warden 不做商业化计量：身份（Principal）与执行通道（Connector�
 
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
-| GET | `/api/v1/resources` | `warden:resources:read` | 查询资源；支持 `availableForExecution=true` 和 `projectId=<warden-project-id>`，可执行资源同样返回有效项目、环境及各自来源 |
+| GET | `/api/v1/resources` | `warden:resources:read` | 查询资源；支持 `availableForExecution=true` 和 `projectId=<warden-project-id>`，可执行资源同样返回有效项目、环境及各自来源；支持 `limit`（1–1000，缺省不限）与 `offset` |
 | GET | `/api/v1/resources/stats` | `warden:resources:read` | 查询当前、活跃、异常和历史资源聚合统计 |
 | GET | `/api/v1/actions` | `warden:resources:read` | 查询动作定义 |
 | GET | `/api/v1/resources/{id}/actions` | `warden:resources:read` | 查询指定资源可执行的动作及参数 Schema |
@@ -178,7 +178,7 @@ Warden 不做商业化计量：身份（Principal）与执行通道（Connector�
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
 | POST | `/api/v1/executions` | `warden:executions:create` | 创建受策略约束的执行 |
-| GET | `/api/v1/executions` | `warden:executions:read:self` | 查询执行；Agent只能看到自己的记录，支持 `projectId=<warden-project-id>` 按资源项目过滤 |
+| GET | `/api/v1/executions` | `warden:executions:read:self` | 查询执行；Agent只能看到自己的记录，支持 `projectId=<warden-project-id>` 按资源项目过滤；支持 `limit`（默认 50，最大 500）与 `offset`，分页作用于项目过滤后的视图 |
 | GET | `/api/v1/executions/{id}` | `warden:executions:read:self` | 查询执行详情 |
 | POST | `/api/v1/executions/{id}/cancel` | `warden:executions:cancel:self` | 取消尚未完成的执行 |
 
@@ -242,7 +242,7 @@ create/update 在实际写入前必须先调用 `kubernetes.resource.preview` �
 
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
-| GET | `/api/v1/access-requests` | `warden:approve` | 查询审批，可用 `status` 过滤 |
+| GET | `/api/v1/access-requests` | `warden:approve` | 查询审批，可用 `status` 过滤；支持 `limit`（默认 50，最大 500）与 `offset` |
 | POST | `/api/v1/access-requests/{id}/approve` | `warden:approve` | 批准请求 |
 | POST | `/api/v1/access-requests/{id}/reject` | `warden:approve` | 拒绝请求 |
 | GET | `/api/v1/audit-events` | `warden:audit:read` | 查询审计事件；支持 `action`、`limit`（默认 500，最大 1000）和 `offset` |
