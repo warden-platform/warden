@@ -78,7 +78,7 @@ export function Route(_: RouteProps) {
   return null
 }
 
-function matchPath(pattern: string, pathname: string): Record<string, string> | null {
+export function matchPath(pattern: string, pathname: string): Record<string, string> | null {
   if (pattern === '*') return {}
   const patternParts = pattern.split('/').filter(Boolean)
   const pathParts = pathname.split('/').filter(Boolean)

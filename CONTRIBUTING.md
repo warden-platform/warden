@@ -38,7 +38,7 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 
 - `go test ./...` 基线为绿；CI（`.github/workflows/ci.yml`，GitHub 镜像生效）会带 PostgreSQL service 跑全部 DB 门控集成测试，提交前请确保没有新增失败。
 - 依赖 PostgreSQL 的集成测试是 opt-in 的：设置 `WARDEN_TEST_DATABASE_URL` 才会执行，否则 `t.Skip`。**control 包的测试会 `DROP SCHEMA public CASCADE` 重建库，务必指向一次性测试库（如本地 `warden_test`），绝不能指向开发库**；多个包共用同一测试库时用 `go test -p 1` 串行。这类测试的 cleanup 用 `t.Cleanup`（LIFO），不要用 `defer pool.Close()`。
-- 前端没有独立的 `typecheck` script；需要纯类型检查时用 `npx tsc --noEmit`，完整构建用 `npm run build`。
+- 前端没有独立的 `typecheck` script；需要纯类型检查时用 `npx tsc --noEmit`，完整构建用 `npm run build`。纯逻辑单测用 `npm run test`（vitest，覆盖状态映射/路由匹配/拓扑构建等无 DOM 依赖的函数），已挂进 `make verify` 与 CI。
 - 改了数据库迁移必须验证：`deploy/release/migrations.txt` 包含全部编号 ≥ 035 的迁移，且清单内迁移可重复重放（`internal/control/migration_files_test.go` 会强制校验）。
 
 ## 代码约定
