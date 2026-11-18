@@ -1,11 +1,11 @@
-.PHONY: init-local verify server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-build clean
+.PHONY: init-local verify server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-build clean
 
 GO_CACHE ?= $(CURDIR)/.cache/go-build
 
 init-local:
 	scripts/init-local-secrets.sh
 
-verify: server-test server-vet server-build web-build
+verify: server-test server-vet server-build web-lint web-build
 
 server-test:
 	GOCACHE=$(GO_CACHE) go -C server test ./...
@@ -48,6 +48,9 @@ web-install:
 
 web-dev:
 	npm --prefix web run dev
+
+web-lint:
+	npm --prefix web run lint
 
 web-build:
 	npm --prefix web run build

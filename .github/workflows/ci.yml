@@ -1,0 +1,56 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  server:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: warden
+          POSTGRES_USER: warden
+          POSTGRES_PASSWORD: warden
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U warden"
+          --health-interval 3s
+          --health-timeout 3s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: server/go.mod
+          cache-dependency-path: server/go.sum
+      - name: Vet
+        run: go -C server vet ./...
+      # DB-gated integration tests reset the schema, so they must run against
+      # the disposable CI database and packages must not share it in parallel.
+      - name: Test (with PostgreSQL-gated integration tests)
+        env:
+          WARDEN_TEST_DATABASE_URL: postgres://warden:warden@localhost:5432/warden
+        run: go -C server test -p 1 ./...
+      - name: Build control plane
+        run: go -C server build -o bin/warden-control ./cmd/warden-control
+
+  web:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Install
+        run: npm --prefix web ci
+      - name: Lint
+        run: npm --prefix web run lint
+      - name: Typecheck and build
+        run: npm --prefix web run build
