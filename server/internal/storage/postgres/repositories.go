@@ -153,7 +153,7 @@ func (r *PrincipalRepo) List(ctx context.Context, kind string) ([]domain.Princip
 		}
 		result = append(result, p)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 func (r *PrincipalRepo) Create(ctx context.Context, p *domain.Principal) error {
@@ -806,7 +806,7 @@ func (r *ResourceRepo) List(ctx context.Context, resourceType, domainFilter, exc
 		}
 		result = append(result, res)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // ListTopology returns one compact representative per parent/type/status group.
@@ -1187,7 +1187,7 @@ func (r *ActionRepo) GetByResourceType(ctx context.Context, resourceType string)
 		}
 		result = append(result, a)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 func (r *ActionRepo) ListAvailable(ctx context.Context) ([]domain.ActionDefinition, error) {
@@ -1721,7 +1721,7 @@ func (r *ExecutionRepo) List(ctx context.Context, principalID, status string, li
 		}
 		result = append(result, e)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // ListAllTenants is the super-admin visibility path: every execution across
@@ -2132,7 +2132,7 @@ func (r *AuditRepo) List(ctx context.Context, filter AuditListFilter, limit, off
 		}
 		result = append(result, e)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 type RequestRepo struct {
@@ -2287,7 +2287,7 @@ func (r *RequestRepo) List(ctx context.Context, status string, limit, offset int
 		}
 		result = append(result, ar)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // ListByPrincipal returns the access requests initiated by one principal
@@ -2413,7 +2413,7 @@ func (r *ConnectorRepo) List(ctx context.Context) ([]domain.Connector, error) {
 		}
 		result = append(result, c)
 	}
-	return result, nil
+	return result, rows.Err()
 }
 
 // --- Helpers ---
