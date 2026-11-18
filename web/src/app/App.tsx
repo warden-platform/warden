@@ -1,8 +1,9 @@
 import { lazy, Suspense, useState } from 'react'
-import { BrowserRouter, Routes, Route, Navigate } from '../shared/router'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from '../shared/router'
 import { AppSidebar } from './AppSidebar'
 import { AppTopbar } from './AppTopbar'
 import { AppProvider, useApp } from './components/Toast'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { LoadingState } from './components/States'
 import { LoginPage } from './pages/LoginPage'
 import { PlatformLoginPage } from './pages/PlatformLoginPage'
@@ -54,6 +55,7 @@ function HomeRedirect() {
 
 function AppShell() {
   const [mobileNav, setMobileNav] = useState(false)
+  const location = useLocation()
   return (
     <div className="app-shell">
       <AppSidebar mobileOpen={mobileNav} onClose={() => setMobileNav(false)} />
@@ -61,53 +63,56 @@ function AppShell() {
       <main>
         <AppTopbar onMenu={() => setMobileNav(true)} />
         <div className="page-content">
-          <Suspense fallback={<LoadingState label="正在加载页面" />}>
-            <Routes>
-              <Route path="/" element={<HomeRedirect />} />
-              <Route path="/overview" element={<OverviewPage />} />
-              <Route path="/projects" element={<ProjectsPage />} />
-              <Route
-                path="/project-users"
-                element={
-                  <TenantAdminOnly>
-                    <ProjectUsersPage />
-                  </TenantAdminOnly>
-                }
-              />
-              <Route
-                path="/platform/tenants"
-                element={
-                  <PlatformOnly>
-                    <TenantsPage />
-                  </PlatformOnly>
-                }
-              />
-              <Route
-                path="/platform/accounts"
-                element={
-                  <PlatformOnly>
-                    <AccountsPage />
-                  </PlatformOnly>
-                }
-              />
-              <Route path="/topology" element={<TopologyPage />} />
-              <Route path="/integrations" element={<IntegrationsPage />} />
-              <Route path="/integrations/new" element={<IntegrationCreatePage />} />
-              <Route path="/integrations/:id" element={<IntegrationDetailPage />} />
-              <Route path="/targets" element={<TargetsPage />} />
-              <Route path="/targets/:id" element={<ConnectorDetailPage mode="target" />} />
-              <Route path="/connectors" element={<ConnectorsPage />} />
-              <Route path="/connectors/:id" element={<ConnectorDetailPage />} />
-              <Route path="/resources" element={<ResourcesPage />} />
-              <Route path="/executions" element={<ExecutionsPage />} />
-              <Route path="/approvals" element={<ApprovalsPage />} />
-              <Route path="/my-requests" element={<MyRequestsPage />} />
-              <Route path="/audit" element={<AuditPage />} />
-              <Route path="/policies" element={<PoliciesPage />} />
-              <Route path="/agents" element={<AgentsPage />} />
-              <Route path="*" element={<HomeRedirect />} />
-            </Routes>
-          </Suspense>
+          {/* Keyed by route: a crashed page resets when the user navigates away. */}
+          <ErrorBoundary key={location.pathname}>
+            <Suspense fallback={<LoadingState label="正在加载页面" />}>
+              <Routes>
+                <Route path="/" element={<HomeRedirect />} />
+                <Route path="/overview" element={<OverviewPage />} />
+                <Route path="/projects" element={<ProjectsPage />} />
+                <Route
+                  path="/project-users"
+                  element={
+                    <TenantAdminOnly>
+                      <ProjectUsersPage />
+                    </TenantAdminOnly>
+                  }
+                />
+                <Route
+                  path="/platform/tenants"
+                  element={
+                    <PlatformOnly>
+                      <TenantsPage />
+                    </PlatformOnly>
+                  }
+                />
+                <Route
+                  path="/platform/accounts"
+                  element={
+                    <PlatformOnly>
+                      <AccountsPage />
+                    </PlatformOnly>
+                  }
+                />
+                <Route path="/topology" element={<TopologyPage />} />
+                <Route path="/integrations" element={<IntegrationsPage />} />
+                <Route path="/integrations/new" element={<IntegrationCreatePage />} />
+                <Route path="/integrations/:id" element={<IntegrationDetailPage />} />
+                <Route path="/targets" element={<TargetsPage />} />
+                <Route path="/targets/:id" element={<ConnectorDetailPage mode="target" />} />
+                <Route path="/connectors" element={<ConnectorsPage />} />
+                <Route path="/connectors/:id" element={<ConnectorDetailPage />} />
+                <Route path="/resources" element={<ResourcesPage />} />
+                <Route path="/executions" element={<ExecutionsPage />} />
+                <Route path="/approvals" element={<ApprovalsPage />} />
+                <Route path="/my-requests" element={<MyRequestsPage />} />
+                <Route path="/audit" element={<AuditPage />} />
+                <Route path="/policies" element={<PoliciesPage />} />
+                <Route path="/agents" element={<AgentsPage />} />
+                <Route path="*" element={<HomeRedirect />} />
+              </Routes>
+            </Suspense>
+          </ErrorBoundary>
         </div>
       </main>
       <AIAssistant />
@@ -123,16 +128,20 @@ function AppRoutes() {
   // otherwise 403 with the session's self-profile-only capability.
   if (auth.user?.unaffiliated) {
     return (
-      <Suspense fallback={<LoadingState label="正在加载页面" />}>
-        <UnaffiliatedPage />
-      </Suspense>
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingState label="正在加载页面" />}>
+          <UnaffiliatedPage />
+        </Suspense>
+      </ErrorBoundary>
     )
   }
   return (
     <Routes>
       <Route
         path="/login"
-        element={auth.user ? <Navigate to={canUser(auth.user, 'warden:admin') ? '/platform/tenants' : '/overview'} replace /> : <LoginPage />}
+        element={
+          auth.user ? <Navigate to={canUser(auth.user, 'warden:admin') ? '/platform/tenants' : '/overview'} replace /> : <LoginPage />
+        }
       />
       <Route path="/platform/login" element={auth.user ? <Navigate to="/platform/tenants" replace /> : <PlatformLoginPage />} />
       <Route path="*" element={auth.user ? <AppShell /> : <Navigate to="/login" replace />} />
@@ -143,24 +152,29 @@ function AppRoutes() {
 function App() {
   return (
     <BrowserRouter>
-      <Routes>
-        <Route
-          path="/dingtalk/approvals"
-          element={
-            <Suspense fallback={<LoadingState label="正在加载页面" />}>
-              <DingTalkApprovalsPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="*"
-          element={
-            <AppProvider>
-              <AppRoutes />
-            </AppProvider>
-          }
-        />
-      </Routes>
+      {/* Last resort: shell-level crashes still get a recovery screen. */}
+      <ErrorBoundary>
+        <Routes>
+          <Route
+            path="/dingtalk/approvals"
+            element={
+              <ErrorBoundary>
+                <Suspense fallback={<LoadingState label="正在加载页面" />}>
+                  <DingTalkApprovalsPage />
+                </Suspense>
+              </ErrorBoundary>
+            }
+          />
+          <Route
+            path="*"
+            element={
+              <AppProvider>
+                <AppRoutes />
+              </AppProvider>
+            }
+          />
+        </Routes>
+      </ErrorBoundary>
     </BrowserRouter>
   )
 }
