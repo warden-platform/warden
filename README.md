@@ -176,7 +176,7 @@ flowchart LR
 server/
 ├── cmd/                      7 个可执行入口：控制面 + 各类 Connector/Operator/Helper
 ├── internal/{config,control,domain,policy,connector,storage}/
-├── migrations/               顺序 SQL 迁移（001–105）
+├── migrations/               顺序 SQL 迁移（001–106）
 └── Dockerfile*               控制面/Connector 镜像
 web/                          React + Vite 管理端
 deploy/                       本地 compose、Helm Chart、K8s 基线、安装脚本、发布迁移清单

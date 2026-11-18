@@ -229,7 +229,7 @@ stateDiagram-v2
 
 ### 存储与迁移
 
-- `server/migrations/` 是按编号排序的 SQL（001–105，其中 068–071 无文件），编号唯一性有单测保障。
+- `server/migrations/` 是按编号排序的 SQL（001–106，其中 068–071 无文件），编号唯一性有单测保障。
 - **启动不跑迁移**：全新库按文件名顺序手工执行；发布流水线按 `deploy/release/migrations.txt` 重放编号 ≥ 035 的幂等迁移。新增此类迁移必须登记清单，否则单测失败。
 - `002_seed.sql` 写入固定权限锚点；运行时 `EnsureAdminPassword` 将登录名与 `WARDEN_ADMIN_USERNAME`、密码哈希与 `WARDEN_ADMIN_PASSWORD_FILE` 同步。
 - `audit_events.action` 是 PostgreSQL 枚举，新增动作名必须补 `ALTER TYPE audit_action ADD VALUE` 迁移。

@@ -110,7 +110,7 @@ Compose 通过 `docker compose --env-file .env -f deploy/docker-compose.yaml ...
 |---|---|---|
 | `WARDEN_PORT` | `8080` | 控制面 HTTP 监听端口 |
 | `WARDEN_CORS_ORIGIN` | `http://localhost:4173` | 单个绝对 HTTP(S) origin，格式强校验 |
-| `WARDEN_COOKIE_SECURE` | `true`（仅显式 `false` 才关闭） | 会话 / CSRF / OIDC Cookie 的 Secure 标记。**生产必须保持 true** |
+| `WARDEN_COOKIE_SECURE` | `false`（内置默认与随附 `config.yaml` 均为 `false`） | 会话 / CSRF / OIDC Cookie 的 Secure 标记；消费端按 `!= "false"` 判定，仅在完全不加载 `config.yaml` 的纯环境变量部署且未设置时视为 `true`。**生产必须显式设为 `true`** |
 | `WARDEN_JWT_TTL_HOURS` | `8` | JWT 有效期（小时），必须为正整数 |
 | `WARDEN_PUBLIC_CONTROL_URL` | 空 | 对外可访问的控制面地址；用于 UI 安装命令、Registration audience 推导、钉钉审批链接 |
 | `WARDEN_REGISTRATION_AUDIENCE` | 由 `WARDEN_PUBLIC_CONTROL_URL` 推导，再退化为 `http://localhost:<WARDEN_PORT>/api/v1` | Registration Key 绑定的 audience；必须是绝对 HTTP(S)、路径为 `/api/v1`、无 user/query/fragment；与 `WARDEN_PUBLIC_CONTROL_URL` 同时配置时必须一致 |
@@ -179,7 +179,7 @@ WARDEN_OIDC_CLIENT_SECRET_FILE=/etc/warden/secrets/oidc_client_secret
 
 | 变量 | 默认值 / 约束 |
 |---|---|
-| `WARDEN_AI_ENABLED` | `true`；设为 `false` 时接口返回 `AI_DISABLED` |
+| `WARDEN_AI_ENABLED` | `false`（随附 `config.yaml` 显式关闭；不加载该文件时代码内置默认为 `true`）；设为 `false` 时接口返回 `AI_DISABLED` |
 | `WARDEN_AI_MODEL` | 与 `WARDEN_AI_API_KEY` 成对配置；为空时返回 `AI_NOT_CONFIGURED` |
 | `WARDEN_AI_BASE_URL` | `https://api.openai.com/v1`，可替换为 OpenAI 兼容服务地址 |
 | `WARDEN_AI_API_KEY` / `_FILE` | 模型服务密钥，本地写入 `.env`；不会持久化到 AI 会话 |
@@ -243,6 +243,7 @@ WARDEN_OIDC_CLIENT_SECRET_FILE=/etc/warden/secrets/oidc_client_secret
 | `WARDEN_TEST_DATABASE_URL` | opt-in PostgreSQL 集成测试；未设置时相关测试 `t.Skip` |
 | `WARDEN_TEST_DATABASE_ENDPOINT` / `_USERNAME` / `_PASSWORD` | Connector 数据库集成测试 |
 | `WARDEN_LOCAL_FIXTURE_CONNECTOR` / `WARDEN_KUBERNETES_TEST_KUBECONFIG` / `WARDEN_TEST_TASK_SIGNING_KEY_FILE` | K8s 变更集成测试 opt-in |
+| `WARDEN_LOCAL_FIXTURE_DURATION` | 本地 fixture 测试运行时长（Go duration，如 `10m`）；默认 `10m` |
 
 ### 默认端口速查
 

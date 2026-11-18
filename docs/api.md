@@ -32,8 +32,8 @@
 | `warden:approve` | 查询和处理访问审批 |
 | `warden:audit:read` | 查询全局审计事件 |
 | `warden:credentials:manage` | 管理 Agent Principal 和 API Key |
-| `warden:registration:read` | 查询 Connector、Project、Integration 和 Integration 项目范围（资源注册用途） |
-| `warden:registration:write` | 创建/更新 Project、Integration 和 Integration 项目范围 |
+| `warden:registration:read` | 查询 Project、Integration、Connector 下的 Integration 和 Integration 项目范围（资源注册用途；不含 Connector 列表，该接口需租户管理员） |
+| `warden:registration:write` | 创建/更新 Integration 和 Integration 项目范围（不含 Project，创建/更新 Project 需租户管理员） |
 | `warden:tenant:admin` | 管理当前认证租户的 Principal、Connector、Project、Integration、策略、通知和查询模板 |
 | `warden:admin` | 平台管理员通配权限，包括租户生命周期和并发保护管理 |
 | `warden:self:profile` | `unaffiliated` 身份的自助资料能力，不能访问任何业务组织接口 |
@@ -347,9 +347,11 @@ AppSecret、AccessToken、免登码和会话 JWT 不写入数据库、审计或 
 ```
 
 Registration Key 使用独立的 `warden_rgk_` 前缀，固定拥有 `warden:registration:read` 和
-`warden:registration:write`，不能申请 `warden:admin`。它不能创建 Execution、处理审批、修改策略、
-删除 Connector/Project/Integration 或读取 Secret 明文。轮换、撤销、过期、最后使用 IP 和
-`authorization.denied` 审计与普通 Key 使用同一套 Credential 生命周期。
+`warden:registration:write`，不能申请 `warden:admin`。它可查询 Project / Integration / Connector 下的
+Integration，并创建或更新 Integration；但**不能查询 Connector 列表、不能创建或更新 Project**（这些接口
+要求租户管理员），也不能创建 Execution、处理审批、修改策略、删除 Connector/Project/Integration 或读取
+Secret 明文。轮换、撤销、过期、最后使用 IP 和 `authorization.denied` 审计与普通 Key 使用同一套
+Credential 生命周期。
 
 ## 外部身份 Binding 与委托 Token
 
@@ -448,7 +450,7 @@ Principal/Token ID，不是外部用户 ID，适合用于审计关联和责任�
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/v1/connectors` | 查询 Connector；注册读取 |
+| GET | `/api/v1/connectors` | 查询 Connector；**仅租户管理员**（不支持注册读取） |
 | GET | `/api/v1/install-config` | 查询安装所需公开配置 |
 | POST | `/api/v1/connectors/onboard` | 旧版共享 Key onboarding；默认关闭并返回 410，仅迁移时显式启用 |
 | POST | `/api/v1/connectors/network` | 预置 Network Connector 身份并一次性返回 taskSigningKey（Admin） |
@@ -460,8 +462,8 @@ Principal/Token ID，不是外部用户 ID，适合用于审计关联和责任�
 | PUT | `/api/v1/connectors/{id}/project` | 设置 Connector 归属项目（`project_id` 传 `null` 表示归属默认项目） |
 | PUT | `/api/v1/connectors/{id}/environment` | 设置 Connector 环境；请求体 `environment` 支持 `development`、`testing`、`production` |
 | GET | `/api/v1/projects` | 查询项目列表（含默认项目）；注册读取 |
-| POST | `/api/v1/projects` | 创建项目；注册写入；请求体为 `name`、可选 `description` |
-| PUT | `/api/v1/projects/{id}` | 更新项目名称与描述；注册写入 |
+| POST | `/api/v1/projects` | 创建项目；**仅租户管理员**（不支持注册写入）；请求体为 `name`、可选 `description` |
+| PUT | `/api/v1/projects/{id}` | 更新项目名称与描述；**仅租户管理员**（不支持注册写入） |
 | DELETE | `/api/v1/projects/{id}` | 删除项目；默认项目不可删除，关联通道/规则自动回落默认项目，有执行、审批、策略决策或审计历史时返回 `409 PROJECT_IN_USE` |
 | GET | `/api/v1/project-namespace-rules` | 查询 Namespace 级项目覆盖规则 |
 | PUT | `/api/v1/project-namespace-rules` | 新建或更新规则；请求体为 `project_id`、`connector_id`、`namespace` |
