@@ -71,7 +71,7 @@ TID = uid('tenant:acme')
 DEMO = uid('user:demo')
 PROJECTS = {name: uid(f'project:{name}') for name in ('payments', 'data-platform', 'infra')}
 AGENTS = {name: uid(f'agent:{name}') for name in ('ops-copilot', 'sre-agent-01', 'db-analyst', 'ci-agent', 'cloud-bot')}
-REGISTRY = uid('agent_type:multica-registry')
+REGISTRY = uid('agent_type:warden-registry')
 CONNECTORS = {name: uid(f'connector:{name}') for name in ('k8s-prod-01', 'k8s-staging-01', 'linux-bastion-02', 'jenkins-ci', 'db-proxy-01', 'h3c-core-sw')}
 INTEGRATIONS = {name: uid(f'integration:{name}') for name in ('jenkins-acme', 'grafana-prod', 'mysql-prod')}
 
@@ -121,23 +121,23 @@ insert('principals', ['id', 'kind', 'name', 'status', 'tenant_id', 'metadata', '
        [[sql_str(DEMO), "'user'", sql_str('demo'), "'ACTIVE'", sql_str(TENANT),
          j({'role': 'tenant_admin', 'display_name': '演示管理员', 'email': 'demo@acme.io'}), sql_str(DEMO_PASSWORD_HASH), sql_str(ts(30)), sql_str(ts(60 * 24 * 20)), sql_str(ts(0))]])
 agent_meta = {
-    'ops-copilot': ('运维副驾', 'ma-ops-001'),
-    'sre-agent-01': ('SRE 值守', 'ma-sre-001'),
-    'db-analyst': ('数据分析', 'ma-db-001'),
-    'ci-agent': ('CI 流水线', 'ma-ci-001'),
-    'cloud-bot': ('云资源巡检', 'ma-cloud-001'),
+    'ops-copilot': ('运维副驾', 'ext-ops-001'),
+    'sre-agent-01': ('SRE 值守', 'ext-sre-001'),
+    'db-analyst': ('数据分析', 'ext-db-001'),
+    'ci-agent': ('CI 流水线', 'ext-ci-001'),
+    'cloud-bot': ('云资源巡检', 'ext-cloud-001'),
 }
 rows = []
 for name, pid in AGENTS.items():
     label, ma = agent_meta[name]
     rows.append([sql_str(pid), "'agent_instance'", sql_str(name), "'ACTIVE'", sql_str(TENANT),
-                 j({'display_name': label, 'platform': 'multica', 'workspace_id': 'ws-acme-ops', 'multica_agent_id': ma}),
+                 j({'display_name': label, 'platform': 'example-ops', 'external_workspace_id': 'ws-acme-ops', 'external_agent_id': ma}),
                  'NULL', 'NULL', sql_str(ts(60 * 24 * 15)), sql_str(ts(0))])
 for uname, dname in (('zhangsan', '张三'), ('lisi', '李四')):
     rows.append([sql_str(uid(f'user:{uname}')), "'user'", sql_str(uname), "'ACTIVE'", sql_str(TENANT),
                  j({'role': 'project_user', 'display_name': dname, 'email': f'{uname}@acme.io'}), sql_str(DEMO_PASSWORD_HASH), 'NULL', sql_str(ts(60 * 24 * 10)), sql_str(ts(0))])
-rows.append([sql_str(REGISTRY), "'agent_type'", sql_str('multica-registry'), "'ACTIVE'", sql_str(TENANT),
-             j({'display_name': 'Multica 注册机器人', 'platform': 'multica'}), 'NULL', 'NULL', sql_str(ts(60 * 24 * 15)), sql_str(ts(0))])
+rows.append([sql_str(REGISTRY), "'agent_type'", sql_str('warden-registry'), "'ACTIVE'", sql_str(TENANT),
+             j({'display_name': 'Warden 注册机器人', 'platform': 'example-ops'}), 'NULL', 'NULL', sql_str(ts(60 * 24 * 15)), sql_str(ts(0))])
 insert('principals', ['id', 'kind', 'name', 'status', 'tenant_id', 'metadata', 'password_hash', 'last_login_at', 'created_at', 'updated_at'], rows)
 
 # ---------------------------------------------------------------- api keys
@@ -154,10 +154,10 @@ revoked = uid('key:ops-copilot:old')
 key_rows.append([sql_str(revoked), sql_str(AGENTS['ops-copilot']), sql_str('legacy-key'), sql_str('wdn_agt_old0'),
                  sql_str('\\x' + hashlib.sha256(b'demo-key-old').digest().hex()), "'REVOKED'", j(['warden:execution:create']),
                  'NULL', sql_str(ts(60 * 24 * 3)), "'10.20.0.8'", sql_str(DEMO), sql_str(ts(60 * 24 * 40)), sql_str(ts(60 * 24 * 2)), sql_str(DEMO), 'NULL', "'AGENT'", 'NULL'])
-reg_key = uid('key:multica-registry:reg')
+reg_key = uid('key:warden-registry:reg')
 key_rows.append([sql_str(reg_key), sql_str(REGISTRY), sql_str('registration'), sql_str('wdn_reg_mult'),
                  sql_str('\\x' + hashlib.sha256(b'demo-key-reg').digest().hex()), "'ACTIVE'", j(['warden:registration:write']),
-                 sql_str(ts(-60 * 24 * 90)), 'NULL', 'NULL', sql_str(DEMO), sql_str(ts(60 * 24 * 15)), 'NULL', 'NULL', 'NULL', "'REGISTRATION'", sql_str('multica')])
+                 sql_str(ts(-60 * 24 * 90)), 'NULL', 'NULL', sql_str(DEMO), sql_str(ts(60 * 24 * 15)), 'NULL', 'NULL', 'NULL', "'REGISTRATION'", sql_str('https://warden.example.test')])
 insert('principal_api_keys', ['id', 'principal_id', 'name', 'key_prefix', 'key_hash', 'status', 'scopes', 'expires_at', 'last_used_at', 'last_used_ip', 'created_by', 'created_at', 'revoked_at', 'revoked_by', 'rotation_parent_id', 'purpose', 'audience'], key_rows)
 
 # ---------------------------------------------------------------- projects

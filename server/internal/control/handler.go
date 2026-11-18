@@ -1677,7 +1677,7 @@ func (h *Handler) listExecutionsPage(ctx context.Context, identity *Authenticate
 }
 
 // enrichExecutions batch-loads principal names and API key names for a list of
-// executions so the UI can display "Warden ReadOnly · key multica-agent" instead
+// executions so the UI can display "Warden ReadOnly · key warden-agent" instead
 // of "375bb5e5 · key adb456e7".
 func (h *Handler) enrichExecutions(ctx context.Context, execs []domain.Execution) {
 	if len(execs) == 0 || h.principals == nil {

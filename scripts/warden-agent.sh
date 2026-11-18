@@ -1,5 +1,5 @@
 #!/bin/bash
-# Warden Agent 客户端 - 封装 Warden API 调用，供 Multica Agent 使用
+# Warden Agent 客户端 - 封装 Warden API 调用，供外部 Agent 使用
 #
 # 用法:
 #   warden-agent.sh <action> [args...]

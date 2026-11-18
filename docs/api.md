@@ -14,7 +14,7 @@
 | Admin session | 管理 Web | `POST /auth/login` 设置 HttpOnly Cookie；浏览器请求携带 `credentials: include` |
 | OIDC session | 企业 IdP 登录的 Web 用户 | 授权码 + PKCE S256；回调校验 state/nonce 后复用同一份 `warden_session` Cookie |
 | Agent API Key | 外部 Agent | `Authorization: Bearer <agent-api-key>`，按 Key Scope 授权 |
-| Registration Key | Multica 资源注册机器人 | `Authorization: Bearer <warden_rgk_...>`；绑定指定 Warden API audience，仅开放注册白名单 |
+| Registration Key | 资源注册机器人 | `Authorization: Bearer <warden_rgk_...>`；绑定指定 Warden API audience，仅开放注册白名单 |
 | Connector signature | Connector Runtime | 每 Connector 独立任务 Key签名；覆盖时间戳、nonce、方法、路径和请求体 |
 
 当前支持共享控制面的多租户模式。业务对象按 tenant 隔离，tenant 默认从登录用户、API Key 或 Connector 凭据推导，请求体不能选择或切换 tenant。认证后具有 `warden:admin` 的特权身份可通过 `X-Warden-Tenant` 切换组织视野；服务端会校验目标为真实、活跃的业务租户，其他身份发送该头不会获得切换能力。平台管理员可以创建 tenant 和首个租户管理员；初始迁移数据属于 `platform` tenant。
@@ -300,8 +300,8 @@ AppSecret、AccessToken、免登码和会话 JWT 不写入数据库、审计或 
 {
   "name": "agent-production-01",
   "metadata": {
-    "multica_agent_id": "agent-production-01",
-    "workspace_id": "<workspace-id>"
+    "external_agent_id": "agent-production-01",
+    "external_workspace_id": "<workspace-id>"
   }
 }
 ```
@@ -313,9 +313,9 @@ AppSecret、AccessToken、免登码和会话 JWT 不写入数据库、审计或 
   "name": "Warden注册机器人",
   "kind": "workload",
   "metadata": {
-    "platform": "multica",
+    "platform": "example-ops",
     "purpose": "warden_resource_registration",
-    "multica_agent_id": "<agent-id>"
+    "external_agent_id": "<agent-id>"
   }
 }
 ```
@@ -324,7 +324,7 @@ AppSecret、AccessToken、免登码和会话 JWT 不写入数据库、审计或 
 
 ```json
 {
-  "name": "multica-agent",
+  "name": "warden-agent",
   "scopes": [
     "warden:resources:read",
     "warden:executions:create",

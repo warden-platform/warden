@@ -41,10 +41,10 @@ export function CreateAgentDrawer({ onClose, onCreated }: { onClose: () => void;
 
   const submit = (event: FormEvent) => {
     event.preventDefault()
-    const metadata: Record<string, unknown> = { platform: 'multica', verification: 'DECLARED' }
-    if (agentId.trim()) metadata.multica_agent_id = agentId.trim()
-    if (workspaceId.trim()) metadata.multica_workspace_id = workspaceId.trim()
-    if (ownerId.trim()) metadata.multica_owner_id = ownerId.trim()
+    const metadata: Record<string, unknown> = { platform: 'external', verification: 'DECLARED' }
+    if (agentId.trim()) metadata.external_agent_id = agentId.trim()
+    if (workspaceId.trim()) metadata.external_workspace_id = workspaceId.trim()
+    if (ownerId.trim()) metadata.external_owner_id = ownerId.trim()
     const payload: CreatePrincipalRequest = { name: name.trim(), metadata }
     setSaving(true)
     setError('')
@@ -65,7 +65,7 @@ export function CreateAgentDrawer({ onClose, onCreated }: { onClose: () => void;
               Agent Principal
             </span>
             <h2 id="create-agent-title">新增 Agent 身份</h2>
-            <p>一个 Multica Agent 对应一个 Warden Principal。</p>
+            <p>一个外部 Agent 对应一个 Warden Principal。</p>
           </div>
           <button className="icon-button" onClick={onClose} aria-label="关闭">
             <X size={20} />
@@ -77,8 +77,8 @@ export function CreateAgentDrawer({ onClose, onCreated }: { onClose: () => void;
             <div>
               <strong>平台上下文按声明信息记录</strong>
               <span>
-                Multica 当前不签发身份 Token，因此 Agent ID、Workspace和 Owner只作为 <code>DECLARED</code> 元数据；真正认证以 Warden API
-                Key为准。
+                外部平台不签发 Warden 认可的身份 Token，因此 Agent ID、Workspace 和 Owner 只作为 <code>DECLARED</code> 元数据；真正认证以 Warden API
+                Key 为准。
               </span>
             </div>
           </div>
@@ -223,7 +223,7 @@ export function CreateAgentKeyDrawer({
 }) {
   useDialogEscape(onClose)
   const inputRef = useRef<HTMLInputElement>(null)
-  const [name, setName] = useState('multica-agent')
+  const [name, setName] = useState('warden-agent')
   const [expiresOn, setExpiresOn] = useState('')
   const [scopes, setScopes] = useState<string[]>(scopeOptions.map((scope) => scope.value))
   const [saving, setSaving] = useState(false)
@@ -265,7 +265,7 @@ export function CreateAgentKeyDrawer({
           <div className="form-grid compact-grid">
             <label>
               <span>Key 名称 *</span>
-              <input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} placeholder="multica-agent" required />
+              <input ref={inputRef} value={name} onChange={(e) => setName(e.target.value)} placeholder="warden-agent" required />
             </label>
             <label>
               <span>有效期（可选）</span>

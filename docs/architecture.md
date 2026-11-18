@@ -33,7 +33,7 @@
 ```mermaid
 flowchart TB
     subgraph CLIENT["接入层"]
-        AGENT["External Agent / Multica"]
+        AGENT["External Agent"]
         WEB["Admin Web · React/Vite"]
     end
 

@@ -114,7 +114,7 @@ export function AgentsPage() {
       .finally(() => setBusyKey(''))
   }
   const rotate = (key: ApiPrincipalKey) => {
-    if (!selected || !window.confirm(`轮换 ${key.name} 后旧 Key会立即失效。请确认你可以及时更新 Multica Agent环境变量。`)) return
+    if (!selected || !window.confirm(`轮换 ${key.name} 后旧 Key会立即失效。请确认你可以及时更新外部 Agent 环境变量。`)) return
     setBusyKey(key.id)
     rotatePrincipalAPIKey(key.id)
       .then((result) => {
@@ -190,7 +190,7 @@ export function AgentsPage() {
         <EmptyState
           icon={Bot}
           title="尚未创建 Agent 身份"
-          text="为每个 Multica Agent创建独立 Principal和 API Key，才能实现逐 Agent追踪与撤销。"
+          text="为每个外部 Agent 创建独立 Principal 和 API Key，才能实现逐 Agent 追踪与撤销。"
         />
       ) : (
         <div className="agent-management-grid">
@@ -231,7 +231,7 @@ export function AgentsPage() {
                       <small>
                         {principal.kind === 'workload'
                           ? 'Warden 资源注册机器人'
-                          : String(principal.metadata?.multica_agent_id ?? principal.id)}
+                          : String(principal.metadata?.external_agent_id ?? principal.metadata?.multica_agent_id ?? principal.id)}
                       </small>
                     </span>
                     <span className="agent-list-state">
@@ -279,7 +279,7 @@ export function AgentsPage() {
               <div className="agent-metadata">
                 <div>
                   <span>平台</span>
-                  <strong>{String(selected.metadata?.platform ?? 'multica')}</strong>
+                  <strong>{String(selected.metadata?.platform ?? '-')}</strong>
                 </div>
                 <div>
                   <span>身份验证</span>
@@ -287,7 +287,7 @@ export function AgentsPage() {
                 </div>
                 <div>
                   <span>Workspace</span>
-                  <code>{String(selected.metadata?.multica_workspace_id ?? '-')}</code>
+                  <code>{String(selected.metadata?.external_workspace_id ?? selected.metadata?.multica_workspace_id ?? selected.metadata?.workspace_id ?? '-')}</code>
                 </div>
                 <div>
                   <span>创建时间</span>

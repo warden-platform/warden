@@ -374,7 +374,7 @@ func (h *Handler) createCredential(ctx context.Context, principalID string, req 
 			return nil, "", credentialInput("principal kind cannot own agent key")
 		}
 		if req.Name == "" {
-			req.Name = "multica-agent"
+			req.Name = "warden-agent"
 		}
 		if len(req.Scopes) == 0 {
 			req.Scopes = append([]string(nil), defaultAgentScopes...)

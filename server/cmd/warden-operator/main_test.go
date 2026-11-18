@@ -15,7 +15,7 @@ import (
 func TestReconcileCreatesConnectorAndScopedRBAC(t *testing.T) {
 	client := fake.NewSimpleClientset(
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "warden-system"}},
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "multica-bot"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "warden-bot"}},
 	)
 	op := &operator{
 		client: client, controlURL: "https://warden.example.test", namespace: "warden-system",
@@ -27,7 +27,7 @@ func TestReconcileCreatesConnectorAndScopedRBAC(t *testing.T) {
 		TaskSigningKey: base64.RawStdEncoding.EncodeToString(key),
 		Config: map[string]any{
 			"connectorName": "test-cluster", "environment": "testing",
-			"allowedNamespaces":       []any{"multica-bot"},
+			"allowedNamespaces":       []any{"warden-bot"},
 			"allowedImagePrefixes":    []any{"registry.example.test/team/"},
 			"tokenAudience":           "https://kubernetes.default.svc.cluster.local",
 			"executionServiceAccount": "warden-executor",
@@ -78,10 +78,10 @@ func TestReconcileCreatesConnectorAndScopedRBAC(t *testing.T) {
 	if err != nil || len(secretBinding.Subjects) != 1 || secretBinding.Subjects[0].Name != "warden-connector-12345678" {
 		t.Fatalf("connector-specific Secret binding missing: %#v %v", secretBinding, err)
 	}
-	if _, err := client.RbacV1().Roles("multica-bot").Get(context.Background(), "warden-token-issuer", metav1.GetOptions{}); err == nil {
+	if _, err := client.RbacV1().Roles("warden-bot").Get(context.Background(), "warden-token-issuer", metav1.GetOptions{}); err == nil {
 		t.Fatal("reconcile must not create a dynamic warden-token-issuer Role")
 	}
-	tokenBinding, err := client.RbacV1().RoleBindings("multica-bot").Get(context.Background(), "warden-token-issuer-12345678", metav1.GetOptions{})
+	tokenBinding, err := client.RbacV1().RoleBindings("warden-bot").Get(context.Background(), "warden-token-issuer-12345678", metav1.GetOptions{})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -89,10 +89,10 @@ func TestReconcileCreatesConnectorAndScopedRBAC(t *testing.T) {
 		t.Fatalf("unexpected token issuer role ref: %#v", tokenBinding.RoleRef)
 	}
 	for _, roleName := range []string{"warden-executor", "warden-resource-discoverer"} {
-		if _, err := client.RbacV1().Roles("multica-bot").Get(context.Background(), roleName, metav1.GetOptions{}); err == nil {
+		if _, err := client.RbacV1().Roles("warden-bot").Get(context.Background(), roleName, metav1.GetOptions{}); err == nil {
 			t.Fatalf("reconcile must not create a dynamic %s Role", roleName)
 		}
-		binding, err := client.RbacV1().RoleBindings("multica-bot").Get(context.Background(), roleName+"-12345678", metav1.GetOptions{})
+		binding, err := client.RbacV1().RoleBindings("warden-bot").Get(context.Background(), roleName+"-12345678", metav1.GetOptions{})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -105,12 +105,12 @@ func TestReconcileCreatesConnectorAndScopedRBAC(t *testing.T) {
 func TestCleanupRemovesConnectorOwnedResources(t *testing.T) {
 	client := fake.NewSimpleClientset(
 		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "warden-system"}},
-		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "multica-bot"}},
+		&corev1.Namespace{ObjectMeta: metav1.ObjectMeta{Name: "warden-bot"}},
 	)
 	op := &operator{client: client, namespace: "warden-system"}
 	pairing := pairingStatus{
 		ConnectorID: "12345678-1234-1234-1234-123456789abc",
-		Config:      map[string]any{"allowedNamespaces": []any{"multica-bot"}},
+		Config:      map[string]any{"allowedNamespaces": []any{"warden-bot"}},
 	}
 	key := []byte("0123456789abcdef0123456789abcdef")
 	pairing.TaskSigningKey = base64.RawStdEncoding.EncodeToString(key)
@@ -128,15 +128,15 @@ func TestCleanupRemovesConnectorOwnedResources(t *testing.T) {
 	if _, err := client.RbacV1().Roles("warden-system").Get(context.Background(), "warden-secret-reader-12345678", metav1.GetOptions{}); err == nil {
 		t.Fatal("connector Secret Role still exists")
 	}
-	if _, err := client.RbacV1().RoleBindings("multica-bot").Get(context.Background(), "warden-token-issuer-12345678", metav1.GetOptions{}); err == nil {
+	if _, err := client.RbacV1().RoleBindings("warden-bot").Get(context.Background(), "warden-token-issuer-12345678", metav1.GetOptions{}); err == nil {
 		t.Fatal("connector role binding still exists")
 	}
 	for _, name := range []string{"warden-executor-12345678", "warden-resource-discoverer-12345678"} {
-		if _, err := client.RbacV1().RoleBindings("multica-bot").Get(context.Background(), name, metav1.GetOptions{}); err == nil {
+		if _, err := client.RbacV1().RoleBindings("warden-bot").Get(context.Background(), name, metav1.GetOptions{}); err == nil {
 			t.Fatalf("connector role binding %s still exists", name)
 		}
 	}
-	for _, name := range []string{"warden-cluster-reader-discoverer-12345678", "warden-cluster-reader-executor-multica-bot-12345678"} {
+	for _, name := range []string{"warden-cluster-reader-discoverer-12345678", "warden-cluster-reader-executor-warden-bot-12345678"} {
 		if _, err := client.RbacV1().ClusterRoleBindings().Get(context.Background(), name, metav1.GetOptions{}); err == nil {
 			t.Fatalf("connector ClusterRoleBinding %s still exists", name)
 		}
