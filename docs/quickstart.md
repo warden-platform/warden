@@ -198,4 +198,10 @@ python3 scripts/demo/seed_demo_data.py --confirm-demo-environment --reset  # 清
 
 演示登录：租户 `acme`，用户 `demo` / `zhangsan` / `lisi`，密码均为 `12345678`（刻意公开的弱密码，与内置管理员无关）。
 
-> **护栏**：脚本必须显式带 `--confirm-demo-environment` 才会写库——弱密码演示账号绝不能进生产库。`--dry-run` 只生成 SQL 到 `/tmp/warden-demo-seed.sql`，不需要确认。
+演示通道是虚构的，心跳会在 90 秒后过期、动作随之不可用。另开一个终端跑心跳保活，控制台才会持续显示「在线」并允许发起执行：
+
+```bash
+bash scripts/demo/keepalive.sh   # 每 30s 刷新 acme 演示通道心跳；h3c-core-sw 刻意保持离线
+```
+
+> **护栏**：脚本必须显式带 `--confirm-demo-environment` 才会写库——弱密码演示账号绝不能进生产库。`--dry-run` 只生成 SQL 到 `/tmp/warden-demo-seed.sql`，不需要确认。`--reset` 会清空整个 acme 演示租户后重灌（按外键依赖顺序删除）。

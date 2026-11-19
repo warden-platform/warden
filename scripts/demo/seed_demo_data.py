@@ -90,21 +90,54 @@ def insert(table, cols, rows, conflict='DO NOTHING'):
 # ---------------------------------------------------------------- tenant
 
 if '--reset' in sys.argv:
+    # Delete in foreign-key dependency order (children first). Tables without
+    # a tenant_id column are scoped through their parent rows.
+    w(f"DELETE FROM ai_tool_calls WHERE run_id IN (SELECT id FROM ai_runs WHERE conversation_id IN (SELECT id FROM ai_conversations WHERE tenant_id={sql_str(TENANT)}));")
+    w(f"DELETE FROM ai_messages WHERE conversation_id IN (SELECT id FROM ai_conversations WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM ai_runs WHERE conversation_id IN (SELECT id FROM ai_conversations WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM ai_conversations WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM execution_resource_bindings WHERE execution_id IN (SELECT id FROM executions WHERE tenant_id={sql_str(TENANT)});")
     w(f"DELETE FROM audit_events WHERE tenant_id={sql_str(TENANT)};")
-    w(f"DELETE FROM access_requests WHERE tenant_id={sql_str(TENANT)};")
+    # Circular FKs (requests.execution_id -> executions.grant_id -> grants.request_id):
+    # detach requests from executions first, then delete children before parents.
+    w(f"UPDATE access_requests SET execution_id=NULL WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM database_previews WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM executions WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM access_grants WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM access_requests WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM policy_decisions WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM resource_actions WHERE resource_id IN (SELECT id FROM resources WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM resource_project_consumers WHERE resource_id IN (SELECT id FROM resources WHERE tenant_id={sql_str(TENANT)});")
     w(f"DELETE FROM resource_project_bindings WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM resource_project_overrides WHERE resource_id IN (SELECT id FROM resources WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM resource_environment_overrides WHERE resource_id IN (SELECT id FROM resources WHERE tenant_id={sql_str(TENANT)});")
     w(f"DELETE FROM resources WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM database_column_classifications WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM database_query_template_publish_requests WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM database_query_templates WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM integration_project_bindings WHERE integration_id IN (SELECT id FROM integrations WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM integration_project_rules WHERE integration_id IN (SELECT id FROM integrations WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM project_namespace_rules WHERE connector_id IN (SELECT id FROM connectors WHERE tenant_id={sql_str(TENANT)});")
     w(f"DELETE FROM integrations WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM connectors WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM policy_matrix_rules WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM project_memberships WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM external_project_bindings WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM external_identity_bindings WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM delegation_tokens WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM projects WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM principal_api_keys WHERE principal_id IN (SELECT id FROM principals WHERE tenant_id={sql_str(TENANT)});")
     w(f"DELETE FROM admin_sessions WHERE principal_id IN (SELECT id FROM principals WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM principal_bindings WHERE principal_id IN (SELECT id FROM principals WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM dingtalk_principal_bindings WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM federated_identities WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM external_tenant_bindings WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM principal_invitations WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM credentials WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM provider_capabilities WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM policy_versions WHERE policy_id IN (SELECT id FROM policies WHERE tenant_id={sql_str(TENANT)});")
+    w(f"DELETE FROM policies WHERE tenant_id={sql_str(TENANT)};")
+    w(f"DELETE FROM outbox_events WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM principals WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM tenant_quotas WHERE tenant_id={sql_str(TENANT)};")
     w(f"DELETE FROM tenants WHERE id={sql_str(TID)};")
@@ -174,14 +207,58 @@ for agent, proj in (('ops-copilot', 'infra'), ('sre-agent-01', 'payments'), ('db
 insert('project_memberships', ['tenant_id', 'project_id', 'principal_id', 'role', 'status', 'created_by', 'created_at', 'updated_at'], mem_rows)
 
 # ---------------------------------------------------------------- connectors
+# Capability lists mirror the real connectors (server/internal/connector/*.go
+# and server/cmd/warden-linux-connector/main.go). Keep them in sync: action
+# availability is gated by versioned capability names, legacy "discover"/
+# "execute" strings make every action CONNECTOR_UPGRADE_REQUIRED.
+CHANGE_SAFETY = 'warden.change-safety@v1'
+K8S_CAPS = [
+    'kubernetes.resource.get@v1', 'kubernetes.resource.list@v1', 'kubernetes.resource.preview@v1',
+    'kubernetes.resource.create@v1', 'kubernetes.resource.update@v1', 'kubernetes.resource.delete@v1',
+    'deployment.get@v1', 'deployment.update_image@v2', 'deployment.restart@v1', 'deployment.scale@v1',
+    'deployment.rollout_status@v1', 'pod.logs.read@v1', 'pod.get@v1', 'pod.events@v1', 'pod.metrics@v1',
+    'event.list@v1', 'statefulset.get@v1', 'statefulset.restart@v1', 'statefulset.scale@v1',
+    'statefulset.update_image@v1', 'daemonset.get@v1', 'replicaset.get@v1', 'job.get@v1',
+    'cronjob.get@v1', 'cronjob.suspend@v1', 'cronjob.resume@v1', 'cronjob.trigger@v1',
+    'service.get@v1', 'endpoints.get@v1', 'ingress.get@v1', 'configmap.get@v1',
+    'node.get@v1', 'node.metrics@v1', 'namespace.list@v1',
+    'namespace.dashboard_configmap.apply@v1', 'configmap.dashboard.delete@v1', CHANGE_SAFETY,
+]
+LINUX_CAPS = [
+    CHANGE_SAFETY, 'linux.host.info@v1', 'linux.process.list@v1', 'linux.disk.usage@v1',
+    'systemd.service.status@v1', 'systemd.service.logs@v1', 'systemd.service.start@v1',
+    'systemd.service.stop@v1', 'systemd.service.restart@v1',
+    'docker.container.list@v1', 'docker.container.inspect@v1', 'docker.container.logs@v1',
+    'docker.container.start@v1', 'docker.container.stop@v1', 'docker.container.restart@v1',
+]
+JENKINS_CAPS = [
+    'jenkins.controller.get@v1', 'jenkins.job.get@v1', 'jenkins.job.configure@v1', 'jenkins.job.enable@v1',
+    'jenkins.job.disable@v1', 'jenkins.job.build@v1', 'jenkins.build.get@v1', 'jenkins.build.logs@v1',
+    'jenkins.build.stop@v1', 'jenkins.build.retry@v1', 'jenkins.queue.get@v1', 'jenkins.queue.cancel@v1',
+    'jenkins.node.get@v1', 'jenkins.node.set_offline@v1', 'jenkins.credential_reference.get@v1',
+    'jenkins.job.config.get@v1', 'jenkins.job.create@v1', 'jenkins.job.update@v1', 'jenkins.job.delete@v1',
+    CHANGE_SAFETY,
+]
+DATABASE_CAPS = [
+    'database.instance.get@v1', 'database.schema.list@v1', 'database.schema.get@v1',
+    'database.table.list@v1', 'database.table.describe@v1', 'database.table.rows.query@v1',
+    'database.query.preview@v1', 'database.query.execute@v1', 'database.query_template.execute@v1',
+    'database.schema.create.preview@v1', 'database.schema.create@v1',
+    'database.table.create.preview@v1', 'database.table.create@v1', CHANGE_SAFETY,
+]
+H3C_CAPS = [
+    CHANGE_SAFETY, 'network.device.get@v1', 'network.device.audit@v1', 'network.device.health@v1',
+    'network.interface.list@v1', 'network.vlan.list@v1', 'network.topology.lldp@v1',
+    'network.link_aggregation.status@v1',
+]
 conn_rows = []
 conn_spec = [
-    ('k8s-prod-01', 'kubernetes', 'production', 'v1.4.2', 0.05, 'payments', ['discover', 'execute'], {'cluster': 'prod-cluster-01', 'api_server': 'https://k8s-prod.acme.internal:6443'}),
-    ('k8s-staging-01', 'kubernetes', 'testing', 'v1.4.2', 0.12, 'payments', ['discover', 'execute'], {'cluster': 'staging-cluster-01', 'api_server': 'https://k8s-stg.acme.internal:6443'}),
-    ('linux-bastion-02', 'linux', 'production', 'v1.3.0', 0.08, 'infra', ['discover', 'execute'], {'host': 'bastion-02.acme.internal', 'os': 'Ubuntu 24.04'}),
-    ('jenkins-ci', 'jenkins', 'production', 'v1.2.1', 0.18, 'payments', ['discover', 'execute'], {'url': 'http://jenkins.acme.internal:8080'}),
-    ('db-proxy-01', 'database', 'production', 'v1.1.4', 0.15, 'data-platform', ['discover', 'execute'], {'engine': 'mysql', 'host': 'mysql-prod.acme.internal:3306'}),
-    ('h3c-core-sw', 'network', 'production', 'v0.9.2', 10, 'infra', ['discover'], {'host': 'core-sw-01.acme.internal', 'vendor': 'h3c'}),
+    ('k8s-prod-01', 'kubernetes', 'production', 'v1.4.2', 0.05, 'payments', K8S_CAPS, {'cluster': 'prod-cluster-01', 'api_server': 'https://k8s-prod.acme.internal:6443'}),
+    ('k8s-staging-01', 'kubernetes', 'testing', 'v1.4.2', 0.12, 'payments', K8S_CAPS, {'cluster': 'staging-cluster-01', 'api_server': 'https://k8s-stg.acme.internal:6443'}),
+    ('linux-bastion-02', 'linux', 'production', 'v1.3.0', 0.08, 'infra', LINUX_CAPS, {'host': 'bastion-02.acme.internal', 'os': 'Ubuntu 24.04'}),
+    ('jenkins-ci', 'jenkins', 'production', 'v1.2.1', 0.18, 'payments', JENKINS_CAPS, {'url': 'http://jenkins.acme.internal:8080'}),
+    ('db-proxy-01', 'database', 'production', 'v1.1.4', 0.15, 'data-platform', DATABASE_CAPS, {'engine': 'mysql', 'host': 'mysql-prod.acme.internal:3306'}),
+    ('h3c-core-sw', 'network', 'production', 'v0.9.2', 10, 'infra', H3C_CAPS, {'host': 'core-sw-01.acme.internal', 'vendor': 'h3c'}),
 ]
 for name, ctype, env, ver, hb_min, proj, caps, cfg in conn_spec:
     conn_rows.append([sql_str(CONNECTORS[name]), sql_str(name), sql_str(ctype), "'ACTIVE'", sql_str(env), sql_str(cfg.get('host', cfg.get('cluster', cfg.get('url', '')))),
