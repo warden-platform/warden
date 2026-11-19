@@ -41,6 +41,18 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 - 前端没有独立的 `typecheck` script；需要纯类型检查时用 `npx tsc --noEmit`，完整构建用 `npm run build`。纯逻辑单测用 `npm run test`（vitest，覆盖状态映射/路由匹配/拓扑构建等无 DOM 依赖的函数），已挂进 `make verify` 与 CI。
 - 改了数据库迁移必须验证：`deploy/release/migrations.txt` 包含全部编号 ≥ 035 的迁移，且清单内迁移可重复重放（`internal/control/migration_files_test.go` 会强制校验）。
 
+## 发布与镜像同步
+
+双仓关系：**gitee `warden-platform/warden`（master）是主仓库**，保留完整开发历史；**GitHub `warden-platform/warden`（main）是公开快照镜像**，每个同步点一个干净 commit，不携带主仓历史。CI 在 GitHub 镜像上运行。
+
+发版流程（在主仓库操作）：
+
+1. `CHANGELOG.md` 增加版本化条目（破坏性变更、已知限制、部署注意写全），同步 README 发布状态与 Helm `Chart.yaml` 的 version/appVersion。
+2. `make verify` 全绿后按主题提交、push master，打 annotated tag（如 `v0.4.1`）并 push。
+3. `make sync-github TAG=v0.4.1` 一键同步：导出 tag 树追加快照 commit、推 tag、从 CHANGELOG 对应小节提取正文创建 GitHub Release。日常不同步 tag 时直接 `make sync-github`。
+
+注意：Gitee 侧删除 tag 会**级联删除**对应 Release，移动 tag 后须用 API 重建；脚本幂等（树一致跳过 commit，tag/Release 已存在跳过），GitHub 侧操作走系统代理（`GITHUB_PROXY` 可覆盖）。
+
 ## 代码约定
 
 - 依赖方向：`domain` 是叶子包；`policy` / `connector` / `storage/postgres` 依赖 `domain`；`control` 聚合上述包；`cmd` 只做装配。不要反向依赖。

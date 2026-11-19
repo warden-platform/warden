@@ -229,7 +229,7 @@ stateDiagram-v2
 
 ### 存储与迁移
 
-- `server/migrations/` 是按编号排序的 SQL（001–106，其中 068–071 无文件），编号唯一性有单测保障。
+- `server/migrations/` 是按编号排序的 SQL（001–108，其中 068–071 无文件），编号唯一性有单测保障。
 - **启动不跑迁移**：全新库按文件名顺序手工执行；发布流水线按 `deploy/release/migrations.txt` 重放编号 ≥ 035 的幂等迁移。新增此类迁移必须登记清单，否则单测失败。
 - `002_seed.sql` 写入固定权限锚点；运行时 `EnsureAdminPassword` 将登录名与 `WARDEN_ADMIN_USERNAME`、密码哈希与 `WARDEN_ADMIN_PASSWORD_FILE` 同步。
 - `audit_events.action` 是 PostgreSQL 枚举，新增动作名必须补 `ALTER TYPE audit_action ADD VALUE` 迁移。
@@ -285,7 +285,7 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 | 领域 | 能力 |
 |---|---|
 | 控制面 | Resource / Action 查询、Execution 创建与查询、幂等键、内嵌 Rego、远程 OPA、不可变 PolicyDecision、AccessRequest 审批、一次性 AccessGrant、原子任务领取、HMAC TaskEnvelope |
-| Connector Runtime | 注册 / 心跳 / 轮询、信封验签、多 Runner 路由、Namespace / Registry / Job Scope Guard、TokenRequest、非幂等 `UNKNOWN` 处理、60s 资源同步 |
+| Connector Runtime | 注册 / 心跳 / 轮询、信封验签、多 Runner 路由、Namespace / Registry / Job Scope Guard、TokenRequest、非幂等 `UNKNOWN` 处理、5min 资源同步（带抖动） |
 | Linux / Helper | 主机、systemd、运行中 Docker 容器发现；结构化只读与生命周期动作；非 root Connector + root Helper 分权；配对、热更新、原子升级、安全卸载 |
 | H3C 网络设备 | 设备 / 接口 / VLAN 发现；健康、LLDP、链路聚合、STP、端口、MAC/ARP 查询；按角色的固定只读审计 Profile 与敏感行净化 |
 | 集群接入 | Web 表单 onboarding（兼容）、Operator + Helm Chart 配对向导、短期配对码、k3s Audience 自动识别、独立任务 Key、自动 Secret/SA/RBAC/Deployment 调谐 |
@@ -323,7 +323,6 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 
 | 债 | 影响 | 现状 |
 |---|---|---|
-| 钉钉审批链路缺少租户上下文 | 多租户下审批可能 404、审计 `tenant_id` 为空 | 单租户下不触发 |
 | 联邦断言登录签发的短 JWT 未写 `admin_sessions` | 该 token 暂不能调用 `/api/v1/` | 已在文档登记，见 [联邦授权](authorization.md#federation) |
 | 项目权限存在 `projectAccess` / `principalProjectAccess` / `project_scope` 三套并行判定 | 同一账号在不同页面可能被当成不同级别；成员强制开关默认关闭 | 第二阶段合并 |
 | `admin_sessions` 无 `tenant_id` 列 | 会话维度不是租户感知的 | 已知，未改 |
@@ -343,7 +342,7 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 | Jenkins | 构建执行 | 已实现结构化 Integration，待真实环境生产验收 |
 | 通用 MCP Plugin / Remote MCP | 目标架构中的插件化接入 | 尚未实现（属目标架构文档） |
 
-> 历史架构文档（如 `warden-target-plugin-identity-risk-orchestration-architecture.md`）描述的是**目标架构**，不代表当前实现；阅读时务必看文档里的基线日期与状态标注。
+> 历史架构文档（目标架构草案，未随仓库发布）描述的是**目标架构**，不代表当前实现；阅读时务必看文档里的基线日期与状态标注。
 
 ### 推荐扩展路线
 

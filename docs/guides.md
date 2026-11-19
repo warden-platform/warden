@@ -41,7 +41,7 @@ make init-prod-secrets
 # 可覆盖：WARDEN_SECRETS_DIR / WARDEN_DB_HOST / WARDEN_DB_PORT / WARDEN_DB_NAME / WARDEN_DB_USER
 ```
 
-脚本生成 7 个文件：4 个内部密钥（hex 32，两两不同）、`postgres_password` 与 `admin_password`（hex 24）、用生成密码拼好的 `warden_database_url`；全部 `600` 权限，任一文件已存在即整体拒绝、绝不覆盖，**不打印任何 Secret 值**。`admin_password` 请自行存入密码管理器。接入自有密钥管理系统（Vault/KMS）的部署可跳过脚本，按同名文件自行准备——原理即 `openssl rand -hex 32`（内部密钥）与 `openssl rand -hex 24`（口令），在受保护系统中生成，不要写进仓库或命令历史。
+脚本生成 7 个文件：4 个内部密钥（hex 32，两两不同）、`postgres_password` 与 `warden_admin_password`（hex 24）、用生成密码拼好的 `warden_database_url`；全部 `600` 权限，任一文件已存在即整体拒绝、绝不覆盖，**不打印任何 Secret 值**。`warden_admin_password` 请自行存入密码管理器。接入自有密钥管理系统（Vault/KMS）的部署可跳过脚本，按同名文件自行准备——原理即 `openssl rand -hex 32`（内部密钥）与 `openssl rand -hex 24`（口令），在受保护系统中生成，不要写进仓库或命令历史。
 
 红线：
 

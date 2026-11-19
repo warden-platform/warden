@@ -15,7 +15,7 @@
 - **身份与组织闭环**：SSO 邮箱域名路由、`unaffiliated` 待分配状态、管理员分配、邀请与接受、账号移出/恢复及组织视野切换。
 - **AI 只读助手**：`POST /api/v1/ai/chat` 使用 OpenAI 兼容模型和 SSE 流式回答；资源、执行、审计三个只读工具继承当前身份的权限与数据范围，不创建业务 Execution 或变更资源。
 - **统一权限模型**：角色 / Scope / `capabilities` 集中在 `server/internal/control/authorization.go`；`/auth/me` 下发能力清单，后端守卫与前端菜单读同一份名单；平台级接口增加 `RequirePlatformTenant`。
-- **文档体系**：按教程 / 操作指南 / 参考 / 解释四类重构，根 `README.md` 改为门户，新增 [docs/README.md](docs/README.md) 文档地图及 12 篇专题文档。
+- **文档体系**：按教程 / 操作指南 / 参考 / 解释四类重构，根 `README.md` 改为门户，新增 [docs/README.md](docs/README.md) 文档地图及 8 篇专题文档。
 - **工程化护栏**：最小 CI（`.github/workflows/ci.yml`，含 PostgreSQL service 常跑 DB 门控集成测试）；前端 vitest 纯逻辑单测进 `make verify` 与 CI；`make migrate` / `make migrate-release` 收敛手工 psql 循环；生产编排脱敏示例 `deploy/docker-compose.prod.example.yaml` + `deploy/nginx.prod.example.conf`。
 - **演示数据工具**：`scripts/demo/seed_demo_data.py` 加 `--confirm-demo-environment` 生产护栏，`--reset` 按外键依赖完整清灌；演示通道能力名对齐真实连接器注册清单（可用动作 0 → 47）；`keepalive.sh` 心跳保活（生产建议托管为 systemd 服务）。
 
