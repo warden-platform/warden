@@ -5,7 +5,7 @@
 
 ## [0.4.0] - 2026-11-19
 
-改名（PAM → Warden）后的首个正式版本：多租户身份与授权闭环、钉钉租户级群隔离、
+首个正式版本：多租户身份与授权闭环、钉钉租户级群隔离、
 工程化护栏（CI / 测试 / 迁移工具）与一轮全面的质量加固。
 
 ### 新增
@@ -34,7 +34,7 @@
 
 ### 变更
 
-- **破坏性：内部标识符 pam → warden 全量切换（迁移 `106_pam_to_warden_identifiers.sql`）**。权限 scope 前缀 `pam:` → `warden:`、API Key 前缀 `pam_agk_/pam_rgk_/pam_dtk_` → `warden_*`、Connector capability `pam.change-safety` → `warden.change-safety`、资源标签 `pam-*` → `warden-*`、Cookie 与 Rego 包名同步切换。旧格式明文 Key 解析层不再接受，存量旧 Key 统一吊销需重新签发；全部会话撤销，所有用户需重新登录。全新安装经 002–105 已直接产出 warden 标识符，106 为空操作。
+- **破坏性：内部标识符统一为 warden 体系（迁移 106）**。权限 scope、API Key 前缀、Connector capability、资源标签、Cookie 与 Rego 包名统一为 warden 命名。旧格式明文 Key 解析层不再接受，存量旧 Key 统一吊销需重新签发；全部会话撤销，所有用户需重新登录。全新安装经 002–105 已直接产出 warden 标识符，106 为空操作。
 - 生产 `WARDEN_OIDC_DEFAULT_ROLE` 保持 `user`；配置 `platform_admin` 会让服务启动失败。普通账号管理入口只开放 `user` / `tenant_admin` 指派；非内置 `platform_admin` 的 JWT 兼容识别尚需后续收敛。
 - 未唯一匹配邮箱域名的新 SSO 身份默认进入 `unaffiliated`，不再自动落入 `platform`；只有显式配置 `WARDEN_OIDC_DEFAULT_TENANT_ID` 才启用默认租户兜底。
 - 普通配置、外部凭据与内部密钥分三层管理：`config.yaml` + `.env` + `var/warden/secrets.json`，内部密钥由显式初始化命令生成。
@@ -51,7 +51,7 @@
 
 ### 部署注意
 
-- 发布迁移清单当前覆盖至 `108_foreign_key_indexes.sql`。从旧版升级必须按 `deploy/release/migrations.txt` 执行发布迁移（或 `make migrate-release`），包括账号角色审计、单超管数据迁移、待分配身份、邀请、AI 会话表、pam → warden 标识符切换、钉钉租户群绑定列与外键补索引；不要绕过发布流程直接在已有数据库上重放全部历史迁移（001–034 不幂等，仅限全新空库 `make migrate`）。执行 106 前务必备份：旧 Key 吊销与会话撤销不可逆，Agent 需换发新 Key。启用钉钉审批的部署升级后需为各业务租户绑定审批群（platform 租户沿用部署级群配置）。
+- 发布迁移清单当前覆盖至 `108_foreign_key_indexes.sql`。从旧版升级必须按 `deploy/release/migrations.txt` 执行发布迁移（或 `make migrate-release`），包括账号角色审计、单超管数据迁移、待分配身份、邀请、AI 会话表、内部标识符统一（106）、钉钉租户群绑定列与外键补索引；不要绕过发布流程直接在已有数据库上重放全部历史迁移（001–034 不幂等，仅限全新空库 `make migrate`）。执行 106 前务必备份：旧 Key 吊销与会话撤销不可逆，Agent 需换发新 Key。启用钉钉审批的部署升级后需为各业务租户绑定审批群（platform 租户沿用部署级群配置）。
 - 角色变更后目标账号被强制重新登录；JWT 里的 scopes 是登录时冻结的，刷新页面不会生效。
 - 升级前先做数据库备份，并保留上一版镜像 ID、前端 `dist` 与 IdP 侧密钥。流程见 [日常运维](docs/guides.md#operations)。
 - Helm Chart 默认镜像为占位值（`ghcr.io/your-org/...`），部署前必须 `--set` 为自建镜像或按 [接入指南](docs/guides.md#onboarding) 构建；`controlPlaneURL` 与镜像仓库均有必填校验。

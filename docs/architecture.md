@@ -363,4 +363,4 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 
 ### 发布状态
 
-Warden 改名后尚未单独发布正式版本，仓库仍保留改名前的历史 tag；`CHANGELOG.md` 记录当前阶段性变更。生产部署以具体镜像 tag 与迁移清单为准，不要假设某个版本号对应哪次提交。生产编排文件不在本仓库内，见 [生产部署](guides.md#installation)。
+当前正式版本为 v0.4.0，阶段性变更见 `CHANGELOG.md`。生产部署以具体镜像 tag 与迁移清单为准，不要假设某个版本号对应哪次提交。生产编排脱敏示例见 `deploy/docker-compose.prod.example.yaml` 与 [生产部署](guides.md#installation)。
