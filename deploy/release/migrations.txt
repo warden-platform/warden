@@ -65,6 +65,6 @@
 103_account_removed_audit.sql
 104_account_reenabled_audit.sql
 105_ai_assistant.sql
-106_pam_to_warden_identifiers.sql
+106_warden_identifiers.sql
 107_dingtalk_tenant_group.sql
 108_foreign_key_indexes.sql
