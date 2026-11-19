@@ -1,0 +1,79 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: warden-connector
+  namespace: warden-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: warden-connector
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: warden-connector
+    spec:
+      serviceAccountName: warden-connector-bootstrap
+      automountServiceAccountToken: false
+      containers:
+        - name: connector
+          image: registry.example.com/warden/warden-connector:0.1.0
+          imagePullPolicy: Always
+          env:
+            - name: WARDEN_KUBERNETES_ENABLED
+              value: "true"
+            - name: WARDEN_CONTROL_URL
+              value: "http://warden-control.warden-system.svc:8080"
+            - name: WARDEN_CONNECTOR_NAME
+              value: "kubernetes-warden-demo"
+            - name: WARDEN_CONNECTOR_ENVIRONMENT
+              value: "testing"
+            - name: WARDEN_ALLOWED_NAMESPACES
+              value: "warden-demo"
+            - name: WARDEN_ALLOWED_IMAGE_PREFIXES
+              value: "registry.example.com/demo/"
+            - name: WARDEN_EXECUTION_SERVICE_ACCOUNT
+              value: "warden-executor"
+            - name: WARDEN_KUBERNETES_TOKEN_AUDIENCE
+              value: "https://kubernetes.default.svc"
+            - name: WARDEN_TASK_SIGNING_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: warden-task-signing
+                  key: key
+          volumeMounts:
+            - name: bootstrap-token
+              mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+              readOnly: true
+          resources:
+            requests:
+              cpu: 50m
+              memory: 96Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+      volumes:
+        - name: bootstrap-token
+          projected:
+            defaultMode: 0400
+            sources:
+              - serviceAccountToken:
+                  path: token
+                  audience: "https://kubernetes.default.svc"
+                  expirationSeconds: 600
+              - configMap:
+                  name: kube-root-ca.crt
+                  items:
+                    - key: ca.crt
+                      path: ca.crt
+              - downwardAPI:
+                  items:
+                    - path: namespace
+                      fieldRef:
+                        fieldPath: metadata.namespace

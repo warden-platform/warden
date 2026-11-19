@@ -1,0 +1,4 @@
+interface:
+  display_name: "Warden Platform Access"
+  short_description: "Discover and operate infrastructure safely through Warden"
+  default_prompt: "Use $warden-platform-access to discover the target resource and perform the requested Warden-governed action."

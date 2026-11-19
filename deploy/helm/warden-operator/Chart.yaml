@@ -1,0 +1,6 @@
+apiVersion: v2
+name: warden-operator
+description: Pair and manage a Kubernetes cluster with Warden
+type: application
+version: 0.7.0
+appVersion: "0.4.0"

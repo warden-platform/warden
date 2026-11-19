@@ -1,0 +1,42 @@
+**/node_modules/
+**/dist/
+**/*.tsbuildinfo
+web/vite.config.js
+web/vite.config.d.ts
+server/bin/
+server/warden-control
+.cache/
+.env
+/var/warden/
+# 生产 Secret 与真实编排文件不入库（脱敏示例 *.example.* 除外）
+.secrets/
+deploy/docker-compose.prod.yaml
+# Local workbench data (session memory, work logs). Never commit.
+.workbuddy/
+.DS_Store
+# Documentation is private by default. Only reviewed, reusable documents are
+# explicitly allowlisted for version control; local reports and environment
+# walkthroughs may contain internal addresses, usernames, or machine paths.
+docs/*
+!docs/README.md
+!docs/api.md
+!docs/authorization.md
+# Diátaxis 文档体系：教程 / 操作指南 / 参考 / 解释
+!docs/quickstart.md
+!docs/concepts.md
+!docs/architecture.md
+!docs/guides.md
+!docs/reference.md
+!docs/troubleshooting.md
+# 演示站界面截图（对外展示，已脱敏）
+!docs/screenshots/
+!docs/screenshots/*.png
+.idea/
+# Editor-local scratch documents (TrAE). Keep the files on disk, never commit.
+.trae/
+/Jenkinsfile
+
+# local working artifacts
+.qoder-input-images/
+.screenshots/
+design-proposals/

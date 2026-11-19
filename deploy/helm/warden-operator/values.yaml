@@ -1,0 +1,16 @@
+controlPlaneURL: ""
+# 占位值：部署前必须 --set 为自建镜像（构建流程见 docs/guides.md#onboarding），
+# 模板对 your-org 占位与空值做必填校验，直接 install 会 fail。
+connectorImage: ghcr.io/your-org/warden-connector:v0.4.0
+imagePullSecret: ""
+image:
+  repository: ghcr.io/your-org/warden-operator
+  tag: "v0.4.0"
+  pullPolicy: Always
+resources:
+  requests:
+    cpu: 25m
+    memory: 64Mi
+  limits:
+    cpu: 200m
+    memory: 192Mi
