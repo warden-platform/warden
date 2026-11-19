@@ -1,4 +1,4 @@
-.PHONY: init-local verify migrate migrate-release server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean
+.PHONY: init-local verify migrate migrate-release sync-github server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean
 
 GO_CACHE ?= $(CURDIR)/.cache/go-build
 COMPOSE ?= docker compose --env-file .env -f deploy/docker-compose.yaml
@@ -17,6 +17,9 @@ migrate:
 	done
 
 # 已有库升级：只按发布清单顺序重放幂等迁移（编号 ≥ 035）。
+sync-github:
+	@bash scripts/sync-github.sh $(TAG)
+
 migrate-release:
 	@while IFS= read -r f; do \
 		[ -z "$$f" ] && continue; \
