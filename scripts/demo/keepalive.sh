@@ -11,12 +11,14 @@ if [[ -z "$PSQL" ]]; then
   done
 fi
 [[ -n "$PSQL" ]] || { echo "psql not found" >&2; exit 1; }
-DB_URL=$(python3 -c "
+# A complete DATABASE_URL (with credentials) is used as-is; local_config's
+# credential injection would otherwise mangle DSNs that already carry auth.
+DB_URL="${DATABASE_URL:-$(python3 -c "
 import sys
 sys.path.insert(0, '$ROOT_DIR/scripts/demo')
 from local_config import database_url
 print(database_url())
-")
+")}"
 export PGPASSWORD=$(DB_URL="$DB_URL" python3 -c "import os;from urllib.parse import urlparse;print(urlparse(os.environ['DB_URL']).password or '')")
 HOST=$(DB_URL="$DB_URL" python3 -c "import os;from urllib.parse import urlparse;print(urlparse(os.environ['DB_URL']).hostname or 'localhost')")
 PORT=$(DB_URL="$DB_URL" python3 -c "import os;from urllib.parse import urlparse;print(urlparse(os.environ['DB_URL']).port or 5432)")
