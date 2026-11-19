@@ -26,6 +26,7 @@
 |---|---|---|
 | 控制面镜像 | `docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<tag> .` | 多阶段构建，运行阶段为 distroless nonroot |
 | 预编译发布镜像 | `server/Dockerfile.release` | 需先 `make server-build-linux-amd64` 产出 `server/bin/linux-amd64/` |
+| 发布镜像（阿里云 ACR） | `registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0`（控制面）、`warden-stable/warden-web:v0.4.0`（管理端） | 单机 Compose 可直接拉取免本地构建；发布用 `scripts/publish-acr.sh`（凭据放 `.secrets/acr_*`） |
 | 管理端 | `web/Dockerfile`（构建 `web/dist` 并用 nginx 托管） | 也可自行用任意静态服务器托管 `web/dist` |
 | 随镜像打包的目录 | `deploy/`、`server/migrations/` | 控制面的 `/downloads/*`、Helm Chart、安装脚本都从 `WARDEN_ARTIFACT_ROOT` 读取，缺了会导致接入向导不可用 |
 | Connector / Helper 二进制 | `make server-build-linux-amd64` / `server-build-linux-arm64` / `server-build-hosts` | 同上，供目标机器下载 |
