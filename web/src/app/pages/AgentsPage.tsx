@@ -18,7 +18,7 @@ import { deletePrincipal, listPrincipalAPIKeys, listPrincipals, revokePrincipalA
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, EMPTY_RECORD, useApiQuery } from '../lib/useApiQuery'
 import { CreateAgentDrawer, CreateAgentKeyDrawer, OneTimeKeyDialog } from '../components/AgentCredentialDialogs'
 import { CreateRegistrationBotDrawer, CreateRegistrationKeyDrawer } from '../components/AgentCredentialDialogs'
 
@@ -64,15 +64,18 @@ export function AgentsPage() {
     },
     [],
     {
-      onSuccess: ({ agents }) =>
-        setSelectedId((current) => (agents.some((agent) => agent.id === current) ? current : (agents[0]?.id ?? ''))),
+      onSuccess: ({ agents }, fetchedAt) => {
+        setNow(fetchedAt)
+        setSelectedId((current) => (agents.some((agent) => agent.id === current) ? current : (agents[0]?.id ?? '')))
+      },
     },
   )
-  const principals = agentsQuery.data?.agents ?? []
-  const keysByPrincipal = agentsQuery.data?.keysByPrincipal ?? {}
+  const principals = agentsQuery.data?.agents ?? EMPTY_ARRAY
+  const keysByPrincipal = agentsQuery.data?.keysByPrincipal ?? EMPTY_RECORD
   const loading = agentsQuery.loading
   const error = agentsQuery.error
   const load = () => agentsQuery.reload()
+  const [now, setNow] = useState(() => Date.now())
 
   const allKeys = useMemo(() => Object.values(keysByPrincipal).flatMap((keys) => keys ?? []), [keysByPrincipal])
   const selected = principals.find((principal) => principal.id === selectedId) ?? null
@@ -81,8 +84,8 @@ export function AgentsPage() {
     const metadata = Object.values(principal.metadata ?? {}).join(' ')
     return `${principal.name} ${principal.id} ${metadata}`.toLowerCase().includes(query.toLowerCase())
   })
-  const activeKeys = allKeys.filter((key) => key.status === 'ACTIVE' && (!key.expires_at || new Date(key.expires_at) > new Date())).length
-  const usedRecently = allKeys.filter((key) => key.last_used_at && Date.now() - new Date(key.last_used_at).getTime() < 86_400_000).length
+  const activeKeys = allKeys.filter((key) => key.status === 'ACTIVE' && (!key.expires_at || new Date(key.expires_at).getTime() > now)).length
+  const usedRecently = allKeys.filter((key) => key.last_used_at && now - new Date(key.last_used_at).getTime() < 86_400_000).length
 
   const refreshPrincipalKeys = (_principalId: string) => agentsQuery.reload(false)
   const onPrincipalCreated = (principal: ApiPrincipal) => {

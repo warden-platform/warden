@@ -15,7 +15,7 @@ import { NetworkResources } from '../components/resources/NetworkResources'
 import { ProjectManagePanel } from '../components/resources/ProjectManagePanel'
 import { ResourceProjectPanel } from '../components/resources/ResourceProjectPanel'
 import { resourceDomain, type ResourceDomain } from '../lib/resources'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, EMPTY_RECORD, useApiQuery } from '../lib/useApiQuery'
 import { useApp } from '../components/Toast'
 
 type Tab = { key: ResourceDomain; label: string }
@@ -120,10 +120,10 @@ export function ResourcesPage() {
       },
     },
   )
-  const apiResources = catalogQuery.data?.[0] ?? []
-  const connectors = catalogQuery.data?.[1] ?? []
-  const projects = catalogQuery.data?.[2] ?? []
-  const integrations = catalogQuery.data?.[3] ?? []
+  const apiResources = catalogQuery.data?.[0] ?? EMPTY_ARRAY
+  const connectors = catalogQuery.data?.[1] ?? EMPTY_ARRAY
+  const projects = catalogQuery.data?.[2] ?? EMPTY_ARRAY
+  const integrations = catalogQuery.data?.[3] ?? EMPTY_ARRAY
   const stats = catalogQuery.data?.[4] ?? null
   const loading = catalogQuery.loading
   const error = catalogQuery.error
@@ -141,7 +141,7 @@ export function ResourcesPage() {
     [apiResources, resourceView],
   )
 
-  const catalogStats = stats?.catalogByProjectDomainStatus ?? {}
+  const catalogStats = useMemo(() => stats?.catalogByProjectDomainStatus ?? EMPTY_RECORD, [stats])
   const projectCounts = useMemo(() => {
     const counts = new Map<string, number>()
     for (const [projectID, domains] of Object.entries(catalogStats)) {

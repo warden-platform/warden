@@ -7,7 +7,7 @@ import { connectorTypeLabel, mapIntegrationStatus, mapProtocolLabel } from '../.
 import { useApp } from '../components/Toast'
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 // Top-level integrations list with a "+ 接入中间件" create entry. Each
 // integration is a card showing the bound connector and discovered resource
@@ -20,9 +20,9 @@ export function IntegrationsPage() {
   const [deletingId, setDeletingId] = useState('')
 
   const integrationsQuery = useApiQuery(() => Promise.all([listIntegrations(), listConnectors(), listResources()]), [])
-  const integrations = integrationsQuery.data?.[0] ?? []
-  const connectors = integrationsQuery.data?.[1] ?? []
-  const resources = integrationsQuery.data?.[2] ?? []
+  const integrations = integrationsQuery.data?.[0] ?? EMPTY_ARRAY
+  const connectors = integrationsQuery.data?.[1] ?? EMPTY_ARRAY
+  const resources = integrationsQuery.data?.[2] ?? EMPTY_ARRAY
   const loading = integrationsQuery.loading
   const error = integrationsQuery.error
   const load = () => integrationsQuery.reload()

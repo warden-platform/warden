@@ -15,6 +15,7 @@ import {
 import { mapActionName, mapRiskHint, mapRiskLevel } from '../../shared/types'
 import { useApp } from './Toast'
 import { apiResourceToView } from '../lib/mappers'
+import { EMPTY_ARRAY } from '../lib/useApiQuery'
 import { cloudRegionLabel, resourceTypeLabel } from '../lib/labels'
 import { Badge } from './Badge'
 import { ErrorState } from './States'
@@ -57,6 +58,81 @@ const resourceNamespace = (resource: ApiResource) => resource.namespace ?? ''
 // resource instead of a top-level cascade.
 // 资源类型专属编辑器（K8s Manifest / H3C 接口预检 / 数据库查询构建器等）
 // 拆分在 ./action-panel/ 目录，这里只保留共享的执行流程骨架。
+// Module-level helpers: time/ID generation stays out of render-phase code.
+function lastHourRangeMs() {
+  const now = Date.now()
+  return { startTime: now - 60 * 60 * 1000, endTime: now }
+}
+function lastHourRangeSec() {
+  const now = Math.floor(Date.now() / 1000)
+  return { from: now - 60 * 60, to: now }
+}
+function previewTaskId(prefix: string) {
+  return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+}
+
+// Pure default-parameter builder shared by the render-phase prefill adjustment
+// and the async prefill effect.
+function buildActionDefaults(
+  resource: ApiResource,
+  selectedAction: ApiAction,
+  resourceContainers: { name: string; image: string }[],
+): Record<string, unknown> {
+  const schemaProperties = (selectedAction.parameter_schema?.properties ?? {}) as Record<string, { default?: unknown }>
+  const next: Record<string, unknown> = {}
+  if ('name' in schemaProperties) next.name = resource.name
+  if ('namespace' in schemaProperties)
+    next.namespace = resource.resource_type === 'namespace' ? resource.name : (resource.namespace ?? '')
+  for (const [key, schema] of Object.entries(schemaProperties)) {
+    if (schema.default !== undefined) next[key] = schema.default
+    if (key === 'container' && resourceContainers.length > 0) next[key] = resourceContainers[0].name
+  }
+  if (selectedAction.name === 'jenkins.job.create') next.name = ''
+  if (selectedAction.name === 'huawei.ecs.create') {
+    next.name = ''
+    next.region = String(resource.metadata?.region ?? '')
+  }
+  if (selectedAction.name === 'huawei.lts.logs.query') {
+    const range = lastHourRangeMs()
+    next.startTime = range.startTime
+    next.endTime = range.endTime
+  }
+  if (selectedAction.name === 'aliyun.sls.logs.query') {
+    const range = lastHourRangeSec()
+    next.from = range.from
+    next.to = range.to
+  }
+  if (selectedAction.name.replace(/@v\d+$/, '') === 'database.query.execute') {
+    next.ast = normalizedDatabaseQueryAst(next.ast, resource)
+  }
+  if (selectedAction.name.startsWith('kubernetes.resource.')) {
+    const selectedKind = GENERIC_KUBERNETES_KINDS[resource.resource_type] ?? GENERIC_KUBERNETES_KIND_OPTIONS[0]
+    next.apiVersion = selectedKind.apiVersion
+    next.kind = selectedKind.kind
+    if (
+      selectedAction.name === 'kubernetes.resource.create' ||
+      (selectedAction.name === 'kubernetes.resource.preview' && resource.resource_type === 'namespace')
+    ) {
+      if (selectedAction.name === 'kubernetes.resource.preview') next.operation = 'create'
+      next.manifest = {
+        apiVersion: selectedKind.apiVersion,
+        kind: selectedKind.kind,
+        metadata: { name: 'warden-e2e-7213-resource', namespace: resource.name },
+      }
+    }
+  }
+  return next
+}
+
+function prefillReadAction(selectedAction: ApiAction): string {
+  const genericRead = selectedAction.name === 'kubernetes.resource.update' || selectedAction.name === 'kubernetes.resource.delete'
+  return (
+    GRAFANA_UPDATE_READ_ACTIONS[selectedAction.name] ||
+    KUBERNETES_MUTATION_READ_ACTIONS[selectedAction.name] ||
+    (genericRead ? 'kubernetes.resource.get' : '')
+  )
+}
+
 export function ActionPanel({
   initialResource,
   initialAction,
@@ -78,7 +154,7 @@ export function ActionPanel({
   const [connectorId, setConnectorId] = useState('')
   const [namespace, setNamespace] = useState('')
   const [resourceId, setResourceId] = useState(initialResource?.id ?? '')
-  const [actingProjectId, setActingProjectId] = useState(initialActingProjectId ?? '')
+  const [projectDraft, setProjectDraft] = useState<{ resourceId: string; value: string } | null>(null)
   const [taskId] = useState(() => `ui-${Date.now().toString(36)}`)
   const [parameters, setParameters] = useState<Record<string, unknown>>({})
   const [reason, setReason] = useState('通过 Warden 管理界面发起')
@@ -160,21 +236,28 @@ export function ActionPanel({
 
   const resource = useMemo(() => resources.find((r) => r.id === resourceId), [resources, resourceId])
   const resourceProjectIds = resource?.project_ids ?? []
+  // Keyed draft: the project selection follows the resource's defaults until
+  // the user picks one; changing resource re-derives (no sync effect).
+  const defaultActingProjectId =
+    initialActingProjectId && resourceProjectIds.includes(initialActingProjectId)
+      ? initialActingProjectId
+      : resourceProjectIds.length === 1
+        ? resourceProjectIds[0]
+        : ''
+  const actingProjectId =
+    projectDraft && projectDraft.resourceId === (resource?.id ?? '') ? projectDraft.value : defaultActingProjectId
+  const setActingProjectId = (value: string) => setProjectDraft({ resourceId: resource?.id ?? '', value })
   const createScopedExecution: ExecutionStarter = useCallback(
     (request) => createExecution({ ...request, actingProjectId }),
     [actingProjectId],
   )
   const connectorName = (id: string) => connectors.find((c) => c.id === id)?.name ?? ''
 
-  useEffect(() => {
-    setActingProjectId((current) => {
-      if (initialActingProjectId && resourceProjectIds.includes(initialActingProjectId)) return initialActingProjectId
-      if (current && resourceProjectIds.includes(current)) return current
-      return resourceProjectIds.length === 1 ? resourceProjectIds[0] : ''
-    })
-  }, [resource?.id, initialActingProjectId]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
+  // Invalidate stale previews when the acting project changes (render-phase
+  // state adjustment — the React-recommended alternative to a sync effect).
+  const [prevActingProject, setPrevActingProject] = useState(actingProjectId)
+  if (prevActingProject !== actingProjectId) {
+    setPrevActingProject(actingProjectId)
     setGenericPreview(null)
     setNetworkPreview(null)
     setDatabasePreviewVerdict('')
@@ -185,7 +268,7 @@ export function ActionPanel({
       delete next.previewHash
       return next
     })
-  }, [actingProjectId])
+  }
   // When opened with a preselected resource (from the resources page), lock the
   // action list to that resource's type so a Jenkins resource doesn't surface
   // K8s actions. Without initialResource (from ExecutionsPage "新建执行"), show all.
@@ -277,7 +360,7 @@ export function ActionPanel({
         (key === 'templateId' || key === 'templateVersion' || key === 'bindings')
       ),
   )
-  const resourceContainers = (Array.isArray(resource?.metadata?.containers) ? resource.metadata.containers : []) as {
+  const resourceContainers = (Array.isArray(resource?.metadata?.containers) ? resource.metadata.containers : EMPTY_ARRAY) as {
     name: string
     image: string
   }[]
@@ -304,69 +387,39 @@ export function ActionPanel({
     networkPreview && networkPreview.signature === currentNetworkPreviewSignature && parameters.previewHash === networkPreview.previewHash,
   )
 
-  useEffect(() => {
-    if (!resource || !selectedAction || !actingProjectId) return
-    let cancelled = false
-    const schemaProperties = (selectedAction.parameter_schema?.properties ?? {}) as Record<string, { default?: unknown }>
-    const next: Record<string, unknown> = {}
-    if ('name' in schemaProperties) next.name = resource.name
-    if ('namespace' in schemaProperties)
-      next.namespace = resource.resource_type === 'namespace' ? resource.name : (resource.namespace ?? '')
-    for (const [key, schema] of Object.entries(schemaProperties)) {
-      if (schema.default !== undefined) next[key] = schema.default
-      if (key === 'container' && resourceContainers.length > 0) next[key] = resourceContainers[0].name
-    }
-    if (selectedAction.name === 'jenkins.job.create') next.name = ''
-    if (selectedAction.name === 'huawei.ecs.create') {
-      next.name = ''
-      next.region = String(resource.metadata?.region ?? '')
-    }
-    if (selectedAction.name === 'huawei.lts.logs.query') {
-      next.startTime = Date.now() - 60 * 60 * 1000
-      next.endTime = Date.now()
-    }
-    if (selectedAction.name === 'aliyun.sls.logs.query') {
-      next.from = Math.floor(Date.now() / 1000) - 60 * 60
-      next.to = Math.floor(Date.now() / 1000)
-    }
-    if (selectedAction.name.replace(/@v\d+$/, '') === 'database.query.execute') {
-      next.ast = normalizedDatabaseQueryAst(next.ast, resource)
-    }
-    if (selectedAction.name.startsWith('kubernetes.resource.')) {
-      const selectedKind = GENERIC_KUBERNETES_KINDS[resource.resource_type] ?? GENERIC_KUBERNETES_KIND_OPTIONS[0]
-      next.apiVersion = selectedKind.apiVersion
-      next.kind = selectedKind.kind
-      if (
-        selectedAction.name === 'kubernetes.resource.create' ||
-        (selectedAction.name === 'kubernetes.resource.preview' && resource.resource_type === 'namespace')
-      ) {
-        if (selectedAction.name === 'kubernetes.resource.preview') next.operation = 'create'
-        next.manifest = {
-          apiVersion: selectedKind.apiVersion,
-          kind: selectedKind.kind,
-          metadata: { name: 'warden-e2e-7213-resource', namespace: resource.name },
-        }
+  // Prefill defaults on resource/action/project change: render-phase state
+  // adjustment (React-recommended) instead of a synchronous-setState effect.
+  // The key includes data readiness so prefill runs once resources/actions load.
+  const prefillKey = [resourceId, actionId, prefillNonce, actingProjectId, resource?.id ?? '', selectedAction?.id ?? ''].join(':')
+  const [prevPrefillKey, setPrevPrefillKey] = useState('')
+  if (prevPrefillKey !== prefillKey) {
+    setPrevPrefillKey(prefillKey)
+    if (resource && selectedAction && actingProjectId) {
+      const next = buildActionDefaults(resource, selectedAction, resourceContainers)
+      setParameters(next)
+      setGenericPreview(null)
+      setNetworkPreview(null)
+      setDatabasePreviewVerdict('')
+      setPreviewError('')
+      setManifestError('')
+      setManifestText(next.manifest ? stringifyYaml(next.manifest) : '')
+      if (prefillReadAction(selectedAction)) {
+        setPrefillLoading(true)
+        setPrefillError('')
+      } else {
+        setPrefillLoading(false)
+        setPrefillError('')
       }
     }
-    setParameters(next)
-    setGenericPreview(null)
-    setNetworkPreview(null)
-    setDatabasePreviewVerdict('')
-    setPreviewError('')
-    setManifestError('')
-    setManifestText(next.manifest ? stringifyYaml(next.manifest) : '')
+  }
+
+  useEffect(() => {
+    if (!resource || !selectedAction || !actingProjectId) return
+    const readAction = prefillReadAction(selectedAction)
+    if (!readAction) return
+    let cancelled = false
+    const next = buildActionDefaults(resource, selectedAction, resourceContainers)
     const genericRead = selectedAction.name === 'kubernetes.resource.update' || selectedAction.name === 'kubernetes.resource.delete'
-    const readAction =
-      GRAFANA_UPDATE_READ_ACTIONS[selectedAction.name] ||
-      KUBERNETES_MUTATION_READ_ACTIONS[selectedAction.name] ||
-      (genericRead ? 'kubernetes.resource.get' : '')
-    if (!readAction) {
-      setPrefillLoading(false)
-      setPrefillError('')
-      return
-    }
-    setPrefillLoading(true)
-    setPrefillError('')
     const loadParameters = genericRead
       ? loadGenericKubernetesParameters(resource, selectedAction.name, createScopedExecution)
       : KUBERNETES_MUTATION_READ_ACTIONS[selectedAction.name]
@@ -393,7 +446,7 @@ export function ActionPanel({
     return () => {
       cancelled = true
     }
-  }, [resourceId, actionId, selectedAction?.id, prefillNonce, actingProjectId])
+  }, [resourceId, actionId, selectedAction?.id, prefillNonce, actingProjectId, createScopedExecution, resource, resourceContainers, selectedAction])
 
   useEffect(() => {
     if (!execution || ['SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'UNKNOWN'].includes(execution.status)) return
@@ -539,7 +592,7 @@ export function ActionPanel({
         previewParameters.expectedResourceVersion = parameters.expectedResourceVersion
       }
       const started = await createScopedExecution({
-        taskId: `ui-k8s-preview-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        taskId: previewTaskId('ui-k8s-preview'),
         resourceId: resource.id,
         action: 'kubernetes.resource.preview',
         actionVersion: 1,
@@ -571,7 +624,7 @@ export function ActionPanel({
       if (normalizedActionName === 'network.interface.trunk_vlan.add') previewParameters.operation = 'add'
       if (normalizedActionName === 'network.interface.trunk_vlan.remove') previewParameters.operation = 'remove'
       const started = await createScopedExecution({
-        taskId: `ui-network-preview-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        taskId: previewTaskId('ui-network-preview'),
         resourceId: resource.id,
         action: networkPreviewAction,
         actionVersion: 1,

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useState } from 'react'
 import { myInvitations, acceptInvitation, type MyInvitation } from '../../shared/api'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 import { useApp } from '../components/Toast'
 import { WardenLogo } from '../components/WardenLogo'
 
@@ -14,21 +15,11 @@ export function UnaffiliatedPage() {
   const { auth, signOut, notify } = useApp()
   const user = auth.user
   const who = user?.display_name?.trim() || user?.email?.trim() || user?.name || ''
-  const [invites, setInvites] = useState<MyInvitation[]>([])
-  const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
 
-  const refresh = useCallback(() => {
-    setLoading(true)
-    myInvitations()
-      .then((items) => setInvites(items ?? []))
-      .catch(() => setInvites([]))
-      .finally(() => setLoading(false))
-  }, [])
-
-  useEffect(() => {
-    refresh()
-  }, [refresh])
+  const invitesQuery = useApiQuery(() => myInvitations(), [])
+  const invites = invitesQuery.data ?? EMPTY_ARRAY
+  const loading = invitesQuery.loading
 
   const accept = (invite: MyInvitation) => {
     if (!window.confirm(`确认加入「${invite.tenant_name}」，角色「${roleLabels[invite.role] ?? invite.role}」？\n\n加入后需要重新登录以启用新组织权限。`)) return

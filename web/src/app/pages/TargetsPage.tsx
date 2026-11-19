@@ -8,7 +8,7 @@ import { Badge } from '../components/Badge'
 import { OnboardModal } from '../components/OnboardModal'
 import { NetworkConnectorProvisionModal } from '../components/NetworkConnectorProvisionModal'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 type TargetType = 'kubernetes' | 'linux' | 'windows' | 'macos' | 'network'
 
@@ -31,11 +31,11 @@ export function TargetsPage() {
   const catalogQuery = useApiQuery(() => Promise.all([listResources(), listProjects()]), [])
   const connectorsQuery = useApiQuery(() => listConnectors(), [], {
     intervalMs: 15000,
-    onSuccess: () => setNow(Date.now()),
+    onSuccess: (_data, fetchedAt) => setNow(fetchedAt),
   })
-  const resources = catalogQuery.data?.[0] ?? []
-  const projects = catalogQuery.data?.[1] ?? []
-  const connectors = connectorsQuery.data ?? []
+  const resources = catalogQuery.data?.[0] ?? EMPTY_ARRAY
+  const projects = catalogQuery.data?.[1] ?? EMPTY_ARRAY
+  const connectors = connectorsQuery.data ?? EMPTY_ARRAY
   const loading = catalogQuery.loading || connectorsQuery.loading
   const error = catalogQuery.error || connectorsQuery.error
   const load = () => {

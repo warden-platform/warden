@@ -20,8 +20,10 @@ export function DatabaseResources({
   onProject: (resource: ApiResource) => void
 }) {
   const q = query.trim().toLowerCase()
-  const matches = (r: ApiResource) => !q || `${r.name} ${r.namespace ?? ''} ${r.metadata.protocol ?? ''}`.toLowerCase().includes(q)
-  const searched = useMemo(() => resources.filter(matches), [resources, q])
+  const searched = useMemo(
+    () => resources.filter((r) => !q || `${r.name} ${r.namespace ?? ''} ${r.metadata.protocol ?? ''}`.toLowerCase().includes(q)),
+    [resources, q],
+  )
 
   const [hiddenTypes, toggleType] = useToggleSet()
   const filtered = hiddenTypes.size === 0 ? searched : searched.filter((r) => !hiddenTypes.has(r.resource_type))

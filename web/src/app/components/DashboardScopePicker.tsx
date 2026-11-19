@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Check, Loader2 } from 'lucide-react'
 import type { Integration } from '../../shared/api'
 import { Badge } from './Badge'
@@ -19,25 +19,22 @@ export function DashboardScopePicker({
   const allowedDashboards = (integration.scope.allowedDashboards as string[] | undefined) ?? []
   const allowAll = integration.scope.allowAll === true
   const uids = dashboards.map((d) => d.uid)
-  const [selected, setSelected] = useState<string[]>(allowAll ? uids : allowedDashboards)
-  const [dirty, setDirty] = useState(false)
-  useEffect(() => {
-    setSelected(allowAll ? uids : allowedDashboards)
-    setDirty(false)
-  }, [integration.id, integration.updated_at, allowAll, uids.join('\n')])
+  const scopeKey = `${integration.id}:${integration.updated_at}`
+  const serverSelected = allowAll ? uids : allowedDashboards
+  const [draft, setDraft] = useState<{ key: string; value: string[] } | null>(null)
+  const selected = draft && draft.key === scopeKey ? draft.value : serverSelected
+  const dirty = draft !== null && draft.key === scopeKey
+  const edit = (value: string[]) => setDraft({ key: scopeKey, value })
 
   const allSelected = dashboards.length > 0 && selected.length === dashboards.length
   const toggle = (uid: string) => {
-    setSelected((current) => (current.includes(uid) ? current.filter((u) => u !== uid) : [...current, uid]))
-    setDirty(true)
+    edit(selected.includes(uid) ? selected.filter((u) => u !== uid) : [...selected, uid])
   }
   const selectAll = () => {
-    setSelected([...uids])
-    setDirty(true)
+    edit([...uids])
   }
   const clearAll = () => {
-    setSelected([])
-    setDirty(true)
+    edit([])
   }
   const submit = () => {
     const scope = allSelected ? { allowAll: true } : { allowedDashboards: selected }

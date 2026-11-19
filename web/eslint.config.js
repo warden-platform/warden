@@ -34,14 +34,12 @@ export default [
     },
     rules: {
       ...reactHooks.configs.recommended.rules,
-      // exhaustive-deps 对存量代码报点较多，先降为 warn 逐步消化
-      'react-hooks/exhaustive-deps': 'warn',
-      // React Compiler 系新规则对「挂载时拉数据 + setState」的经典模式全线报错，
-      // 存量页面尚未全部迁移到 useApiQuery，先降为 warn 保持可见
-      'react-hooks/set-state-in-effect': 'warn',
-      'react-hooks/purity': 'warn',
-      'react-hooks/refs': 'warn',
-      'react-hooks/static-components': 'warn',
+      // 全部页面已迁移到 useApiQuery，hooks 规则恢复为 error 门禁。
+      'react-hooks/exhaustive-deps': 'error',
+      'react-hooks/set-state-in-effect': 'error',
+      'react-hooks/purity': 'error',
+      'react-hooks/refs': 'error',
+      'react-hooks/static-components': 'error',
     },
   },
   prettier,

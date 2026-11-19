@@ -7,7 +7,7 @@ import { Badge } from '../components/Badge'
 import { ErrorState, LoadingState } from '../components/States'
 import { IntegrationForm } from '../components/IntegrationForm'
 import { connectorTypeLabel } from '../../shared/types'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 // Integration-centric creation: user fills connection info, then picks a
 // connector (execution channel) to bind. Replaces the old flow where
@@ -19,7 +19,7 @@ export function IntegrationCreatePage() {
   const [protocol, setProtocol] = useState('jenkins')
 
   const connectorsQuery = useApiQuery(() => listConnectors(), [])
-  const connectors = connectorsQuery.data ?? []
+  const connectors = connectorsQuery.data ?? EMPTY_ARRAY
   const loading = connectorsQuery.loading
   const error = connectorsQuery.error
   const load = () => connectorsQuery.reload()

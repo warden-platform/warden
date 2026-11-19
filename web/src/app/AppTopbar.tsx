@@ -67,7 +67,8 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
   const { dark, toggle } = useDarkMode()
   const clock = useClock()
   const [passwordOpen, setPasswordOpen] = useState(false)
-  const [avatarFailed, setAvatarFailed] = useState(false)
+  const [failedAvatarUrl, setFailedAvatarUrl] = useState<string | null>(null)
+  const avatarFailed = failedAvatarUrl !== null && failedAvatarUrl === auth.user?.avatar_url
   const isSuperAdmin = canUser(auth.user, 'warden:admin')
   const [orgs, setOrgs] = useState<ApiTenant[]>([])
   const observed = getObservedTenant()
@@ -82,7 +83,6 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
     // Full navigation remounts every page so no stale tenant data survives.
     window.location.assign(slug ? '/overview' : '/platform/tenants')
   }
-  useEffect(() => setAvatarFailed(false), [auth.user?.avatar_url])
   return (
     <header className="topbar">
       <div className="title-row">
@@ -151,7 +151,7 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
                 src={auth.user.avatar_url}
                 alt=""
                 referrerPolicy="no-referrer"
-                onError={() => setAvatarFailed(true)}
+                onError={() => setFailedAvatarUrl(auth.user?.avatar_url ?? null)}
               />
             ) : (
               <span className="user-avatar user-avatar-fallback" aria-hidden="true">

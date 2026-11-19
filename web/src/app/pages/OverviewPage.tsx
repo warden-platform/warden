@@ -14,7 +14,7 @@ import { useNavigate } from '../../shared/router'
 import { useApp } from '../components/Toast'
 import { LoadingState, ErrorState, EmptyState } from '../components/States'
 import { apiExecutionToView } from '../lib/mappers'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 import { connectorTypeLabel, executionLedClass, executionStatusGroup, mapActionName } from '../../shared/types'
 
 // Mission Control overview: a situation wall built only from real API data —
@@ -50,15 +50,15 @@ export function OverviewPage() {
     [canApprove, canManage],
     {
       intervalMs: 15000,
-      onSuccess: ([, reqs]) => {
+      onSuccess: ([, reqs], fetchedAt) => {
         setPendingApprovals((reqs ?? []).length)
-        setNow(Date.now())
+        setNow(fetchedAt)
       },
     },
   )
-  const executions = overviewQuery.data?.[0] ?? []
-  const requests = overviewQuery.data?.[1] ?? []
-  const connectors = overviewQuery.data?.[2] ?? []
+  const executions = overviewQuery.data?.[0] ?? EMPTY_ARRAY
+  const requests = overviewQuery.data?.[1] ?? EMPTY_ARRAY
+  const connectors = overviewQuery.data?.[2] ?? EMPTY_ARRAY
   const stats = overviewQuery.data?.[3] ?? null
   const loading = overviewQuery.loading
   const error = overviewQuery.error

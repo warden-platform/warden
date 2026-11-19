@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Check, Loader2 } from 'lucide-react'
 import type { Integration } from '../../shared/api'
 import { Badge } from './Badge'
@@ -31,27 +31,26 @@ export function HuaweiServiceScopePicker({
   const allowedServices = (integration.scope.allowedServices as string[] | undefined) ?? []
   const allowAll = integration.scope.allowAll === true
   const allKeys = HUAWEI_SERVICES.map((s) => s.key)
-  const [selected, setSelected] = useState<string[]>(allowAll ? allKeys : allowedServices)
-  const [dirty, setDirty] = useState(false)
   const initialPolicy = integration.scope.regionPolicy as
     { mode?: 'single' | 'all' | 'allowlist'; regions?: string[]; deniedRegions?: string[] } | undefined
-  const [regionMode, setRegionMode] = useState<'single' | 'all' | 'allowlist'>(initialPolicy?.mode ?? 'single')
-  const [regions, setRegions] = useState((initialPolicy?.regions ?? []).join(', '))
-  const [deniedRegions, setDeniedRegions] = useState((initialPolicy?.deniedRegions ?? []).join(', '))
-  useEffect(() => {
-    setSelected(allowAll ? allKeys : allowedServices)
-    const policy = integration.scope.regionPolicy as
-      { mode?: 'single' | 'all' | 'allowlist'; regions?: string[]; deniedRegions?: string[] } | undefined
-    setRegionMode(policy?.mode ?? 'single')
-    setRegions((policy?.regions ?? []).join(', '))
-    setDeniedRegions((policy?.deniedRegions ?? []).join(', '))
-    setDirty(false)
-  }, [integration.id, integration.updated_at, allowAll])
+  // Keyed draft over the server scope; invalidated automatically when the
+  // integration changes (id/updated_at). No sync effect.
+  const scopeKey = `${integration.id}:${integration.updated_at}`
+  const serverState = {
+    selected: allowAll ? allKeys : allowedServices,
+    regionMode: (initialPolicy?.mode ?? 'single') as 'single' | 'all' | 'allowlist',
+    regions: (initialPolicy?.regions ?? []).join(', '),
+    deniedRegions: (initialPolicy?.deniedRegions ?? []).join(', '),
+  }
+  const [draft, setDraft] = useState<({ key: string } & typeof serverState) | null>(null)
+  const current = draft && draft.key === scopeKey ? draft : serverState
+  const { selected, regionMode, regions, deniedRegions } = current
+  const dirty = draft !== null && draft.key === scopeKey
+  const patch = (p: Partial<typeof serverState>) => setDraft({ key: scopeKey, ...current, ...p })
 
   const allSelected = selected.length === allKeys.length
   const toggle = (key: string) => {
-    setSelected((current) => (current.includes(key) ? current.filter((item) => item !== key) : [...current, key]))
-    setDirty(true)
+    patch({ selected: selected.includes(key) ? selected.filter((item) => item !== key) : [...selected, key] })
   }
   const parseRegions = (value: string) =>
     value
@@ -73,8 +72,7 @@ export function HuaweiServiceScopePicker({
           className="quiet-button"
           type="button"
           onClick={() => {
-            setSelected([...allKeys])
-            setDirty(true)
+            patch({ selected: [...allKeys] })
           }}
           disabled={acting}
         >
@@ -84,8 +82,7 @@ export function HuaweiServiceScopePicker({
           className="quiet-button"
           type="button"
           onClick={() => {
-            setSelected([])
-            setDirty(true)
+            patch({ selected: [] })
           }}
           disabled={acting}
         >
@@ -109,8 +106,7 @@ export function HuaweiServiceScopePicker({
             name="region-mode"
             checked={regionMode === 'all'}
             onChange={() => {
-              setRegionMode('all')
-              setDirty(true)
+              patch({ regionMode: 'all' })
             }}
           />
           <span>
@@ -124,8 +120,7 @@ export function HuaweiServiceScopePicker({
             name="region-mode"
             checked={regionMode === 'allowlist'}
             onChange={() => {
-              setRegionMode('allowlist')
-              setDirty(true)
+              patch({ regionMode: 'allowlist' })
             }}
           />
           <span>
@@ -139,8 +134,7 @@ export function HuaweiServiceScopePicker({
             name="region-mode"
             checked={regionMode === 'single'}
             onChange={() => {
-              setRegionMode('single')
-              setDirty(true)
+              patch({ regionMode: 'single' })
             }}
           />
           <span>
@@ -156,8 +150,7 @@ export function HuaweiServiceScopePicker({
                 value={regions}
                 placeholder="cn-east-3, cn-south-1"
                 onChange={(event) => {
-                  setRegions(event.target.value)
-                  setDirty(true)
+                  patch({ regions: event.target.value })
                 }}
               />
             </span>
@@ -171,8 +164,7 @@ export function HuaweiServiceScopePicker({
                 value={deniedRegions}
                 placeholder="cn-north-9"
                 onChange={(event) => {
-                  setDeniedRegions(event.target.value)
-                  setDirty(true)
+                  patch({ deniedRegions: event.target.value })
                 }}
               />
             </span>

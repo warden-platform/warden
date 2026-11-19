@@ -1,8 +1,7 @@
-import { useEffect, useState } from 'react'
 import { ShieldCheck } from 'lucide-react'
-import type { ApiMyProject } from '../../shared/api'
 import { canUser, listMyProjects } from '../../shared/api'
 import { useApp } from './Toast'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 // "My Access" card: answers who-am-I / where-do-I-belong / what-can-I-do in one
 // place, so members never have to infer privileges from error messages.
@@ -24,14 +23,9 @@ const capabilityNotes: Array<{ scope: string; label: string }> = [
 
 export function MyAccessCard() {
   const { auth } = useApp()
-  const [myProjects, setMyProjects] = useState<ApiMyProject[]>([])
   const user = auth.user
-  useEffect(() => {
-    if (!user) return
-    listMyProjects()
-      .then((items) => setMyProjects(items ?? []))
-      .catch(() => setMyProjects([]))
-  }, [user?.id])
+  const projectsQuery = useApiQuery(() => listMyProjects(), [], { enabled: Boolean(user) })
+  const myProjects = projectsQuery.data ?? EMPTY_ARRAY
   if (!user) return null
   const roleLabel = canUser(user, 'warden:admin') ? '超级管理员' : canUser(user, 'warden:tenant:admin') ? '组织管理员' : '成员'
   const held = capabilityNotes.filter((c) => canUser(user, c.scope))

@@ -23,7 +23,7 @@ import { resourceTypeLabel } from '../lib/labels'
 import { ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
 import { DingTalkChannelPanel } from '../components/DingTalkChannelPanel'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 const RISK_LABELS: Record<string, string> = {
   '': '所有风险',
@@ -131,9 +131,9 @@ export function PoliciesPage() {
         )
     },
   })
-  const rules = policiesQuery.data?.[0] ?? []
-  const projects = policiesQuery.data?.[1] ?? []
-  const actions = policiesQuery.data?.[2] ?? []
+  const rules = policiesQuery.data?.[0] ?? EMPTY_ARRAY
+  const projects = policiesQuery.data?.[1] ?? EMPTY_ARRAY
+  const actions = policiesQuery.data?.[2] ?? EMPTY_ARRAY
   const loading = policiesQuery.loading
   const error = policiesQuery.error
   const load = () => policiesQuery.reload()

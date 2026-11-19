@@ -5,7 +5,7 @@ import type { ApiError } from '../../shared/api'
 import { deleteIntegration, listConnectors, listIntegrations, listResources, updateIntegration } from '../../shared/api'
 import { mapEnvironment, mapIntegrationStatus, mapProtocolLabel } from '../../shared/types'
 import { useApp } from '../components/Toast'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 import { Badge } from '../components/Badge'
 import { ErrorState, LoadingState } from '../components/States'
 import { JobScopePicker } from '../components/JobScopePicker'
@@ -38,10 +38,12 @@ export function IntegrationDetailPage() {
       }
     },
     [id],
+    { onSuccess: (_data, fetchedAt) => setNow(fetchedAt) },
   )
+  const [now, setNow] = useState(() => Date.now())
   const integration = detailQuery.data?.integration ?? null
   const connector = detailQuery.data?.connector ?? null
-  const resources = detailQuery.data?.resources ?? []
+  const resources = detailQuery.data?.resources ?? EMPTY_ARRAY
   const loading = detailQuery.loading
   const error = detailQuery.error
   const load = () => detailQuery.reload()
@@ -270,7 +272,7 @@ export function IntegrationDetailPage() {
                 </div>
               )}
               {(() => {
-                const ageDays = Math.floor((Date.now() - new Date(integration.updated_at).getTime()) / 86400000)
+                const ageDays = Math.floor((now - new Date(integration.updated_at).getTime()) / 86400000)
                 return ageDays >= 90 ? (
                   <div>
                     <span>凭证提示</span>

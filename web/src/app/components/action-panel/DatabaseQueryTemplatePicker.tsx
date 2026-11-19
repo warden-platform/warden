@@ -1,8 +1,9 @@
-import { useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { type Dispatch, type SetStateAction } from 'react'
 import { ChevronDown, Loader2 } from 'lucide-react'
 import type { ApiQueryTemplate, ApiResource } from '../../../shared/api'
 import { listQueryTemplates } from '../../../shared/api'
 import { asRecord } from './utils'
+import { EMPTY_ARRAY, useApiQuery } from '../../lib/useApiQuery'
 
 // 已发布查询模板选择器：读取数据库集成下 PUBLISHED 的模板，
 // 绑定模板 ID/版本与运行参数（bindings）。
@@ -31,35 +32,18 @@ export function DatabaseQueryTemplatePicker({
   parameters: Record<string, unknown>
   setParameters: Dispatch<SetStateAction<Record<string, unknown>>>
 }) {
-  const [templates, setTemplates] = useState<ApiQueryTemplate[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
-
-  useEffect(() => {
-    if (!resource?.integration_id) {
-      setTemplates([])
-      return
-    }
-    let cancelled = false
-    setLoading(true)
-    setError('')
-    listQueryTemplates(resource.integration_id, 'PUBLISHED')
-      .then((items) => {
-        if (cancelled) return
-        setTemplates(
-          (items ?? []).filter((item) => !item.resource_bindings?.length || item.resource_bindings.includes(resource.external_id)),
-        )
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setError(err.message || '读取已发布查询模板失败')
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [resource?.id, resource?.integration_id, resource?.external_id])
+  const templatesQuery = useApiQuery(
+    async () => {
+      if (!resource?.integration_id) return [] as ApiQueryTemplate[]
+      const items = await listQueryTemplates(resource.integration_id, 'PUBLISHED')
+      return (items ?? []).filter((item) => !item.resource_bindings?.length || item.resource_bindings.includes(resource.external_id))
+    },
+    [resource?.id, resource?.integration_id, resource?.external_id],
+    { enabled: Boolean(resource?.integration_id) },
+  )
+  const templates = templatesQuery.data ?? EMPTY_ARRAY
+  const loading = templatesQuery.loading
+  const error = templatesQuery.error
 
   const selected = templates.find(
     (item) => item.id === String(parameters.templateId ?? '') && item.version === Number(parameters.templateVersion ?? 0),

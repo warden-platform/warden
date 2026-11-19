@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useAutoRefresh } from './useAutoRefresh'
 
+// Stable empty fallbacks: `query.data ?? []` inline creates a new reference
+// every render, which destabilizes downstream useMemo dependency arrays.
+export const EMPTY_ARRAY: never[] = []
+export const EMPTY_RECORD: Record<string, never> = {}
+
 // 统一的 useQuery 式数据获取 hook：封装 loading / error / 首次加载 /
 // 静默自动刷新（页面可见时才轮询），替代各页面手写的 load + useEffect +
 // useAutoRefresh 三件套。
@@ -12,13 +17,14 @@ import { useAutoRefresh } from './useAutoRefresh'
 //   intervalMs  自动刷新间隔；不传或传 0 表示不自动刷新（传 toggle 值可随时开关）
 //   enabled     为 false 时暂停加载与刷新
 //   isEqual     静默刷新时数据未变化则跳过 setState，避免整页重渲染
-//   onSuccess   每次成功加载后的副作用（如同步全局待办数）
+//   onSuccess   每次成功加载后的副作用（如同步全局待办数）；第二参数为
+//               本次加载完成时间戳（在异步回调内取值，避免渲染期 Date.now）
 //   debounceMs  deps 变化后延迟加载（搜索框防抖）；首次加载同样延迟
 type UseApiQueryOptions<T> = {
   intervalMs?: number
   enabled?: boolean
   isEqual?: (prev: T, next: T) => boolean
-  onSuccess?: (data: T) => void
+  onSuccess?: (data: T, fetchedAt: number) => void
   debounceMs?: number
 }
 
@@ -31,13 +37,15 @@ export function useApiQuery<T>(
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(true)
   const fetcherRef = useRef(fetcher)
-  fetcherRef.current = fetcher
   const onSuccessRef = useRef(onSuccess)
-  onSuccessRef.current = onSuccess
-  // isEqual 通常由调用方内联传入（每次渲染都是新引用），必须走 ref，
-  // 否则 reload 的 useCallback 依赖变化会导致 effect 反复触发。
   const isEqualRef = useRef(isEqual)
-  isEqualRef.current = isEqual
+  // Latest-ref updates in an effect declared BEFORE the load effect: reload
+  // only runs from effects/handlers after commit, so refs are always fresh.
+  useEffect(() => {
+    fetcherRef.current = fetcher
+    onSuccessRef.current = onSuccess
+    isEqualRef.current = isEqual
+  })
   // Sequence guard: a slow earlier response must not overwrite a newer one
   // (e.g. rapid filter switches triggering overlapping reloads).
   const requestSeq = useRef(0)
@@ -56,7 +64,7 @@ export function useApiQuery<T>(
           if (request !== requestSeq.current) return
           setData((prev) => (prev !== null && isEqualRef.current?.(prev, result) ? prev : result))
           setError('')
-          onSuccessRef.current?.(result)
+          onSuccessRef.current?.(result, Date.now())
         })
         .catch((e: Error) => {
           if (request !== requestSeq.current) return
@@ -76,6 +84,9 @@ export function useApiQuery<T>(
       const timer = window.setTimeout(() => reload(true), debounceMs)
       return () => window.clearTimeout(timer)
     }
+    // Fetch-on-mount/deps-change inherently sets loading state inside the
+    // effect; this is the hook's core contract, not a cascading-render bug.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     reload(true)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [...deps, enabled, reload, debounceMs])

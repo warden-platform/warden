@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { ChevronDown, FolderKanban, Globe2, Loader2, LockKeyhole, RotateCcw, Save, Workflow, X } from 'lucide-react'
 import type { ApiError, ApiProject, ApiResource } from '../../../shared/api'
 import {
@@ -8,6 +8,7 @@ import {
   updateResourceProjectScope,
   type ResourceProjectScope,
 } from '../../../shared/api'
+import { EMPTY_ARRAY, useApiQuery } from '../../lib/useApiQuery'
 import { mapEnvironment } from '../../../shared/types'
 import { useApp } from '../Toast'
 
@@ -40,29 +41,31 @@ export function ResourceProjectPanel({
   onClose: () => void
 }) {
   const { notify } = useApp()
-  const [scopeMode, setScopeMode] = useState<ResourceProjectScope['mode']>(resource.project_scope_mode ?? 'INHERITED')
-  const [projectIds, setProjectIds] = useState<string[]>(resource.project_ids ?? [])
-  const [environment, setEnvironment] = useState<'development' | 'testing' | 'production'>(
-    (resource.environment as 'development' | 'testing' | 'production') ?? 'testing',
-  )
-  const [reason, setReason] = useState('')
+  const scopeQuery = useApiQuery(() => getResourceProjectScope(resource.id), [resource.id])
+  // Keyed draft over resource props + fetched scope; switching resource
+  // re-derives everything (no sync effect).
+  const scopeKey = resource.id
+  type Draft = {
+    key: string
+    mode: ResourceProjectScope['mode']
+    ids: string[]
+    env: 'development' | 'testing' | 'production'
+    reason: string
+  }
+  const [draft, setDraft] = useState<Draft | null>(null)
+  const current = draft && draft.key === scopeKey ? draft : null
+  const scopeMode = current?.mode ?? scopeQuery.data?.mode ?? resource.project_scope_mode ?? 'INHERITED'
+  const projectIds = current?.ids ?? scopeQuery.data?.project_ids ?? resource.project_ids ?? EMPTY_ARRAY
+  const environment = current?.env ?? ((resource.environment as 'development' | 'testing' | 'production') ?? 'testing')
+  const reason = current?.reason ?? ''
+  const patch = (p: Partial<Omit<Draft, 'key'>>) => setDraft({ key: scopeKey, mode: scopeMode, ids: projectIds, env: environment, reason, ...p })
+  const setScopeMode = (mode: ResourceProjectScope['mode']) => patch({ mode })
+  const setEnvironment = (env: 'development' | 'testing' | 'production') => patch({ env })
+  const setReason = (value: string) => patch({ reason: value })
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  useEffect(() => {
-    setScopeMode(resource.project_scope_mode ?? 'INHERITED')
-    setProjectIds(resource.project_ids ?? [])
-    setEnvironment((resource.environment as 'development' | 'testing' | 'production') ?? 'testing')
-    setReason('')
-    setError('')
-    getResourceProjectScope(resource.id)
-      .then((scope) => {
-        setScopeMode(scope.mode)
-        setProjectIds(scope.project_ids ?? [])
-      })
-      .catch(() => undefined)
-  }, [resource])
   const toggleProject = (projectId: string) =>
-    setProjectIds((current) => (current.includes(projectId) ? current.filter((id) => id !== projectId) : [...current, projectId]))
+    patch({ ids: projectIds.includes(projectId) ? projectIds.filter((id) => id !== projectId) : [...projectIds, projectId] })
   const saveScope = () => {
     if (scopeMode === 'SELECTED_PROJECTS' && projectIds.length === 0) {
       setError('请至少选择一个可用项目')

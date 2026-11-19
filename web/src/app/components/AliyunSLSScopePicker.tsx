@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Check, Loader2, MapPin } from 'lucide-react'
 import type { ApiResource, Integration } from '../../shared/api'
 import { Badge } from './Badge'
@@ -28,23 +28,21 @@ export function AliyunSLSScopePicker({
   const configured = (integration.scope.allowedProjects as string[] | undefined) ?? []
   const initialAllowAll = integration.scope.allowAll === true
   const initialPolicy = integration.scope.regionPolicy as Partial<RegionPolicy> | undefined
-  const [allowAll, setAllowAll] = useState(initialAllowAll)
-  const [selected, setSelected] = useState<string[]>(initialAllowAll ? candidates.map((item) => item.name) : configured)
-  const [regionMode, setRegionMode] = useState<RegionPolicy['mode']>(initialPolicy?.mode ?? 'single')
-  const [regions, setRegions] = useState((initialPolicy?.regions ?? []).join(', '))
-  const [deniedRegions, setDeniedRegions] = useState((initialPolicy?.deniedRegions ?? []).join(', '))
-  const [dirty, setDirty] = useState(false)
-
-  useEffect(() => {
-    const policy = integration.scope.regionPolicy as Partial<RegionPolicy> | undefined
-    const all = integration.scope.allowAll === true
-    setAllowAll(all)
-    setSelected(all ? candidates.map((item) => item.name) : ((integration.scope.allowedProjects as string[] | undefined) ?? []))
-    setRegionMode(policy?.mode ?? 'single')
-    setRegions((policy?.regions ?? []).join(', '))
-    setDeniedRegions((policy?.deniedRegions ?? []).join(', '))
-    setDirty(false)
-  }, [integration.id, integration.updated_at, candidates])
+  // Keyed draft over the server scope; invalidated when the integration or
+  // the discovered candidate list changes. No sync effect.
+  const scopeKey = `${integration.id}:${integration.updated_at}`
+  const serverState = {
+    allowAll: initialAllowAll,
+    selected: initialAllowAll ? candidates.map((item) => item.name) : configured,
+    regionMode: (initialPolicy?.mode ?? 'single') as RegionPolicy['mode'],
+    regions: (initialPolicy?.regions ?? []).join(', '),
+    deniedRegions: (initialPolicy?.deniedRegions ?? []).join(', '),
+  }
+  const [draft, setDraft] = useState<({ key: string } & typeof serverState) | null>(null)
+  const current = draft && draft.key === scopeKey ? draft : serverState
+  const { allowAll, selected, regionMode, regions, deniedRegions } = current
+  const dirty = draft !== null && draft.key === scopeKey
+  const patch = (p: Partial<typeof serverState>) => setDraft({ key: scopeKey, ...current, ...p })
 
   const parseRegions = (value: string) => [
     ...new Set(
@@ -55,9 +53,7 @@ export function AliyunSLSScopePicker({
     ),
   ]
   const toggleProject = (name: string) => {
-    setAllowAll(false)
-    setSelected((current) => (current.includes(name) ? current.filter((item) => item !== name) : [...current, name]))
-    setDirty(true)
+    patch({ allowAll: false, selected: selected.includes(name) ? selected.filter((item) => item !== name) : [...selected, name] })
   }
   const submit = () =>
     onSave({
@@ -74,9 +70,7 @@ export function AliyunSLSScopePicker({
           className="quiet-button"
           type="button"
           onClick={() => {
-            setAllowAll(true)
-            setSelected(candidates.map((item) => item.name))
-            setDirty(true)
+            patch({ allowAll: true, selected: candidates.map((item) => item.name) })
           }}
           disabled={acting}
         >
@@ -86,9 +80,7 @@ export function AliyunSLSScopePicker({
           className="quiet-button"
           type="button"
           onClick={() => {
-            setAllowAll(false)
-            setSelected([])
-            setDirty(true)
+            patch({ allowAll: false, selected: [] })
           }}
           disabled={acting}
         >
@@ -105,8 +97,7 @@ export function AliyunSLSScopePicker({
             name={`aliyun-region-mode-${integration.id}`}
             checked={regionMode === 'all'}
             onChange={() => {
-              setRegionMode('all')
-              setDirty(true)
+              patch({ regionMode: 'all' })
             }}
           />
           <span>
@@ -120,8 +111,7 @@ export function AliyunSLSScopePicker({
             name={`aliyun-region-mode-${integration.id}`}
             checked={regionMode === 'allowlist'}
             onChange={() => {
-              setRegionMode('allowlist')
-              setDirty(true)
+              patch({ regionMode: 'allowlist' })
             }}
           />
           <span>
@@ -135,8 +125,7 @@ export function AliyunSLSScopePicker({
             name={`aliyun-region-mode-${integration.id}`}
             checked={regionMode === 'single'}
             onChange={() => {
-              setRegionMode('single')
-              setDirty(true)
+              patch({ regionMode: 'single' })
             }}
           />
           <span>
@@ -152,8 +141,7 @@ export function AliyunSLSScopePicker({
                 value={regions}
                 placeholder="cn-hangzhou, cn-shanghai, cn-hongkong"
                 onChange={(event) => {
-                  setRegions(event.target.value)
-                  setDirty(true)
+                  patch({ regions: event.target.value })
                 }}
               />
             </span>
@@ -167,8 +155,7 @@ export function AliyunSLSScopePicker({
                 value={deniedRegions}
                 placeholder="us-east-1"
                 onChange={(event) => {
-                  setDeniedRegions(event.target.value)
-                  setDirty(true)
+                  patch({ deniedRegions: event.target.value })
                 }}
               />
             </span>
@@ -210,15 +197,16 @@ export function AliyunSLSScopePicker({
             value={selected.join(', ')}
             placeholder="aipc-log, test-aipc-log"
             onChange={(event) => {
-              setSelected([
-                ...new Set(
-                  event.target.value
-                    .split(/[\s,]+/)
-                    .map((item) => item.trim())
-                    .filter(Boolean),
-                ),
-              ])
-              setDirty(true)
+              patch({
+                selected: [
+                  ...new Set(
+                    event.target.value
+                      .split(/[\s,]+/)
+                      .map((item) => item.trim())
+                      .filter(Boolean),
+                  ),
+                ],
+              })
             }}
           />
           <small>可直接补回当前未发现或刚新增的 Project；保存后 Connector 会重新探测。</small>

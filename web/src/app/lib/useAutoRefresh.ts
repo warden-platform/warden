@@ -5,7 +5,11 @@ import { useEffect, useRef } from 'react'
 // Pass enabled=false to pause (e.g. user toggle).
 export function useAutoRefresh(fn: () => void, intervalMs: number, enabled = true) {
   const fnRef = useRef(fn)
-  fnRef.current = fn
+  // Latest-ref update in an effect (not during render): interval/visibility
+  // callbacks only fire after commit, so they always see the fresh closure.
+  useEffect(() => {
+    fnRef.current = fn
+  })
 
   useEffect(() => {
     if (!enabled) return

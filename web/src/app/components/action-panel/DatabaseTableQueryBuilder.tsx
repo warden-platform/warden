@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react'
+import { useState, type Dispatch, type SetStateAction } from 'react'
 import { Loader2, X } from 'lucide-react'
 import type { ApiResource } from '../../../shared/api'
 import { DATABASE_FILTER_OPERATORS, type ExecutionStarter } from './constants'
 import { asRecord, waitForTerminalExecution } from './utils'
+import { useApiQuery } from '../../lib/useApiQuery'
 
 // 单表快捷查询构建器：读取表结构（列/索引/行数），
 // 让用户勾选返回字段、配置筛选与排序。
@@ -89,41 +90,41 @@ export function DatabaseTableQueryBuilder({
   setParameters: Dispatch<SetStateAction<Record<string, unknown>>>
   startExecution: ExecutionStarter
 }) {
-  const [metadata, setMetadata] = useState<Record<string, unknown> | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [rawMetadata, setRawMetadata] = useState<Record<string, unknown> | null>(null)
   const [loadedFor, setLoadedFor] = useState('')
 
-  const loadMetadata = useCallback(() => {
-    if (!resource) return
-    setLoading(true)
-    setError('')
-    startExecution({
-      taskId: `ui-db-describe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
-      resourceId: resource.id,
-      action: 'database.table.describe',
-      actionVersion: 1,
-      parameters: {
-        name: resource.name,
-        ...(resource.namespace ? { namespace: resource.namespace } : {}),
-      },
-      reason: '查询表单读取表结构、索引与行数',
-    })
-      .then(waitForTerminalExecution)
-      .then((completed) => {
-        if (completed.status !== 'SUCCEEDED') throw new Error(completed.errorMessage || completed.errorCode || '读取表结构失败')
-        setMetadata(completed.result ?? {})
-        setLoadedFor(resource.id)
+  const metadataQuery = useApiQuery(
+    async () => {
+      if (!resource) return {}
+      const started = await startExecution({
+        taskId: `ui-db-describe-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`,
+        resourceId: resource.id,
+        action: 'database.table.describe',
+        actionVersion: 1,
+        parameters: {
+          name: resource.name,
+          ...(resource.namespace ? { namespace: resource.namespace } : {}),
+        },
+        reason: '查询表单读取表结构、索引与行数',
       })
-      .catch((err: Error) => setError(err.message || '读取表结构失败'))
-      .finally(() => setLoading(false))
-  }, [resource, startExecution])
+      const completed = await waitForTerminalExecution(started)
+      if (completed.status !== 'SUCCEEDED') throw new Error(completed.errorMessage || completed.errorCode || '读取表结构失败')
+      return completed.result ?? {}
+    },
+    [resource?.id, startExecution],
+    {
+      enabled: Boolean(resource && resource.id !== loadedFor),
+      onSuccess: (data) => {
+        setRawMetadata(data)
+        if (resource) setLoadedFor(resource.id)
+      },
+    },
+  )
+  const loading = metadataQuery.loading
+  const error = metadataQuery.error
 
-  useEffect(() => {
-    if (!resource || resource.id === loadedFor || loading) return
-    setMetadata(null)
-    loadMetadata()
-  }, [resource, loadedFor, loading, loadMetadata])
+  // Stale metadata (from a previous resource) is derived away, not reset in an effect.
+  const metadata = resource && loadedFor === resource.id ? rawMetadata : null
 
   const columns = (Array.isArray(metadata?.columns) ? metadata.columns : []).filter((column): column is Record<string, unknown> =>
     Boolean(column && typeof column === 'object'),
@@ -219,7 +220,7 @@ export function DatabaseTableQueryBuilder({
       ) : error ? (
         <div className="form-error" role="alert">
           {error}
-          <button type="button" className="quiet-button" onClick={loadMetadata}>
+          <button type="button" className="quiet-button" onClick={() => metadataQuery.reload()}>
             重试
           </button>
         </div>

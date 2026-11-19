@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Check, Loader2 } from 'lucide-react'
 import type { Integration } from '../../shared/api'
 import { Badge } from './Badge'
@@ -16,17 +16,16 @@ export function SchemaScopePicker({
 }) {
   const allowedSchemas = (integration.scope.allowedSchemas as string[] | undefined) ?? []
   const allowAll = integration.scope.allowAll === true
-  const [selected, setSelected] = useState<string[]>(allowAll ? schemas : allowedSchemas)
-  const [dirty, setDirty] = useState(false)
-  useEffect(() => {
-    setSelected(allowAll ? schemas : allowedSchemas)
-    setDirty(false)
-  }, [integration.id, integration.updated_at, allowAll, schemas.join('\n')])
+  const scopeKey = `${integration.id}:${integration.updated_at}`
+  const serverSelected = allowAll ? schemas : allowedSchemas
+  const [draft, setDraft] = useState<{ key: string; value: string[] } | null>(null)
+  const selected = draft && draft.key === scopeKey ? draft.value : serverSelected
+  const dirty = draft !== null && draft.key === scopeKey
+  const edit = (value: string[]) => setDraft({ key: scopeKey, value })
 
   const allSelected = schemas.length > 0 && selected.length === schemas.length
   const toggle = (schema: string) => {
-    setSelected((current) => (current.includes(schema) ? current.filter((item) => item !== schema) : [...current, schema]))
-    setDirty(true)
+    edit(selected.includes(schema) ? selected.filter((item) => item !== schema) : [...selected, schema])
   }
   const submit = () => onSave(allSelected ? { allowAll: true } : { allowedSchemas: selected })
 
@@ -50,8 +49,7 @@ export function SchemaScopePicker({
           className="quiet-button"
           type="button"
           onClick={() => {
-            setSelected([...schemas])
-            setDirty(true)
+            edit([...schemas])
           }}
           disabled={acting}
         >
@@ -61,8 +59,7 @@ export function SchemaScopePicker({
           className="quiet-button"
           type="button"
           onClick={() => {
-            setSelected([])
-            setDirty(true)
+            edit([])
           }}
           disabled={acting}
         >

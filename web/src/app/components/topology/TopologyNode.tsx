@@ -96,6 +96,7 @@ function TopologyNode({ data, selected }: NodeProps) {
       {d.live && <span className="topo-live-dot" title="有执行信号正在经过" aria-label="有执行信号正在经过" />}
       <Handle type="target" position={Position.Left} className="!h-2 !w-2 !border-0 !bg-gray-400" />
       <div className={`grid h-9 w-9 flex-none place-items-center rounded-lg ${statusIconBg[d.status]}`}>
+        {/* eslint-disable-next-line react-hooks/static-components -- iconFor returns module-level lucide components; identity is stable per kind/entity */}
         <Icon size={18} />
       </div>
       <div className="min-w-0 flex-1">

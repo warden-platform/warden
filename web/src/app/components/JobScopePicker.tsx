@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Check, Loader2 } from 'lucide-react'
 import type { Integration } from '../../shared/api'
 import { Badge } from './Badge'
@@ -16,25 +16,24 @@ export function JobScopePicker({
 }) {
   const allowedJobs = (integration.scope.allowedJobs as string[] | undefined) ?? []
   const allowAll = integration.scope.allowAll === true
-  const [selected, setSelected] = useState<string[]>(allowAll ? jobs : allowedJobs)
-  const [dirty, setDirty] = useState(false)
-  useEffect(() => {
-    setSelected(allowAll ? jobs : allowedJobs)
-    setDirty(false)
-  }, [integration.id, integration.updated_at, allowAll, jobs.join('\n')])
+  // Keyed draft: edits persist until the server scope changes (id/updated_at),
+  // no sync effect needed.
+  const scopeKey = `${integration.id}:${integration.updated_at}`
+  const serverSelected = allowAll ? jobs : allowedJobs
+  const [draft, setDraft] = useState<{ key: string; value: string[] } | null>(null)
+  const selected = draft && draft.key === scopeKey ? draft.value : serverSelected
+  const dirty = draft !== null && draft.key === scopeKey
+  const edit = (value: string[]) => setDraft({ key: scopeKey, value })
 
   const allSelected = jobs.length > 0 && selected.length === jobs.length
   const toggle = (job: string) => {
-    setSelected((current) => (current.includes(job) ? current.filter((j) => j !== job) : [...current, job]))
-    setDirty(true)
+    edit(selected.includes(job) ? selected.filter((j) => j !== job) : [...selected, job])
   }
   const selectAll = () => {
-    setSelected([...jobs])
-    setDirty(true)
+    edit([...jobs])
   }
   const clearAll = () => {
-    setSelected([])
-    setDirty(true)
+    edit([])
   }
   const submit = () => {
     const scope = allSelected ? { allowAll: true } : { allowedJobs: selected }

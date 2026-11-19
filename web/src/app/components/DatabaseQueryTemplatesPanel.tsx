@@ -11,7 +11,7 @@ import {
 } from '../../shared/api'
 import { Badge } from './Badge'
 import { useApp } from './Toast'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 export function DatabaseQueryTemplatesPanel({ integration, resources }: { integration: Integration; resources: ApiResource[] }) {
   const { notify } = useApp()
@@ -26,8 +26,8 @@ export function DatabaseQueryTemplatesPanel({ integration, resources }: { integr
     },
     [integration.id],
   )
-  const templates = templatesQuery.data?.templates ?? []
-  const requests = templatesQuery.data?.requests ?? []
+  const templates = templatesQuery.data?.templates ?? EMPTY_ARRAY
+  const requests = templatesQuery.data?.requests ?? EMPTY_ARRAY
   const loading = templatesQuery.loading
   const error = templatesQuery.error
   const load = () => templatesQuery.reload()

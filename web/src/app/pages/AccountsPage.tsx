@@ -15,7 +15,7 @@ import {
 } from '../../shared/api'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 const roleLabels: Record<string, string> = {
   user: '项目成员',
@@ -96,7 +96,7 @@ export function AccountsPage() {
 
   const accountsQuery = useApiQuery(() => listAccounts(), [])
   const tenantsQuery = useApiQuery(() => listTenants(), [])
-  const accounts = accountsQuery.data ?? []
+  const accounts = accountsQuery.data ?? EMPTY_ARRAY
   const tenants = (tenantsQuery.data ?? []).filter((t) => t.slug !== UNAFFILIATED_SLUG)
   const loading = accountsQuery.loading
   const error = accountsQuery.error

@@ -2,7 +2,7 @@
 // host (connector). Host sections are collapsible; within each host, resources
 // are sub-grouped by type. Type filter chips toggle visibility per resource type.
 import { ChevronRight, Container, HardDrive, Search, Server } from 'lucide-react'
-import { useMemo } from 'react'
+import { useCallback, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import type { ApiResource, ApiConnector } from '../../../shared/api'
 import { EmptyState } from '../States'
@@ -23,7 +23,7 @@ export function LinuxResources({
   onAction: (r: ApiResource) => void
   onProject: (r: ApiResource) => void
 }) {
-  const connectorName = (id: string) => connectors.find((c) => c.id === id)?.name ?? ''
+  const connectorName = useCallback((id: string) => connectors.find((c) => c.id === id)?.name ?? '', [connectors])
   const q = query.trim().toLowerCase()
   const searched = useMemo(
     () => (q ? resources.filter((r) => (r.name + r.resource_type + connectorName(r.connector_id)).toLowerCase().includes(q)) : resources),

@@ -8,7 +8,7 @@ import { TopologyDetails } from '../components/topology/TopologyDetails'
 import { TopologyExport } from '../components/topology/TopologyExport'
 import { buildTopology, type TopoNodeData, type TopoEntity, type TopoStatus } from '../lib/topology/buildTopology'
 import { exportTopologyText } from '../lib/topology/exportText'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 const TYPE_FILTERS: { key: TopoEntity; label: string }[] = [
   { key: 'connector', label: '通道' },
@@ -59,11 +59,11 @@ export function TopologyPage() {
     [],
     { intervalMs: 15000 },
   )
-  const connectors = topologyQuery.data?.[0] ?? []
-  const integrations = topologyQuery.data?.[1] ?? []
-  const resources = topologyQuery.data?.[2] ?? []
-  const actions = topologyQuery.data?.[3] ?? []
-  const executions = topologyQuery.data?.[4] ?? []
+  const connectors = topologyQuery.data?.[0] ?? EMPTY_ARRAY
+  const integrations = topologyQuery.data?.[1] ?? EMPTY_ARRAY
+  const resources = topologyQuery.data?.[2] ?? EMPTY_ARRAY
+  const actions = topologyQuery.data?.[3] ?? EMPTY_ARRAY
+  const executions = topologyQuery.data?.[4] ?? EMPTY_ARRAY
   const loading = topologyQuery.loading
   const error = topologyQuery.error
   const load = () => topologyQuery.reload()

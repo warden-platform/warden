@@ -21,7 +21,7 @@ import { useApp } from '../components/Toast'
 import { Badge } from '../components/Badge'
 import { ErrorState, LoadingState } from '../components/States'
 import { resourceTypeLabel } from '../lib/labels'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 type Tab = 'overview' | 'integrations' | 'resources' | 'agent' | 'scope' | 'settings'
 
@@ -54,12 +54,12 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
   const heartbeatQuery = useApiQuery(() => listConnectors(), [], {
     intervalMs: 15000,
     enabled: Boolean(id),
-    onSuccess: () => setNow(Date.now()),
+    onSuccess: (_data, fetchedAt) => setNow(fetchedAt),
   })
   const connector = heartbeatQuery.data?.find((item) => item.id === id) ?? detailQuery.data?.connector ?? null
-  const integrations = detailQuery.data?.integrations ?? []
-  const resources = detailQuery.data?.resources ?? []
-  const projects = detailQuery.data?.projects ?? []
+  const integrations = detailQuery.data?.integrations ?? EMPTY_ARRAY
+  const resources = detailQuery.data?.resources ?? EMPTY_ARRAY
+  const projects = detailQuery.data?.projects ?? EMPTY_ARRAY
   const loading = detailQuery.loading
   const error = detailQuery.error
   const load = () => detailQuery.reload()

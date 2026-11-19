@@ -15,7 +15,7 @@ import {
 } from '../../shared/api'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 const roleLabels = { PROJECT_ADMIN: '项目管理员', OPERATOR: '操作员', VIEWER: '只读' } as const
 
@@ -37,7 +37,7 @@ function InvitationsPanel() {
   const [busy, setBusy] = useState(false)
 
   const invitesQuery = useApiQuery(() => listInvitations(), [])
-  const invites = invitesQuery.data ?? []
+  const invites = invitesQuery.data ?? EMPTY_ARRAY
   const loading = invitesQuery.loading
   const refresh = () => invitesQuery.reload()
 
@@ -151,7 +151,7 @@ export function ProjectUsersPage() {
   const [password, setPassword] = useState('')
 
   const usersQuery = useApiQuery(() => listProjectUsers(), [])
-  const users = usersQuery.data ?? []
+  const users = usersQuery.data ?? EMPTY_ARRAY
   const loading = usersQuery.loading
   const error = usersQuery.error
   const load = (spinner = true) => usersQuery.reload(spinner)

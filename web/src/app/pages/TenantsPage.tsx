@@ -19,7 +19,7 @@ import {
 import { ErrorState, LoadingState } from '../components/States'
 import { Kpi } from '../components/Kpi'
 import { useApp } from '../components/Toast'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 const DEFAULT_QUOTA: TenantQuotaInput = {
   maxConcurrentTasks: 100,
@@ -79,7 +79,7 @@ export function TenantsPage() {
   const [busy, setBusy] = useState('')
 
   const tenantsQuery = useApiQuery(() => listTenants(), [])
-  const tenants = tenantsQuery.data ?? []
+  const tenants = tenantsQuery.data ?? EMPTY_ARRAY
   const loading = tenantsQuery.loading
   const error = tenantsQuery.error
   const load = (spinner = true) => tenantsQuery.reload(spinner)

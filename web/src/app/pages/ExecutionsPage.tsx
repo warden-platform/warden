@@ -6,7 +6,7 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { ExecutionTable } from '../components/ExecutionTable'
 import { ActionPanel } from '../components/ActionPanel'
 import { apiExecutionToView } from '../lib/mappers'
-import { useApiQuery } from '../lib/useApiQuery'
+import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
 
 const STATUS_FILTERS = ['全部', '执行中', '成功', '失败', '等待审批'] as const
 const statusGroupByFilter: Record<string, string> = {
@@ -28,8 +28,8 @@ export function ExecutionsPage() {
     // Skip the state update (and full table re-render) when nothing changed.
     isEqual: (prev, next) => prev.length === next.length && prev.every((p, i) => p.id === next[i].id && p.updatedAt === next[i].updatedAt),
   })
-  const actions = actionsQuery.data ?? []
-  const executions = executionsQuery.data ?? []
+  const actions = actionsQuery.data ?? EMPTY_ARRAY
+  const executions = executionsQuery.data ?? EMPTY_ARRAY
   const loading = actionsQuery.loading || executionsQuery.loading
   const error = actionsQuery.error || executionsQuery.error
   const load = () => {

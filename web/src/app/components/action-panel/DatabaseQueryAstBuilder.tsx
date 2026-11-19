@@ -5,6 +5,7 @@ import { listResources } from '../../../shared/api'
 import { DATABASE_FILTER_OPERATORS, DATABASE_QUERY_AST_VERSION, DATABASE_QUERY_SOURCE_ALIAS, type ExecutionStarter } from './constants'
 import { asRecord, normalizedDatabaseQueryAst, waitForTerminalExecution } from './utils'
 import { DatabaseFilterValueInput } from './DatabaseTableQueryBuilder'
+import { EMPTY_ARRAY, useApiQuery } from '../../lib/useApiQuery'
 
 // 多表 JOIN 查询构造器（AST 模式）：管理 sources/joins/select/where/bindings，
 // 提交前需先运行预检生成 previewHash（成本门禁绑定）。
@@ -52,11 +53,7 @@ export function DatabaseQueryAstBuilder({
   actingProjectId: string
 }) {
   const [metadataByExternalId, setMetadataByExternalId] = useState<Record<string, Record<string, unknown>>>({})
-  const [tableResources, setTableResources] = useState<ApiResource[]>([])
-  const [loading, setLoading] = useState(false)
-  const [tableLoading, setTableLoading] = useState(false)
-  const [error, setError] = useState('')
-  const [joinError, setJoinError] = useState('')
+  const [manualJoinError, setManualJoinError] = useState('')
   const [joinTableId, setJoinTableId] = useState('')
   const [preview, setPreview] = useState<Record<string, unknown> | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
@@ -110,53 +107,41 @@ export function DatabaseQueryAstBuilder({
     [describeTable, metadataByExternalId],
   )
 
-  const loadBaseMetadata = useCallback(() => {
-    if (!resource) return
-    setLoading(true)
-    setError('')
-    describeTable(resource)
-      .catch((err: Error) => setError(err.message || '读取表结构失败'))
-      .finally(() => setLoading(false))
-  }, [describeTable, resource])
+  const baseMetadataQuery = useApiQuery(
+    () => describeTable(resource!),
+    [resource?.id, describeTable],
+    {
+      enabled: Boolean(resource && !metadataByExternalId[resource.external_id]),
+      onSuccess: (data) => {
+        if (resource) setMetadataByExternalId((prev) => ({ ...prev, [resource.external_id]: data }))
+      },
+    },
+  )
+  const loading = baseMetadataQuery.loading
+  const error = baseMetadataQuery.error
 
-  useEffect(() => {
-    if (!resource || metadataByExternalId[resource.external_id] || loading) return
-    loadBaseMetadata()
-  }, [resource, metadataByExternalId, loading, loadBaseMetadata])
-
-  useEffect(() => {
-    if (!resource?.integration_id) {
-      setTableResources(resource ? [resource] : [])
-      return
-    }
-    let cancelled = false
-    setTableLoading(true)
-    setJoinError('')
-    listResources({ type: 'database_table', integrationId: resource.integration_id, projectId: actingProjectId })
-      .then((items) => {
-        if (cancelled) return
-        // Keep the client-side guard even though the catalog endpoint is
-        // filtered. It prevents a stale proxy/cache response from surfacing a
-        // schema, instance, or table from another Integration as a JOIN target.
-        const available = (items ?? []).filter(
-          (item) =>
-            item.resource_type === 'database_table' &&
-            item.status === 'ACTIVE' &&
-            item.connector_id === resource.connector_id &&
-            item.integration_id === resource.integration_id,
-        )
-        setTableResources(available.some((item) => item.id === resource.id) ? available : [resource, ...available])
-      })
-      .catch((err: Error) => {
-        if (!cancelled) setJoinError(err.message || '读取可关联表失败')
-      })
-      .finally(() => {
-        if (!cancelled) setTableLoading(false)
-      })
-    return () => {
-      cancelled = true
-    }
-  }, [resource?.id, resource?.integration_id, resource?.connector_id, actingProjectId])
+  const tablesQuery = useApiQuery(
+    async () => {
+      if (!resource?.integration_id) return [] as ApiResource[]
+      const items = await listResources({ type: 'database_table', integrationId: resource.integration_id, projectId: actingProjectId })
+      // Keep the client-side guard even though the catalog endpoint is
+      // filtered. It prevents a stale proxy/cache response from surfacing a
+      // schema, instance, or table from another Integration as a JOIN target.
+      const available = (items ?? []).filter(
+        (item) =>
+          item.resource_type === 'database_table' &&
+          item.status === 'ACTIVE' &&
+          item.connector_id === resource.connector_id &&
+          item.integration_id === resource.integration_id,
+      )
+      return available.some((item) => item.id === resource.id) ? available : [resource, ...available]
+    },
+    [resource?.id, resource?.integration_id, resource?.connector_id, actingProjectId],
+    { enabled: Boolean(resource?.integration_id) },
+  )
+  const tableResources = resource?.integration_id ? (tablesQuery.data ?? EMPTY_ARRAY) : resource ? [resource] : EMPTY_ARRAY
+  const tableLoading = tablesQuery.loading
+  const joinError = manualJoinError || tablesQuery.error
 
   const ast = asRecord(parameters.ast)
   useEffect(() => {
@@ -173,7 +158,7 @@ export function DatabaseQueryAstBuilder({
     )
       return
     setParameters((current) => ({ ...current, ast: normalized }))
-  }, [resource?.id, resource?.external_id]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [resource, ast, setParameters])
 
   const joins = (Array.isArray(ast.joins) ? ast.joins : []).filter((join): join is Record<string, unknown> =>
     Boolean(join && typeof join === 'object'),
@@ -191,7 +176,7 @@ export function DatabaseQueryAstBuilder({
   useEffect(() => {
     for (const entry of sourceEntries.slice(1)) {
       if (!entry.metadata && !metadataRequests.current.has(entry.table.external_id))
-        void ensureTableMetadata(entry.table).catch((err: Error) => setJoinError(err.message))
+        void ensureTableMetadata(entry.table).catch((err: Error) => setManualJoinError(err.message))
     }
   }, [sourceEntries.map((entry) => `${entry.alias}:${entry.table.id}:${Boolean(entry.metadata)}`).join('|'), ensureTableMetadata]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -320,7 +305,7 @@ export function DatabaseQueryAstBuilder({
     if (!resource || !joinTableId) return
     const target = tableResources.find((item) => item.id === joinTableId)
     if (!target) return
-    setJoinError('')
+    setManualJoinError('')
     try {
       const [leftMetadata, rightMetadata] = await Promise.all([ensureTableMetadata(resource), ensureTableMetadata(target)])
       const leftColumn = String((Array.isArray(leftMetadata.columns) ? asRecord(leftMetadata.columns[0]).name : '') ?? '')
@@ -348,7 +333,7 @@ export function DatabaseQueryAstBuilder({
       })
       setJoinTableId('')
     } catch (err) {
-      setJoinError(err instanceof Error ? err.message : '添加关联表失败')
+      setManualJoinError(err instanceof Error ? err.message : '添加关联表失败')
     }
   }
 
@@ -465,7 +450,7 @@ export function DatabaseQueryAstBuilder({
       ) : error ? (
         <div className="form-error" role="alert">
           {error}
-          <button type="button" className="quiet-button" onClick={loadBaseMetadata}>
+          <button type="button" className="quiet-button" onClick={() => baseMetadataQuery.reload()}>
             重试
           </button>
         </div>
