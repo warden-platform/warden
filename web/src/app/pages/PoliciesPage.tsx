@@ -1,10 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { AlertTriangle, ArrowRight, Ban, Copy, Lock, Pencil, Play, Plus, Power, ShieldCheck, Trash2, Unlock, X } from 'lucide-react'
 import type {
-  ApiAction,
   ApiError,
   ApiPolicyRule,
-  ApiProject,
   PolicyDecision,
   PolicyRuleInput,
   PolicySimulationInput,
@@ -25,6 +23,7 @@ import { resourceTypeLabel } from '../lib/labels'
 import { ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
 import { DingTalkChannelPanel } from '../components/DingTalkChannelPanel'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const RISK_LABELS: Record<string, string> = {
   '': '所有风险',
@@ -101,11 +100,6 @@ function DecisionBadge({ decision }: { decision: PolicyDecision }) {
 }
 
 export function PoliciesPage() {
-  const [rules, setRules] = useState<ApiPolicyRule[]>([])
-  const [projects, setProjects] = useState<ApiProject[]>([])
-  const [actions, setActions] = useState<ApiAction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [busy, setBusy] = useState<string | null>(null)
   const [editing, setEditing] = useState<ApiPolicyRule | null | undefined>(undefined)
   const [form, setForm] = useState<PolicyRuleInput>(EMPTY_RULE)
@@ -121,31 +115,28 @@ export function PoliciesPage() {
   const [simulationResult, setSimulationResult] = useState<PolicySimulationResult | null>(null)
   const { notify } = useApp()
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    Promise.all([listPolicyRules(), listProjects(), listAvailableActions()])
-      .then(([ruleItems, projectItems, actionItems]) => {
-        setRules(ruleItems ?? [])
-        setProjects(projectItems ?? [])
-        setActions(actionItems ?? [])
-        const first = actionItems?.[0]
-        if (first)
-          setSimulation((current) =>
-            current.action_name
-              ? current
-              : {
-                  ...current,
-                  action_name: first.name,
-                  resource_type: first.resource_type,
-                  risk_level: first.risk_level,
-                },
-          )
-      })
-      .catch((e: ApiError) => setError(e.message || '加载策略中心失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+  const policiesQuery = useApiQuery(() => Promise.all([listPolicyRules(), listProjects(), listAvailableActions()]), [], {
+    onSuccess: ([, , actionItems]) => {
+      const first = actionItems?.[0]
+      if (first)
+        setSimulation((current) =>
+          current.action_name
+            ? current
+            : {
+                ...current,
+                action_name: first.name,
+                resource_type: first.resource_type,
+                risk_level: first.risk_level,
+              },
+        )
+    },
+  })
+  const rules = policiesQuery.data?.[0] ?? []
+  const projects = policiesQuery.data?.[1] ?? []
+  const actions = policiesQuery.data?.[2] ?? []
+  const loading = policiesQuery.loading
+  const error = policiesQuery.error
+  const load = () => policiesQuery.reload()
 
   const actionByName = useMemo(() => new Map(actions.map((action) => [action.name, action])), [actions])
   const ruleByID = useMemo(() => new Map(rules.map((rule) => [rule.id, rule])), [rules])

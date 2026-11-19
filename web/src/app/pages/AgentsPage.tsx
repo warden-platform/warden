@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Bot,
   Clock3,
@@ -18,6 +18,7 @@ import { deletePrincipal, listPrincipalAPIKeys, listPrincipals, revokePrincipalA
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 import { CreateAgentDrawer, CreateAgentKeyDrawer, OneTimeKeyDialog } from '../components/AgentCredentialDialogs'
 import { CreateRegistrationBotDrawer, CreateRegistrationKeyDrawer } from '../components/AgentCredentialDialogs'
 
@@ -35,12 +36,8 @@ const formatTime = (value?: string) => (value ? new Date(value).toLocaleString('
 
 export function AgentsPage() {
   const { notify } = useApp()
-  const [principals, setPrincipals] = useState<ApiPrincipal[]>([])
-  const [keysByPrincipal, setKeysByPrincipal] = useState<Record<string, ApiPrincipalKey[]>>({})
   const [selectedId, setSelectedId] = useState('')
   const [query, setQuery] = useState('')
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [createAgentOpen, setCreateAgentOpen] = useState(false)
   const [createRegistrationOpen, setCreateRegistrationOpen] = useState(false)
   const [createKeyFor, setCreateKeyFor] = useState<ApiPrincipal | null>(null)
@@ -48,31 +45,34 @@ export function AgentsPage() {
   const [busyKey, setBusyKey] = useState('')
   const [busyDelete, setBusyDelete] = useState(false)
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    Promise.all([listPrincipals('agent_instance'), listPrincipals('workload')])
-      .then(async ([agentItems, workloadItems]) => {
-        const registrationBots = (workloadItems ?? []).filter((item) => item.metadata?.purpose === 'warden_resource_registration')
-        const agents = [...(agentItems ?? []), ...registrationBots]
-        const keyPairs = await Promise.all(
-          agents.map(async (agent) => {
-            try {
-              return [agent.id, (await listPrincipalAPIKeys(agent.id)) ?? []] as const
-            } catch {
-              // A single stale/disabled Principal must not blank the whole Agent page.
-              return [agent.id, []] as const
-            }
-          }),
-        )
-        setPrincipals(agents)
-        setKeysByPrincipal(Object.fromEntries(keyPairs))
-        setSelectedId((current) => (agents.some((agent) => agent.id === current) ? current : (agents[0]?.id ?? '')))
-      })
-      .catch((e: ApiError) => setError(e.message))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+  const agentsQuery = useApiQuery(
+    async () => {
+      const [agentItems, workloadItems] = await Promise.all([listPrincipals('agent_instance'), listPrincipals('workload')])
+      const registrationBots = (workloadItems ?? []).filter((item) => item.metadata?.purpose === 'warden_resource_registration')
+      const agents = [...(agentItems ?? []), ...registrationBots]
+      const keyPairs = await Promise.all(
+        agents.map(async (agent) => {
+          try {
+            return [agent.id, (await listPrincipalAPIKeys(agent.id)) ?? []] as const
+          } catch {
+            // A single stale/disabled Principal must not blank the whole Agent page.
+            return [agent.id, []] as const
+          }
+        }),
+      )
+      return { agents, keysByPrincipal: Object.fromEntries(keyPairs) as Record<string, ApiPrincipalKey[]> }
+    },
+    [],
+    {
+      onSuccess: ({ agents }) =>
+        setSelectedId((current) => (agents.some((agent) => agent.id === current) ? current : (agents[0]?.id ?? ''))),
+    },
+  )
+  const principals = agentsQuery.data?.agents ?? []
+  const keysByPrincipal = agentsQuery.data?.keysByPrincipal ?? {}
+  const loading = agentsQuery.loading
+  const error = agentsQuery.error
+  const load = () => agentsQuery.reload()
 
   const allKeys = useMemo(() => Object.values(keysByPrincipal).flatMap((keys) => keys ?? []), [keysByPrincipal])
   const selected = principals.find((principal) => principal.id === selectedId) ?? null
@@ -84,11 +84,9 @@ export function AgentsPage() {
   const activeKeys = allKeys.filter((key) => key.status === 'ACTIVE' && (!key.expires_at || new Date(key.expires_at) > new Date())).length
   const usedRecently = allKeys.filter((key) => key.last_used_at && Date.now() - new Date(key.last_used_at).getTime() < 86_400_000).length
 
-  const refreshPrincipalKeys = (principalId: string) =>
-    listPrincipalAPIKeys(principalId).then((items) => setKeysByPrincipal((current) => ({ ...current, [principalId]: items ?? [] })))
+  const refreshPrincipalKeys = (_principalId: string) => agentsQuery.reload(false)
   const onPrincipalCreated = (principal: ApiPrincipal) => {
-    setPrincipals((current) => [principal, ...current])
-    setKeysByPrincipal((current) => ({ ...current, [principal.id]: [] }))
+    void agentsQuery.reload(false)
     setSelectedId(principal.id)
     setCreateAgentOpen(false)
     setCreateRegistrationOpen(false)
@@ -129,12 +127,7 @@ export function AgentsPage() {
     setBusyDelete(true)
     deletePrincipal(selected.id)
       .then(() => {
-        setPrincipals((current) => current.filter((p) => p.id !== selected.id))
-        setKeysByPrincipal((current) => {
-          const next = { ...current }
-          delete next[selected.id]
-          return next
-        })
+        void agentsQuery.reload(false)
         setSelectedId('')
         notify('Agent 已删除，所有 Key 已失效')
       })

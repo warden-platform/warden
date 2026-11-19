@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { KeyRound, LogOut, Mail, Power, RefreshCw, Search, UserRoundCheck, Users, X } from 'lucide-react'
 import {
   ApiError,
@@ -15,6 +15,7 @@ import {
 } from '../../shared/api'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const roleLabels = { PROJECT_ADMIN: '项目管理员', OPERATOR: '操作员', VIEWER: '只读' } as const
 
@@ -31,22 +32,14 @@ function formatTime(value?: string) {
 // caller's own tenant (server-derived), so no slug is needed here.
 function InvitationsPanel() {
   const { notify } = useApp()
-  const [invites, setInvites] = useState<Invitation[]>([])
-  const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
   const [role, setRole] = useState('user')
   const [busy, setBusy] = useState(false)
 
-  const refresh = () => {
-    setLoading(true)
-    listInvitations()
-      .then((items) => setInvites(items ?? []))
-      .catch(() => setInvites([]))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => {
-    refresh()
-  }, [])
+  const invitesQuery = useApiQuery(() => listInvitations(), [])
+  const invites = invitesQuery.data ?? []
+  const loading = invitesQuery.loading
+  const refresh = () => invitesQuery.reload()
 
   const submit = (event: React.FormEvent) => {
     event.preventDefault()
@@ -54,7 +47,7 @@ function InvitationsPanel() {
     setBusy(true)
     createInvitation({ email: email.trim(), role })
       .then((created) => {
-        setInvites((items) => [created, ...items])
+        void invitesQuery.reload(false)
         setEmail('')
         notify(`已邀请 ${created.email}`)
       })
@@ -67,7 +60,7 @@ function InvitationsPanel() {
     setBusy(true)
     revokeInvitation(invite.id)
       .then(() => {
-        setInvites((items) => items.map((item) => (item.id === invite.id ? { ...item, status: 'REVOKED' } : item)))
+        void invitesQuery.reload(false)
         notify('邀请已撤销')
       })
       .catch((e: ApiError) => notify(e.message || '撤销邀请失败', 'error'))
@@ -152,25 +145,16 @@ function InvitationsPanel() {
 
 export function ProjectUsersPage() {
   const { notify, auth } = useApp()
-  const [users, setUsers] = useState<ApiProjectUser[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState('')
   const [resetUser, setResetUser] = useState<ApiProjectUser | null>(null)
   const [password, setPassword] = useState('')
 
-  const load = (spinner = true) => {
-    if (spinner) setLoading(true)
-    setError('')
-    listProjectUsers()
-      .then((items) => setUsers(items ?? []))
-      .catch((e: ApiError) => setError(e.message || '查询项目用户失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => {
-    load()
-  }, [])
+  const usersQuery = useApiQuery(() => listProjectUsers(), [])
+  const users = usersQuery.data ?? []
+  const loading = usersQuery.loading
+  const error = usersQuery.error
+  const load = (spinner = true) => usersQuery.reload(spinner)
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -198,8 +182,8 @@ export function ProjectUsersPage() {
       return
     setBusy(`status-${user.id}`)
     updateProjectUserStatus(user.id, next)
-      .then((updated) => {
-        setUsers((items) => items.map((item) => (item.id === updated.id ? updated : item)))
+      .then(() => {
+        void usersQuery.reload(false)
         notify(`已${verb}项目用户`)
       })
       .catch((e: ApiError) => notify(e.message || `${verb}项目用户失败`, 'error'))

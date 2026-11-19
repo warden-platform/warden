@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { RefreshCw, Search, ShieldCheck, Users } from 'lucide-react'
 import {
   accountDisplayName,
@@ -15,6 +15,7 @@ import {
 } from '../../shared/api'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
 import { useApp } from '../components/Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const roleLabels: Record<string, string> = {
   user: '项目成员',
@@ -90,25 +91,16 @@ function formatTime(value?: string | null) {
 
 export function AccountsPage() {
   const { notify } = useApp()
-  const [accounts, setAccounts] = useState<ApiAccount[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [busy, setBusy] = useState('')
-  const [tenants, setTenants] = useState<ApiTenant[]>([])
 
-  const load = (spinner = true) => {
-    if (spinner) setLoading(true)
-    setError('')
-    listAccounts()
-      .then((items) => setAccounts(items ?? []))
-      .catch((e: ApiError) => setError(e.message || '查询账号失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => {
-    load()
-    listTenants().then((items) => setTenants((items ?? []).filter((t) => t.slug !== UNAFFILIATED_SLUG))).catch(() => undefined)
-  }, [])
+  const accountsQuery = useApiQuery(() => listAccounts(), [])
+  const tenantsQuery = useApiQuery(() => listTenants(), [])
+  const accounts = accountsQuery.data ?? []
+  const tenants = (tenantsQuery.data ?? []).filter((t) => t.slug !== UNAFFILIATED_SLUG)
+  const loading = accountsQuery.loading
+  const error = accountsQuery.error
+  const load = (spinner = true) => accountsQuery.reload(spinner)
 
   const filtered = useMemo(() => {
     const keyword = query.trim().toLowerCase()
@@ -131,7 +123,7 @@ export function AccountsPage() {
     setBusy(account.id)
     updateAccountRole(account.id, role)
       .then((result) => {
-        setAccounts((items) => items.map((item) => (item.id === result.id ? { ...item, role: result.role } : item)))
+        void accountsQuery.reload(false)
         notify(result.force_relogin ? `角色已更新，已撤销 ${result.revoked_sessions} 个会话，需重新登录` : '角色已更新')
       })
       .catch((e: ApiError) => notify(e.message || '更新角色失败', 'error'))

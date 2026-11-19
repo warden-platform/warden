@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Boxes, FolderKanban, Network, Pencil, Plus, RefreshCw, ServerCog, Trash2, Users, X } from 'lucide-react'
 import { useNavigate } from '../../shared/router'
 import {
@@ -20,28 +20,20 @@ import {
   updateProjectMembershipPolicy,
   updateProjectMember,
   updateProject,
-  type ApiConnector,
   type ApiProject,
   type ApiProjectMembership,
   type ApiPrincipal,
-  type ApiResourceStats,
-  type Integration,
 } from '../../shared/api'
 import { canUser } from '../../shared/api'
 import { MyAccessCard } from '../components/MyAccessCard'
 import { ErrorState, LoadingState } from '../components/States'
 import { Kpi } from '../components/Kpi'
 import { useApp } from '../components/Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 
 export function ProjectsPage() {
   const navigate = useNavigate()
   const { notify, auth } = useApp()
-  const [projects, setProjects] = useState<ApiProject[]>([])
-  const [resourceStats, setResourceStats] = useState<ApiResourceStats | null>(null)
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [integrations, setIntegrations] = useState<Integration[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -65,27 +57,25 @@ export function ProjectsPage() {
       members.some((member) => member.principal_id === auth.user?.id && member.role === 'PROJECT_ADMIN' && member.status === 'ACTIVE'),
     )
 
-  const load = (spinner = true) => {
-    if (spinner) setLoading(true)
-    setError('')
-    Promise.all([
-      listProjects(),
-      getResourceStats(),
-      isTenantAdmin ? listConnectors() : Promise.resolve([]),
-      isTenantAdmin ? listIntegrations() : Promise.resolve([]),
-      getProjectMembershipPolicy(),
-    ])
-      .then(([projectItems, stats, connectorItems, integrationItems, policy]) => {
-        setProjects(projectItems ?? [])
-        setResourceStats(stats)
-        setConnectors(connectorItems ?? [])
-        setIntegrations(integrationItems ?? [])
-        setPolicyEnforced(policy.enforced)
-      })
-      .catch((e: ApiError) => setError(e.message || '加载项目失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => load(), [])
+  const projectsQuery = useApiQuery(
+    () =>
+      Promise.all([
+        listProjects(),
+        getResourceStats(),
+        isTenantAdmin ? listConnectors() : Promise.resolve([]),
+        isTenantAdmin ? listIntegrations() : Promise.resolve([]),
+        getProjectMembershipPolicy(),
+      ]),
+    [isTenantAdmin],
+    { onSuccess: ([, , , , policy]) => setPolicyEnforced(policy.enforced) },
+  )
+  const projects = projectsQuery.data?.[0] ?? []
+  const resourceStats = projectsQuery.data?.[1] ?? null
+  const connectors = projectsQuery.data?.[2] ?? []
+  const integrations = projectsQuery.data?.[3] ?? []
+  const loading = projectsQuery.loading
+  const error = projectsQuery.error
+  const load = (spinner = true) => projectsQuery.reload(spinner)
 
   const openMembers = (project: ApiProject) => {
     setMemberProject(project)
