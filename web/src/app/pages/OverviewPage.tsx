@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Activity, AlertTriangle, ArrowRight, FileClock, Network, Plus, ShieldCheck } from 'lucide-react'
-import type { ApiAccessRequest, ApiConnector, ApiError, ApiExecution, ApiResourceStats } from '../../shared/api'
+import type { ApiConnector } from '../../shared/api'
 import {
   canUser,
   connectorHealthLabel,
@@ -14,7 +14,7 @@ import { useNavigate } from '../../shared/router'
 import { useApp } from '../components/Toast'
 import { LoadingState, ErrorState, EmptyState } from '../components/States'
 import { apiExecutionToView } from '../lib/mappers'
-import { useAutoRefresh } from '../lib/useAutoRefresh'
+import { useApiQuery } from '../lib/useApiQuery'
 import { connectorTypeLabel, executionLedClass, executionStatusGroup, mapActionName } from '../../shared/types'
 
 // Mission Control overview: a situation wall built only from real API data —
@@ -35,39 +35,35 @@ function Spark({ values, tone = '' }: { values: number[]; tone?: string }) {
 export function OverviewPage() {
   const navigate = useNavigate()
   const { setPendingApprovals, auth } = useApp()
-  const [executions, setExecutions] = useState<ApiExecution[]>([])
-  const [requests, setRequests] = useState<ApiAccessRequest[]>([])
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [stats, setStats] = useState<ApiResourceStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [now, setNow] = useState(() => Date.now())
   const canApprove = canUser(auth.user, 'warden:approve')
   const canManage = canUser(auth.user, 'warden:tenant:admin')
 
-  const load = (showSpinner = true) => {
-    if (showSpinner) setLoading(true)
-    setError('')
-    Promise.all([
-      listExecutions(),
-      canApprove ? listAccessRequests('PENDING') : Promise.resolve([]),
-      canManage ? listConnectors() : Promise.resolve([]),
-      getResourceStats(),
-    ])
-      .then(([execs, reqs, conns, resStats]) => {
-        setExecutions(execs ?? [])
-        setRequests(reqs ?? [])
-        setConnectors(conns ?? [])
-        setStats(resStats)
+  const overviewQuery = useApiQuery(
+    () =>
+      Promise.all([
+        listExecutions(),
+        canApprove ? listAccessRequests('PENDING') : Promise.resolve([]),
+        canManage ? listConnectors() : Promise.resolve([]),
+        getResourceStats(),
+      ]),
+    [canApprove, canManage],
+    {
+      intervalMs: 15000,
+      onSuccess: ([, reqs]) => {
         setPendingApprovals((reqs ?? []).length)
         setNow(Date.now())
-      })
-      .catch((e: ApiError) => setError(e.message || '加载失败'))
-      .finally(() => setLoading(false))
-  }
+      },
+    },
+  )
+  const executions = overviewQuery.data?.[0] ?? []
+  const requests = overviewQuery.data?.[1] ?? []
+  const connectors = overviewQuery.data?.[2] ?? []
+  const stats = overviewQuery.data?.[3] ?? null
+  const loading = overviewQuery.loading
+  const error = overviewQuery.error
+  const load = (showSpinner = true) => overviewQuery.reload(showSpinner)
 
-  useEffect(() => load(), []) // eslint-disable-line react-hooks/exhaustive-deps
-  useAutoRefresh(() => load(false), 15000)
   // 1s ticker drives the approval countdown and heartbeat ages.
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000)

@@ -1,7 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from '../../shared/router'
 import { ArrowLeft, Check, Loader2, ShieldAlert, Trash2 } from 'lucide-react'
-import type { ApiConnector, ApiError, ApiProject, ApiResource, Integration } from '../../shared/api'
+import type { ApiError } from '../../shared/api'
 import {
   archiveConnector,
   connectorHealthLabel,
@@ -21,7 +21,7 @@ import { useApp } from '../components/Toast'
 import { Badge } from '../components/Badge'
 import { ErrorState, LoadingState } from '../components/States'
 import { resourceTypeLabel } from '../lib/labels'
-import { useAutoRefresh } from '../lib/useAutoRefresh'
+import { useApiQuery } from '../lib/useApiQuery'
 
 type Tab = 'overview' | 'integrations' | 'resources' | 'agent' | 'scope' | 'settings'
 
@@ -34,59 +34,43 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { notify } = useApp()
-  const [connector, setConnector] = useState<ApiConnector | null>(null)
-  const [integrations, setIntegrations] = useState<Integration[]>([])
-  const [resources, setResources] = useState<ApiResource[]>([])
-  const [projects, setProjects] = useState<ApiProject[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-  const [tab, setTab] = useState<Tab>('overview')
-  const [saving, setSaving] = useState(false)
-  const [environment, setEnvironment] = useState<'development' | 'testing' | 'production'>('testing')
-  const [projectId, setProjectId] = useState('')
-  const [deletingId, setDeletingId] = useState('')
-  const [now, setNow] = useState(() => Date.now())
   const targetMode = mode === 'target'
-  useEffect(() => setTab('overview'), [id, mode])
-
-  const load = () => {
-    if (!id) return
-    setLoading(true)
-    setError('')
-    Promise.all([listResources(), listConnectorIntegrations(id), listConnectors(), listProjects()])
-      .then(([res, ints, conns, projs]) => {
-        const c = (conns ?? []).find((item) => item.id === id)
-        if (!c) {
-          setError(targetMode ? '未找到主机或集群' : '未找到执行通道')
-          return
-        }
-        setConnector(c)
-        setIntegrations(ints ?? [])
-        setResources((res ?? []).filter((r) => r.connector_id === id))
-        setProjects(projs ?? [])
-      })
-      .catch((e: ApiError) => setError(e.message))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [id])
+  const detailQuery = useApiQuery(
+    async () => {
+      const [res, ints, conns, projs] = await Promise.all([listResources(), listConnectorIntegrations(id), listConnectors(), listProjects()])
+      const c = (conns ?? []).find((item) => item.id === id)
+      if (!c) throw new Error(targetMode ? '未找到主机或集群' : '未找到执行通道')
+      return {
+        connector: c,
+        integrations: ints ?? [],
+        resources: (res ?? []).filter((r) => r.connector_id === id),
+        projects: projs ?? [],
+      }
+    },
+    [id, targetMode],
+  )
   // Keep the connector heartbeat fresh without reloading the heavier resource
   // and integration datasets or showing the full-page loading state.
-  useAutoRefresh(
-    () => {
-      if (!id) return
-      listConnectors()
-        .then((items) => {
-          const current = (items ?? []).find((item) => item.id === id)
-          if (current) {
-            setConnector(current)
-          }
-        })
-        .catch(() => undefined)
-        .finally(() => setNow(Date.now()))
-    },
-    15000,
-    Boolean(id),
-  )
+  const heartbeatQuery = useApiQuery(() => listConnectors(), [], {
+    intervalMs: 15000,
+    enabled: Boolean(id),
+    onSuccess: () => setNow(Date.now()),
+  })
+  const connector = heartbeatQuery.data?.find((item) => item.id === id) ?? detailQuery.data?.connector ?? null
+  const integrations = detailQuery.data?.integrations ?? []
+  const resources = detailQuery.data?.resources ?? []
+  const projects = detailQuery.data?.projects ?? []
+  const loading = detailQuery.loading
+  const error = detailQuery.error
+  const load = () => detailQuery.reload()
+  // Tab resets on connector/mode change without a sync effect.
+  const tabKey = `${id}:${mode}`
+  const [tabState, setTabState] = useState<{ key: string; tab: Tab }>({ key: tabKey, tab: 'overview' })
+  const tab = tabState.key === tabKey ? tabState.tab : 'overview'
+  const setTab = (t: Tab) => setTabState({ key: tabKey, tab: t })
+  const [saving, setSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState('')
+  const [now, setNow] = useState(() => Date.now())
 
   const linux = connector?.connector_type === 'linux'
   const network = connector?.connector_type === 'network'
@@ -97,20 +81,21 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
     return Array.isArray(raw) ? (raw as string[]) : []
   }, [connector, linux, network])
 
-  const [selected, setSelected] = useState<string[]>(configuredScope)
   const configuredContainers = useMemo(() => {
     const raw = connector?.config.allowedContainers
     return Array.isArray(raw) ? (raw as string[]) : []
   }, [connector])
-  const [selectedContainers, setSelectedContainers] = useState<string[]>(configuredContainers)
-  useEffect(() => setSelected(configuredScope), [configuredScope.join('\n')])
-  useEffect(() => setSelectedContainers(configuredContainers), [configuredContainers.join('\n')])
-  useEffect(() => {
-    if (connector) {
-      setEnvironment(connector.environment as typeof environment)
-      setProjectId(connector.project_id ?? '')
-    }
-  }, [connector?.id, connector?.environment, connector?.project_id])
+  // Edit drafts: null means "follow the server value"; saving clears the draft.
+  // No sync effects needed — server changes flow through automatically while
+  // the user is not editing.
+  const [selectedDraft, setSelectedDraft] = useState<string[] | null>(null)
+  const selected = selectedDraft ?? configuredScope
+  const [selectedContainersDraft, setSelectedContainersDraft] = useState<string[] | null>(null)
+  const selectedContainers = selectedContainersDraft ?? configuredContainers
+  const [environmentDraft, setEnvironmentDraft] = useState<'development' | 'testing' | 'production' | null>(null)
+  const environment = environmentDraft ?? ((connector?.environment as 'development' | 'testing' | 'production') || 'testing')
+  const [projectIdDraft, setProjectIdDraft] = useState<string | null>(null)
+  const projectId = projectIdDraft ?? (connector?.project_id ?? '')
 
   if (loading) return <LoadingState />
   if (error) return <ErrorState message={error} onRetry={load} />
@@ -149,7 +134,12 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
       ? updateConnectorServices(connector.id, selected, selectedContainers)
       : updateConnectorNamespaces(connector.id, selected)
     update
-      .then(() => notify(linux ? '服务范围已更新，Linux Connector 正在热更新' : 'Namespace 范围已更新，Operator 正在调谐权限'))
+      .then(() => {
+        setSelectedDraft(null)
+        setSelectedContainersDraft(null)
+        void detailQuery.reload(false)
+        notify(linux ? '服务范围已更新，Linux Connector 正在热更新' : 'Namespace 范围已更新，Operator 正在调谐权限')
+      })
       .catch((e: ApiError) => notify(`保存失败：${e.message}`, 'error'))
       .finally(() => setSaving(false))
   }
@@ -158,6 +148,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
     setSaving(true)
     setConnectorEnvironment(connector.id, environment)
       .then(() => {
+        setEnvironmentDraft(null)
         notify(`${targetTypeLabel}环境已更新为${mapEnvironment(environment)}`)
         load()
       })
@@ -169,6 +160,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
     setSaving(true)
     setConnectorProject(connector.id, projectId)
       .then(() => {
+        setProjectIdDraft(null)
         notify(
           `${targetTypeLabel}默认项目已更新为${projects.find((project) => project.id === projectId)?.name ?? defaultProject?.name ?? '系统默认项目'}`,
         )
@@ -402,9 +394,10 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
                           type="checkbox"
                           checked={selected.includes(item)}
                           onChange={() =>
-                            setSelected((current) =>
-                              current.includes(item) ? current.filter((value) => value !== item) : [...current, item],
-                            )
+                            setSelectedDraft((current) => {
+                              const base = current ?? configuredScope
+                              return base.includes(item) ? base.filter((value) => value !== item) : [...base, item]
+                            })
                           }
                         />
                         <span>{item}</span>
@@ -424,9 +417,10 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
                               type="checkbox"
                               checked={selectedContainers.includes(item)}
                               onChange={() =>
-                                setSelectedContainers((current) =>
-                                  current.includes(item) ? current.filter((value) => value !== item) : [...current, item],
-                                )
+                                setSelectedContainersDraft((current) => {
+                                  const base = current ?? configuredContainers
+                                  return base.includes(item) ? base.filter((value) => value !== item) : [...base, item]
+                                })
                               }
                             />
                             <span>{item.slice(0, 12)}</span>
@@ -549,9 +543,10 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
                           type="checkbox"
                           checked={selected.includes(item)}
                           onChange={() =>
-                            setSelected((current) =>
-                              current.includes(item) ? current.filter((value) => value !== item) : [...current, item],
-                            )
+                            setSelectedDraft((current) => {
+                              const base = current ?? configuredScope
+                              return base.includes(item) ? base.filter((value) => value !== item) : [...base, item]
+                            })
                           }
                         />
                         <span>{item}</span>
@@ -571,9 +566,10 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
                               type="checkbox"
                               checked={selectedContainers.includes(item)}
                               onChange={() =>
-                                setSelectedContainers((current) =>
-                                  current.includes(item) ? current.filter((value) => value !== item) : [...current, item],
-                                )
+                                setSelectedContainersDraft((current) => {
+                                  const base = current ?? configuredContainers
+                                  return base.includes(item) ? base.filter((value) => value !== item) : [...base, item]
+                                })
                               }
                             />
                             <span>{item.slice(0, 12)}</span>
@@ -607,7 +603,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
               <div className="settings-control">
                 <label htmlFor="connector-project">
                   <span className="sr-only">目标默认项目</span>
-                  <select id="connector-project" value={projectId} disabled={saving} onChange={(event) => setProjectId(event.target.value)}>
+                  <select id="connector-project" value={projectId} disabled={saving} onChange={(event) => setProjectIdDraft(event.target.value)}>
                     <option value="">系统默认项目{defaultProject ? `（${defaultProject.name}）` : ''}</option>
                     {projects
                       .filter((project) => !project.is_default)
@@ -641,7 +637,7 @@ export function ConnectorDetailPage({ mode = 'connector' }: { mode?: 'connector'
                     id="connector-environment"
                     value={environment}
                     disabled={saving}
-                    onChange={(event) => setEnvironment(event.target.value as typeof environment)}
+                    onChange={(event) => setEnvironmentDraft(event.target.value as 'development' | 'testing' | 'production')}
                   >
                     <option value="development">开发环境</option>
                     <option value="testing">测试环境</option>

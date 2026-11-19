@@ -1,10 +1,11 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate, useParams } from '../../shared/router'
 import { ArrowLeft, Loader2, Trash2 } from 'lucide-react'
-import type { ApiConnector, ApiError, ApiResource, Integration } from '../../shared/api'
+import type { ApiError } from '../../shared/api'
 import { deleteIntegration, listConnectors, listIntegrations, listResources, updateIntegration } from '../../shared/api'
 import { mapEnvironment, mapIntegrationStatus, mapProtocolLabel } from '../../shared/types'
 import { useApp } from '../components/Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 import { Badge } from '../components/Badge'
 import { ErrorState, LoadingState } from '../components/States'
 import { JobScopePicker } from '../components/JobScopePicker'
@@ -25,34 +26,28 @@ export function IntegrationDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { notify } = useApp()
-  const [integration, setIntegration] = useState<Integration | null>(null)
-  const [connector, setConnector] = useState<ApiConnector | null>(null)
-  const [resources, setResources] = useState<ApiResource[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const detailQuery = useApiQuery(
+    async () => {
+      const [ints, conns, res] = await Promise.all([listIntegrations(), listConnectors(), listResources()])
+      const match = (ints ?? []).find((i) => i.id === id)
+      if (!match) throw new Error('未找到 Integration')
+      return {
+        integration: match,
+        connector: (conns ?? []).find((c) => c.id === match.connector_id) ?? null,
+        resources: (res ?? []).filter((r) => r.integration_id === id),
+      }
+    },
+    [id],
+  )
+  const integration = detailQuery.data?.integration ?? null
+  const connector = detailQuery.data?.connector ?? null
+  const resources = detailQuery.data?.resources ?? []
+  const loading = detailQuery.loading
+  const error = detailQuery.error
+  const load = () => detailQuery.reload()
   const [tab, setTab] = useState<Tab>('overview')
   const [acting, setActing] = useState('')
   const [editing, setEditing] = useState(false)
-
-  const load = () => {
-    if (!id) return
-    setLoading(true)
-    setError('')
-    Promise.all([listIntegrations(), listConnectors(), listResources()])
-      .then(([ints, conns, res]) => {
-        const match = (ints ?? []).find((i) => i.id === id)
-        if (!match) {
-          setError('未找到 Integration')
-          return
-        }
-        setIntegration(match)
-        setConnector((conns ?? []).find((c) => c.id === match.connector_id) ?? null)
-        setResources((res ?? []).filter((r) => r.integration_id === id))
-      })
-      .catch((e: ApiError) => setError(e.message))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [id])
 
   const jobs = useMemo(() => resources.filter((r) => r.resource_type === 'jenkins_job').map((r) => r.name), [resources])
   const dashboards = useMemo(
@@ -91,8 +86,8 @@ export function IntegrationDetailPage() {
       environment: integration.environment ?? '',
       scope,
     })
-      .then((updated) => {
-        setIntegration(updated)
+      .then(() => {
+        void detailQuery.reload(false)
         notify(
           `${integration.protocol === 'grafana' ? 'Dashboard' : isDatabase ? 'Schema' : isHuawei ? '云服务' : isAliyunSLS ? 'Region / Project' : 'Job'} 范围已更新，Connector 正在同步`,
         )
@@ -123,8 +118,8 @@ export function IntegrationDetailPage() {
       scope,
       status: next,
     })
-      .then((updated) => {
-        setIntegration(updated)
+      .then(() => {
+        void detailQuery.reload(false)
         notify(next === 'ACTIVE' ? 'Integration 已启用' : 'Integration 已停用')
       })
       .catch((e: ApiError) => notify(`操作失败：${e.message}`, 'error'))
@@ -314,8 +309,7 @@ export function IntegrationDetailPage() {
           <div className="detail-section">
             <IntegrationProjectScopePanel
               integration={integration}
-              onSaved={(updated, message) => {
-                setIntegration(updated)
+              onSaved={(_updated, message) => {
                 notify(message)
                 load()
               }}

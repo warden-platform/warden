@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Building2, Gauge, Loader2, Plus, RefreshCw, ShieldCheck, Users, X } from 'lucide-react'
 import {
   ApiError,
@@ -19,6 +19,7 @@ import {
 import { ErrorState, LoadingState } from '../components/States'
 import { Kpi } from '../components/Kpi'
 import { useApp } from '../components/Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const DEFAULT_QUOTA: TenantQuotaInput = {
   maxConcurrentTasks: 100,
@@ -68,9 +69,6 @@ function QuotaFields({
 
 export function TenantsPage() {
   const { notify } = useApp()
-  const [tenants, setTenants] = useState<ApiTenant[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [creating, setCreating] = useState(false)
   const [createForm, setCreateForm] = useState<BootstrapTenantInput>(EMPTY_TENANT)
   const [selected, setSelected] = useState<ApiTenant | null>(null)
@@ -80,15 +78,11 @@ export function TenantsPage() {
   const [memberForm, setMemberForm] = useState({ name: '', password: '', role: 'user' })
   const [busy, setBusy] = useState('')
 
-  const load = (spinner = true) => {
-    if (spinner) setLoading(true)
-    setError('')
-    listTenants()
-      .then((items) => setTenants(items ?? []))
-      .catch((e: ApiError) => setError(e.message || '加载租户失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => load(), [])
+  const tenantsQuery = useApiQuery(() => listTenants(), [])
+  const tenants = tenantsQuery.data ?? []
+  const loading = tenantsQuery.loading
+  const error = tenantsQuery.error
+  const load = (spinner = true) => tenantsQuery.reload(spinner)
 
   const active = tenants.filter((tenant) => tenant.status === 'ACTIVE').length
   const connectorCount = useMemo(() => tenants.reduce((total, tenant) => total + tenant.usage.connectors, 0), [tenants])

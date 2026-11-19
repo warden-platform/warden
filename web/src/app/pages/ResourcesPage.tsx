@@ -1,7 +1,7 @@
-import { useEffect, useDeferredValue, useMemo, useRef, useState } from 'react'
+import { useDeferredValue, useMemo, useState } from 'react'
 import { useSearchParams } from '../../shared/router'
 import { AlertTriangle, FolderKanban, History, RefreshCw, Search } from 'lucide-react'
-import type { ApiConnector, ApiError, ApiMyProject, ApiProject, ApiResource, ApiResourceStats, Integration } from '../../shared/api'
+import type { ApiMyProject, ApiResource } from '../../shared/api'
 import { canUser, getProjectMembershipPolicy, getResourceStats, listConnectors, listIntegrations, listMyProjects, listProjects, listResources } from '../../shared/api'
 import { ErrorState, LoadingState } from '../components/States'
 import { ActionPanel } from '../components/ActionPanel'
@@ -15,6 +15,7 @@ import { NetworkResources } from '../components/resources/NetworkResources'
 import { ProjectManagePanel } from '../components/resources/ProjectManagePanel'
 import { ResourceProjectPanel } from '../components/resources/ResourceProjectPanel'
 import { resourceDomain, type ResourceDomain } from '../lib/resources'
+import { useApiQuery } from '../lib/useApiQuery'
 import { useApp } from '../components/Toast'
 
 type Tab = { key: ResourceDomain; label: string }
@@ -62,27 +63,19 @@ const mergeProjectStatusCounts = (projects: Array<Record<string, StatusCounts> |
 export function ResourcesPage() {
   const { auth, notify } = useApp()
   const isTenantAdmin = canUser(auth.user, 'warden:tenant:admin')
-  const [apiResources, setApiResources] = useState<ApiResource[]>([])
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [projects, setProjects] = useState<ApiProject[]>([])
-  const [integrations, setIntegrations] = useState<Integration[]>([])
-  const [stats, setStats] = useState<ApiResourceStats | null>(null)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   // Defer search filtering so typing stays responsive with thousands of resources.
   const deferredQuery = useDeferredValue(query)
   const [searchParams, setSearchParams] = useSearchParams()
-  const loadRequest = useRef(0)
-  const [domain, setDomainState] = useState<ResourceDomain>(() => {
-    const fromUrl = searchParams.get('domain')
-    if (isDomainKey(fromUrl)) return fromUrl
+  // Domain is derived from the URL (deep links work without a sync effect);
+  // localStorage only provides the fallback when the URL has no valid domain.
+  const [fallbackDomain] = useState<ResourceDomain>(() => {
     const saved = localStorage.getItem(DOMAIN_STORAGE_KEY)
     return isDomainKey(saved) ? saved : 'kubernetes'
   })
+  const domainParam = searchParams.get('domain')
+  const domain: ResourceDomain = isDomainKey(domainParam) ? domainParam : fallbackDomain
   const setDomain = (d: ResourceDomain) => {
-    loadRequest.current += 1
-    setDomainState(d)
     localStorage.setItem(DOMAIN_STORAGE_KEY, d)
     const next = new URLSearchParams(searchParams)
     next.set('domain', d)
@@ -108,44 +101,33 @@ export function ResourcesPage() {
   const [myProjects, setMyProjects] = useState<ApiMyProject[]>([])
   const [membershipEnforced, setMembershipEnforced] = useState(false)
 
-  const load = (showSpinner = true) => {
-    const request = ++loadRequest.current
-    if (showSpinner) setLoading(true)
-    setError('')
-    Promise.all([
-      listResources({ domain, excludeType: domain === 'jenkins' ? 'jenkins_build' : undefined }),
-      isTenantAdmin ? listConnectors() : Promise.resolve([]),
-      listProjects(),
-      isTenantAdmin ? listIntegrations() : Promise.resolve([]),
-      getResourceStats(),
-      isTenantAdmin ? Promise.resolve([] as ApiMyProject[]) : listMyProjects(),
-      isTenantAdmin ? Promise.resolve({ enforced: false }) : getProjectMembershipPolicy(),
-    ])
-      .then(([res, conns, projs, integrationItems, resourceStats, myProjs, policy]) => {
-        if (request !== loadRequest.current) return
-        setApiResources(res ?? [])
-        setConnectors(conns ?? [])
-        setProjects(projs ?? [])
-        setIntegrations(integrationItems ?? [])
-        setStats(resourceStats)
+  const catalogQuery = useApiQuery(
+    () =>
+      Promise.all([
+        listResources({ domain, excludeType: domain === 'jenkins' ? 'jenkins_build' : undefined }),
+        isTenantAdmin ? listConnectors() : Promise.resolve([]),
+        listProjects(),
+        isTenantAdmin ? listIntegrations() : Promise.resolve([]),
+        getResourceStats(),
+        isTenantAdmin ? Promise.resolve([] as ApiMyProject[]) : listMyProjects(),
+        isTenantAdmin ? Promise.resolve({ enforced: false }) : getProjectMembershipPolicy(),
+      ]),
+    [domain, isTenantAdmin],
+    {
+      onSuccess: ([, , , , , myProjs, policy]) => {
         setMyProjects(myProjs ?? [])
         setMembershipEnforced(Boolean(policy?.enforced))
-      })
-      .catch((e: ApiError) => {
-        if (request === loadRequest.current) setError(e.message || '加载失败')
-      })
-      .finally(() => {
-        if (request === loadRequest.current) setLoading(false)
-      })
-  }
-
-  useEffect(() => load(), [domain]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync domain when navigated here with ?domain= (e.g. from topology deep link).
-  useEffect(() => {
-    const fromUrl = searchParams.get('domain')
-    if (isDomainKey(fromUrl)) setDomainState(fromUrl)
-  }, [searchParams])
+      },
+    },
+  )
+  const apiResources = catalogQuery.data?.[0] ?? []
+  const connectors = catalogQuery.data?.[1] ?? []
+  const projects = catalogQuery.data?.[2] ?? []
+  const integrations = catalogQuery.data?.[3] ?? []
+  const stats = catalogQuery.data?.[4] ?? null
+  const loading = catalogQuery.loading
+  const error = catalogQuery.error
+  const load = (showSpinner = true) => catalogQuery.reload(showSpinner)
 
   const connectorName = useMemo(() => (id: string) => connectors.find((c) => c.id === id)?.name ?? '', [connectors])
 

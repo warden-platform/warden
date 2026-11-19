@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Check, FilePlus2, Loader2, Send, XCircle } from 'lucide-react'
 import type { ApiError, ApiQueryTemplate, ApiResource, ApiTemplatePublishRequest, Integration } from '../../shared/api'
 import {
@@ -11,31 +11,30 @@ import {
 } from '../../shared/api'
 import { Badge } from './Badge'
 import { useApp } from './Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 
 export function DatabaseQueryTemplatesPanel({ integration, resources }: { integration: Integration; resources: ApiResource[] }) {
   const { notify } = useApp()
-  const [templates, setTemplates] = useState<ApiQueryTemplate[]>([])
-  const [requests, setRequests] = useState<ApiTemplatePublishRequest[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+  const templatesQuery = useApiQuery(
+    async () => {
+      const [templateItems, requestItems] = await Promise.all([listQueryTemplates(integration.id, ''), listTemplatePublishRequests()])
+      const ids = new Set((templateItems ?? []).map((item) => item.id))
+      return {
+        templates: templateItems ?? [],
+        requests: (requestItems ?? []).filter((item) => ids.has(item.template_id)),
+      }
+    },
+    [integration.id],
+  )
+  const templates = templatesQuery.data?.templates ?? []
+  const requests = templatesQuery.data?.requests ?? []
+  const loading = templatesQuery.loading
+  const error = templatesQuery.error
+  const load = () => templatesQuery.reload()
   const [acting, setActing] = useState('')
   const [creating, setCreating] = useState(false)
   const schemas = resources.filter((resource) => resource.resource_type === 'database_schema' && resource.status === 'ACTIVE')
   const [form, setForm] = useState({ schemaResourceId: '', name: '', owner: '', sql: '' })
-
-  const load = () => {
-    setLoading(true)
-    setError('')
-    Promise.all([listQueryTemplates(integration.id, ''), listTemplatePublishRequests()])
-      .then(([templateItems, requestItems]) => {
-        setTemplates(templateItems ?? [])
-        const ids = new Set((templateItems ?? []).map((item) => item.id))
-        setRequests((requestItems ?? []).filter((item) => ids.has(item.template_id)))
-      })
-      .catch((err: ApiError) => setError(err.message || '读取查询模板失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [integration.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const create = () => {
     if (!form.schemaResourceId || !form.name.trim() || !form.sql.trim()) return

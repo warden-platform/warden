@@ -1,8 +1,9 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { Bot, CheckCircle2, ChevronDown, CircleAlert, Info, Radio, Send, ShieldAlert, UserRoundCheck } from 'lucide-react'
 import type { ApiError, ApiNotificationChannel } from '../../shared/api'
 import { getDingTalkChannel, testDingTalkChannel, updateDingTalkChannel } from '../../shared/api'
 import { useApp } from './Toast'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const EVENTS = [
   { value: 'access_request.created', label: '新审批申请', hint: '审批进入待处理状态时通知' },
@@ -13,29 +14,27 @@ const EVENTS = [
 ]
 
 export function DingTalkChannelPanel() {
-  const [channel, setChannel] = useState<ApiNotificationChannel | null>(null)
-  const [loading, setLoading] = useState(true)
+  const channelQuery = useApiQuery(() => getDingTalkChannel(), [])
+  // Local edit draft over the query data; cleared on save/reload.
+  const [draft, setDraft] = useState<ApiNotificationChannel | null>(null)
+  const channel = draft ?? channelQuery.data
   const [saving, setSaving] = useState(false)
   const [testing, setTesting] = useState(false)
   const [testSentAt, setTestSentAt] = useState<Date | null>(null)
-  const [error, setError] = useState('')
+  const loading = channelQuery.loading
+  const error = channelQuery.error
   const { notify, auth } = useApp()
   const isPlatformTenant = (auth.user?.tenant?.slug ?? 'platform') === 'platform'
 
   const load = () => {
-    setLoading(true)
-    setError('')
-    getDingTalkChannel()
-      .then(setChannel)
-      .catch((e: ApiError) => setError(e.message || '加载钉钉渠道失败'))
-      .finally(() => setLoading(false))
+    setDraft(null)
+    channelQuery.reload()
   }
-  useEffect(load, [])
 
   const setEvent = (event: string, checked: boolean) => {
     if (!channel) return
     const events = checked ? [...new Set([...channel.events, event])] : channel.events.filter((item) => item !== event)
-    setChannel({ ...channel, events })
+    setDraft({ ...channel, events })
   }
 
   const save = () => {
@@ -47,8 +46,9 @@ export function DingTalkChannelPanel() {
     if (channel.enabled && !conversationID && !isPlatformTenant) return notify('启用前请先绑定本组织的审批群 ID', 'error')
     setSaving(true)
     updateDingTalkChannel({ name: channel.name.trim(), enabled: channel.enabled, events: channel.events, open_conversation_id: conversationID })
-      .then((updated) => {
-        setChannel(updated)
+      .then(() => {
+        setDraft(null)
+        void channelQuery.reload(false)
         notify('钉钉审批通知配置已保存')
       })
       .catch((e: ApiError) => notify(e.message || '保存失败', 'error'))
@@ -162,7 +162,7 @@ export function DingTalkChannelPanel() {
             id="dingtalk-channel-name"
             value={channel.name}
             maxLength={100}
-            onChange={(e) => setChannel({ ...channel, name: e.target.value })}
+            onChange={(e) => setDraft({ ...channel, name: e.target.value })}
           />
         </label>
         <label htmlFor="dingtalk-channel-conversation" className="dingtalk-field">
@@ -172,7 +172,7 @@ export function DingTalkChannelPanel() {
             value={channel.open_conversation_id ?? ''}
             maxLength={512}
             placeholder={isPlatformTenant ? '留空则使用部署级审批群配置' : '例如 cidXXXXXXXX=='}
-            onChange={(e) => setChannel({ ...channel, open_conversation_id: e.target.value })}
+            onChange={(e) => setDraft({ ...channel, open_conversation_id: e.target.value })}
           />
         </label>
         <label
@@ -189,7 +189,7 @@ export function DingTalkChannelPanel() {
             type="checkbox"
             checked={channel.enabled}
             disabled={!workflowReady && !channel.enabled}
-            onChange={(e) => setChannel({ ...channel, enabled: e.target.checked })}
+            onChange={(e) => setDraft({ ...channel, enabled: e.target.checked })}
           />
         </label>
       </div>

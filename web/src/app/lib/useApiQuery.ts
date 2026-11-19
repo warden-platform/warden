@@ -38,10 +38,14 @@ export function useApiQuery<T>(
   // 否则 reload 的 useCallback 依赖变化会导致 effect 反复触发。
   const isEqualRef = useRef(isEqual)
   isEqualRef.current = isEqual
+  // Sequence guard: a slow earlier response must not overwrite a newer one
+  // (e.g. rapid filter switches triggering overlapping reloads).
+  const requestSeq = useRef(0)
 
   const reload = useCallback(
     (showSpinner = true) => {
       if (!enabled) return
+      const request = ++requestSeq.current
       if (showSpinner) {
         setLoading(true)
         setError('')
@@ -49,14 +53,17 @@ export function useApiQuery<T>(
       fetcherRef
         .current()
         .then((result) => {
+          if (request !== requestSeq.current) return
           setData((prev) => (prev !== null && isEqualRef.current?.(prev, result) ? prev : result))
           setError('')
           onSuccessRef.current?.(result)
         })
         .catch((e: Error) => {
+          if (request !== requestSeq.current) return
           if (showSpinner) setError(e.message || '加载失败')
         })
         .finally(() => {
+          if (request !== requestSeq.current) return
           if (showSpinner) setLoading(false)
         })
     },

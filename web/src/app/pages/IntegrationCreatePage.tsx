@@ -1,13 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from '../../shared/router'
 import { ArrowLeft, Boxes, Cloud, Database, LayoutDashboard, Network, ServerCog, ShieldCheck } from 'lucide-react'
-import type { ApiConnector, ApiError } from '../../shared/api'
 import { listConnectors } from '../../shared/api'
 import { useApp } from '../components/Toast'
 import { Badge } from '../components/Badge'
 import { ErrorState, LoadingState } from '../components/States'
 import { IntegrationForm } from '../components/IntegrationForm'
 import { connectorTypeLabel } from '../../shared/types'
+import { useApiQuery } from '../lib/useApiQuery'
 
 // Integration-centric creation: user fills connection info, then picks a
 // connector (execution channel) to bind. Replaces the old flow where
@@ -15,25 +15,14 @@ import { connectorTypeLabel } from '../../shared/types'
 export function IntegrationCreatePage() {
   const navigate = useNavigate()
   const { notify } = useApp()
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [selectedConnectorId, setSelectedConnectorId] = useState('')
   const [protocol, setProtocol] = useState('jenkins')
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    listConnectors()
-      .then((conns) => {
-        setConnectors(conns ?? [])
-        const firstActive = (conns ?? []).find((c) => c.status === 'ACTIVE')
-        if (firstActive) setSelectedConnectorId(firstActive.id)
-      })
-      .catch((e: ApiError) => setError(e.message))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+  const connectorsQuery = useApiQuery(() => listConnectors(), [])
+  const connectors = connectorsQuery.data ?? []
+  const loading = connectorsQuery.loading
+  const error = connectorsQuery.error
+  const load = () => connectorsQuery.reload()
 
   const activeConnectors = useMemo(
     () =>
@@ -42,13 +31,14 @@ export function IntegrationCreatePage() {
       ),
     [connectors, protocol],
   )
-  useEffect(() => {
-    if (activeConnectors.length > 0 && !activeConnectors.some((c) => c.id === selectedConnectorId))
-      setSelectedConnectorId(activeConnectors[0].id)
-  }, [activeConnectors, selectedConnectorId])
+  // Derived selection: fall back to the first active connector whenever the
+  // current choice is not in the filtered list (no sync effect needed).
+  const effectiveConnectorId = activeConnectors.some((c) => c.id === selectedConnectorId)
+    ? selectedConnectorId
+    : (activeConnectors[0]?.id ?? '')
   const selectedConnector = useMemo(
-    () => activeConnectors.find((c) => c.id === selectedConnectorId) ?? activeConnectors[0],
-    [selectedConnectorId, activeConnectors],
+    () => activeConnectors.find((c) => c.id === effectiveConnectorId) ?? activeConnectors[0],
+    [effectiveConnectorId, activeConnectors],
   )
 
   if (loading) return <LoadingState />
@@ -82,12 +72,12 @@ export function IntegrationCreatePage() {
       <span className="form-label">选择执行通道</span>
       <div className="connector-radio-list">
         {activeConnectors.map((c) => (
-          <label key={c.id} className={`connector-radio ${selectedConnectorId === c.id ? 'selected' : ''}`}>
+          <label key={c.id} className={`connector-radio ${effectiveConnectorId === c.id ? 'selected' : ''}`}>
             <input
               type="radio"
               name="connector"
               value={c.id}
-              checked={selectedConnectorId === c.id}
+              checked={effectiveConnectorId === c.id}
               onChange={() => setSelectedConnectorId(c.id)}
             />
             <div className="connector-radio-icon">
