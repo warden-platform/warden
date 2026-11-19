@@ -34,21 +34,21 @@
 
 ### 2. 准备 Secret
 
-生产环境**全部使用 `*_FILE`**，每个值独立随机生成：
+生产环境**全部使用 `*_FILE`**。单机 Compose 形态一条命令初始化全套 `.secrets/`（文件名与 `deploy/docker-compose.prod.example.yaml` 一一对应）：
 
 ```bash
-# 示意：在受保护的 Secret 管理系统中生成，不要写进仓库或命令历史
-openssl rand -hex 32   # 分别用于 task_signing_key / jwt_signing_key /
-                       # credential_encryption_key / admin_api_key，四次各不复用
-openssl rand -hex 24   # admin_password（8–72 字节）
+make init-prod-secrets
+# 可覆盖：WARDEN_SECRETS_DIR / WARDEN_DB_HOST / WARDEN_DB_PORT / WARDEN_DB_NAME / WARDEN_DB_USER
 ```
+
+脚本生成 7 个文件：4 个内部密钥（hex 32，两两不同）、`postgres_password` 与 `admin_password`（hex 24）、用生成密码拼好的 `warden_database_url`；全部 `600` 权限，任一文件已存在即整体拒绝、绝不覆盖，**不打印任何 Secret 值**。`admin_password` 请自行存入密码管理器。接入自有密钥管理系统（Vault/KMS）的部署可跳过脚本，按同名文件自行准备——原理即 `openssl rand -hex 32`（内部密钥）与 `openssl rand -hex 24`（口令），在受保护系统中生成，不要写进仓库或命令历史。
 
 红线：
 
 - 4 个必需 Secret 两两不得相同，否则控制面启动失败。
 - 文件权限 `600`，仅控制面进程可读。
 - `WARDEN_ADMIN_USERNAME` 与 `WARDEN_ADMIN_PASSWORD_FILE` 是启动管理员的同步源；改文件并重启会轮换哈希，妥善保管。
-- OIDC client secret 单独存放，见 [SSO 接入](#oidc)。
+- OIDC client secret 与 AI API key 由外部服务提供，脚本不生成；单独存放为 `.secrets/oidc_client_secret`、`.secrets/ai_api_key` 并在 compose 取消注释，见 [SSO 接入](#oidc)。
 
 ### 3. 准备 PostgreSQL
 

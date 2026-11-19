@@ -1,4 +1,4 @@
-.PHONY: init-local verify migrate migrate-release sync-github server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean
+.PHONY: init-local init-prod-secrets verify migrate migrate-release sync-github server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean
 
 GO_CACHE ?= $(CURDIR)/.cache/go-build
 COMPOSE ?= docker compose --env-file .env -f deploy/docker-compose.yaml
@@ -9,7 +9,10 @@ PG_DB ?= warden
 init-local:
 	scripts/init-local-secrets.sh
 
-# 全新空库：按文件名顺序执行全部迁移（幂等，可重放）。失败立即停止。
+init-prod-secrets:
+	scripts/init-prod-secrets.sh
+
+# 全新空库：按文件名顺序执行全部迁移（001–034 不幂等，仅限空库）。失败立即停止。
 migrate:
 	@for f in server/migrations/*.sql; do \
 		echo "==> $$(basename $$f)"; \
@@ -17,15 +20,15 @@ migrate:
 	done
 
 # 已有库升级：只按发布清单顺序重放幂等迁移（编号 ≥ 035）。
-sync-github:
-	@bash scripts/sync-github.sh $(TAG)
-
 migrate-release:
 	@while IFS= read -r f; do \
 		[ -z "$$f" ] && continue; \
 		echo "==> $$f"; \
 		$(COMPOSE) exec -T $(PG_SERVICE) psql -v ON_ERROR_STOP=1 -U $(PG_USER) -d $(PG_DB) -f "/migrations/$$f" >/dev/null || exit 1; \
 	done < deploy/release/migrations.txt
+
+sync-github:
+	@bash scripts/sync-github.sh $(TAG)
 
 verify: server-test server-vet server-build web-lint web-test web-build
 
