@@ -9,7 +9,7 @@
 | 技术栈 | Go（控制面 + 多种 Connector）、React + TypeScript + Vite（管理端）、PostgreSQL |
 | 隔离模型 | 共享控制面 + 逻辑多租户（`tenant_id` 为租户 slug） |
 | 许可 | [Apache-2.0](LICENSE) |
-| 发布状态 | 内部研发中，尚无正式 Release；变更记录见 [CHANGELOG.md](CHANGELOG.md) |
+| 发布状态 | v0.4.0（2026-11-19）· Apache-2.0；变更记录见 [CHANGELOG.md](CHANGELOG.md) |
 
 **文档入口**：[docs/README.md](docs/README.md)（按"想学 / 想做 / 想查 / 想理解"分类）。
 **接口手册**：[docs/api.md](docs/api.md)。
