@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { ArrowRight, Boxes, Clock3, Plus, ServerCog, ShieldCheck } from 'lucide-react'
 import { useNavigate } from '../../shared/router'
-import type { ApiConnector, ApiError, ApiProject, ApiResource } from '../../shared/api'
+import type { ApiConnector } from '../../shared/api'
 import { connectorHealthLabel, isConnectorHealthy, listConnectors, listProjects, listResources } from '../../shared/api'
 import { mapEnvironment } from '../../shared/types'
 import { Badge } from '../components/Badge'
 import { OnboardModal } from '../components/OnboardModal'
 import { NetworkConnectorProvisionModal } from '../components/NetworkConnectorProvisionModal'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
-import { useAutoRefresh } from '../lib/useAutoRefresh'
+import { useApiQuery } from '../lib/useApiQuery'
 
 type TargetType = 'kubernetes' | 'linux' | 'windows' | 'macos' | 'network'
 
@@ -22,37 +22,26 @@ function heartbeatAge(lastHeartbeat?: string, now = Date.now()) {
 
 export function TargetsPage() {
   const navigate = useNavigate()
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [resources, setResources] = useState<ApiResource[]>([])
-  const [projects, setProjects] = useState<ApiProject[]>([])
   const [targetType, setTargetType] = useState<TargetType>('kubernetes')
   const [onboardType, setOnboardType] = useState<TargetType | null>(null)
   const [provisionNetwork, setProvisionNetwork] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [now, setNow] = useState(() => Date.now())
 
-  const load = (showSpinner = true) => {
-    if (showSpinner) setLoading(true)
-    setError('')
-    Promise.all([listConnectors(), listResources(), listProjects()])
-      .then(([connectorItems, resourceItems, projectItems]) => {
-        setConnectors(connectorItems ?? [])
-        setResources(resourceItems ?? [])
-        setProjects(projectItems ?? [])
-        setNow(Date.now())
-      })
-      .catch((e: ApiError) => setError(e.message || '加载主机与集群失败'))
-      .finally(() => setLoading(false))
+  // 资源/项目目录低频变化，挂载时拉一次；通道列表 15s 静默刷新并同步心跳时间戳。
+  const catalogQuery = useApiQuery(() => Promise.all([listResources(), listProjects()]), [])
+  const connectorsQuery = useApiQuery(() => listConnectors(), [], {
+    intervalMs: 15000,
+    onSuccess: () => setNow(Date.now()),
+  })
+  const resources = catalogQuery.data?.[0] ?? []
+  const projects = catalogQuery.data?.[1] ?? []
+  const connectors = connectorsQuery.data ?? []
+  const loading = catalogQuery.loading || connectorsQuery.loading
+  const error = catalogQuery.error || connectorsQuery.error
+  const load = () => {
+    catalogQuery.reload()
+    connectorsQuery.reload()
   }
-
-  useEffect(load, [])
-  useAutoRefresh(() => {
-    listConnectors()
-      .then((items) => setConnectors(items ?? []))
-      .catch(() => undefined)
-      .finally(() => setNow(Date.now()))
-  }, 15000)
 
   const visible = connectors.filter((connector) => connector.connector_type === targetType)
   const defaultProject = projects.find((project) => project.is_default)
@@ -208,13 +197,13 @@ export function TargetsPage() {
           onClose={() => setOnboardType(null)}
           onComplete={(connectorId) => {
             setOnboardType(null)
-            load(false)
+            load()
             navigate(`/targets/${connectorId}`)
           }}
         />
       )}
       {provisionNetwork && (
-        <NetworkConnectorProvisionModal projects={projects} onClose={() => setProvisionNetwork(false)} onComplete={() => load(false)} />
+        <NetworkConnectorProvisionModal projects={projects} onClose={() => setProvisionNetwork(false)} onComplete={() => load()} />
       )}
     </div>
   )

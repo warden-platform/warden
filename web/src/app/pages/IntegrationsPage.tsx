@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from '../../shared/router'
 import { AlertTriangle, Boxes, CheckCircle2, ChevronDown, ListFilter, Plus, Search, ServerCog, Trash2 } from 'lucide-react'
-import type { ApiConnector, ApiError, ApiResource, Integration } from '../../shared/api'
+import type { ApiError, Integration } from '../../shared/api'
 import { deleteIntegration, listConnectors, listIntegrations, listResources } from '../../shared/api'
 import { connectorTypeLabel, mapIntegrationStatus, mapProtocolLabel } from '../../shared/types'
 import { useApp } from '../components/Toast'
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
+import { useApiQuery } from '../lib/useApiQuery'
 
 // Top-level integrations list with a "+ 接入中间件" create entry. Each
 // integration is a card showing the bound connector and discovered resource
@@ -14,28 +15,17 @@ import { EmptyState, ErrorState, LoadingState } from '../components/States'
 export function IntegrationsPage() {
   const navigate = useNavigate()
   const { notify } = useApp()
-  const [integrations, setIntegrations] = useState<Integration[]>([])
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [resources, setResources] = useState<ApiResource[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
   const [query, setQuery] = useState('')
   const [protocol, setProtocol] = useState('全部协议')
   const [deletingId, setDeletingId] = useState('')
 
-  const load = () => {
-    setLoading(true)
-    setError('')
-    Promise.all([listIntegrations(), listConnectors(), listResources()])
-      .then(([items, conns, res]) => {
-        setIntegrations(items ?? [])
-        setConnectors(conns ?? [])
-        setResources(res ?? [])
-      })
-      .catch((e: ApiError) => setError(e.message))
-      .finally(() => setLoading(false))
-  }
-  useEffect(load, [])
+  const integrationsQuery = useApiQuery(() => Promise.all([listIntegrations(), listConnectors(), listResources()]), [])
+  const integrations = integrationsQuery.data?.[0] ?? []
+  const connectors = integrationsQuery.data?.[1] ?? []
+  const resources = integrationsQuery.data?.[2] ?? []
+  const loading = integrationsQuery.loading
+  const error = integrationsQuery.error
+  const load = () => integrationsQuery.reload()
 
   const connectorName = useMemo(() => (id: string) => connectors.find((c) => c.id === id)?.name ?? id.slice(0, 8), [connectors])
   const connectorById = useMemo(() => (id: string) => connectors.find((c) => c.id === id), [connectors])
@@ -58,7 +48,7 @@ export function IntegrationsPage() {
     deleteIntegration(ig.connector_id, ig.id)
       .then(() => {
         notify('Integration 已删除')
-        setIntegrations((items) => items.filter((item) => item.id !== ig.id))
+        load()
       })
       .catch((e: ApiError) => notify(`删除失败：${e.message}`, 'error'))
       .finally(() => setDeletingId(''))

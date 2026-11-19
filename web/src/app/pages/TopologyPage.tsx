@@ -1,15 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from '../../shared/router'
 import { RefreshCw, Search, Share2 } from 'lucide-react'
-import type { ApiAction, ApiConnector, ApiError, ApiExecution, ApiResource } from '../../shared/api'
-import { listAvailableActions, listConnectors, listExecutions, listIntegrations, listResources, type Integration } from '../../shared/api'
+import { listAvailableActions, listConnectors, listExecutions, listIntegrations, listResources } from '../../shared/api'
 import { LoadingState, ErrorState, EmptyState } from '../components/States'
 import { TopologyGraph } from '../components/topology/TopologyGraph'
 import { TopologyDetails } from '../components/topology/TopologyDetails'
 import { TopologyExport } from '../components/topology/TopologyExport'
 import { buildTopology, type TopoNodeData, type TopoEntity, type TopoStatus } from '../lib/topology/buildTopology'
 import { exportTopologyText } from '../lib/topology/exportText'
-import { useAutoRefresh } from '../lib/useAutoRefresh'
+import { useApiQuery } from '../lib/useApiQuery'
 
 const TYPE_FILTERS: { key: TopoEntity; label: string }[] = [
   { key: 'connector', label: '通道' },
@@ -50,35 +49,24 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 
 export function TopologyPage() {
   const navigate = useNavigate()
-  const [connectors, setConnectors] = useState<ApiConnector[]>([])
-  const [integrations, setIntegrations] = useState<Integration[]>([])
-  const [resources, setResources] = useState<ApiResource[]>([])
-  const [executions, setExecutions] = useState<ApiExecution[]>([])
-  const [actions, setActions] = useState<ApiAction[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
-
   const [query, setQuery] = useState('')
   const [typeOn, setTypeOn] = useState<Set<TopoEntity>>(new Set(TYPE_FILTERS.map((t) => t.key)))
   const [statusOn, setStatusOn] = useState<Set<TopoStatus>>(new Set(STATUS_FILTERS.map((s) => s.key)))
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const load = (showSpinner = true) => {
-    if (showSpinner) setLoading(true)
-    setError('')
-    Promise.all([listConnectors(), listIntegrations(), listResources({ topology: true }), listAvailableActions(), listExecutions()])
-      .then(([c, i, r, a, e]) => {
-        setConnectors(c ?? [])
-        setIntegrations(i ?? [])
-        setResources(r ?? [])
-        setExecutions(e ?? [])
-        setActions(a ?? [])
-      })
-      .catch((err: ApiError) => setError(err.message || '加载失败'))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => load(), [])
-  useAutoRefresh(() => load(false), 15000)
+  const topologyQuery = useApiQuery(
+    () => Promise.all([listConnectors(), listIntegrations(), listResources({ topology: true }), listAvailableActions(), listExecutions()]),
+    [],
+    { intervalMs: 15000 },
+  )
+  const connectors = topologyQuery.data?.[0] ?? []
+  const integrations = topologyQuery.data?.[1] ?? []
+  const resources = topologyQuery.data?.[2] ?? []
+  const actions = topologyQuery.data?.[3] ?? []
+  const executions = topologyQuery.data?.[4] ?? []
+  const loading = topologyQuery.loading
+  const error = topologyQuery.error
+  const load = () => topologyQuery.reload()
 
   const liveSignals = useMemo(
     () => executions.filter((e) => ['QUEUED', 'DISPATCHED', 'RUNNING', 'WAITING_APPROVAL'].includes(e.status)).length,
