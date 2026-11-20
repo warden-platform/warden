@@ -4,7 +4,10 @@ displayName: CI 门禁（测试/构建）
 # Gitee master 合入门禁（方案甲）：push/PR 触发，拦截编译/单测/lint 回归。
 # 服务端跑非 DB 门控测试（无 WARDEN_TEST_DATABASE_URL 时 DB 集成测试自动 Skip）；
 # 完整 DB 门控集成测试由 GitHub CI（postgres service）兜底。
-# 真正阻断合入须在 Gitee 仓库设置开启保护分支 master + PR 必过本流水线。
+# 配套 Gitee 保护分支 master：禁止任何人直推（强制 PR）+ 评审模式。
+# 注意：Gitee Go 社区版流水线不上报 commit status，保护分支「检查项」搜不到
+# 本流水线，无法自动强制「门禁必过才能合并」（企业版能力）。ci-gate 在 PR 自动
+# 运行并于 PR 页面流水线栏展示结果，合并前须人工确认通过。
 stages:
 - name: server
   displayName: 服务端门禁
@@ -15,7 +18,13 @@ stages:
     name: server-gate
     displayName: Go vet/build/单测
     commands: |
-      export PATH=/mnt/pipeline-tools/standard/golang/1.25/bin:$PATH
+      GO_BIN=$(ls -d /mnt/pipeline-tools/standard/golang/1.2*/bin 2>/dev/null | sort -V | tail -1)
+      [ -n "$GO_BIN" ] && export PATH="$GO_BIN:$PATH"
+      if ! command -v go >/dev/null 2>&1; then
+        curl -fsSL https://golang.google.cn/dl/go1.25.0.linux-amd64.tar.gz -o /tmp/go.tgz
+        tar -C /usr/local -xzf /tmp/go.tgz
+        export PATH=/usr/local/go/bin:$PATH
+      fi
       export GOPROXY=https://goproxy.cn,direct
       go version
       cd server
@@ -34,7 +43,12 @@ stages:
     name: web-gate
     displayName: 前端 lint/单测/构建
     commands: |
-      export PATH=/mnt/pipeline-tools/standard/node/22.23.4/bin:$PATH
+      NODE_BIN=$(ls -d /mnt/pipeline-tools/standard/node/22*/bin 2>/dev/null | sort -V | tail -1)
+      [ -n "$NODE_BIN" ] && export PATH="$NODE_BIN:$PATH"
+      if ! command -v node >/dev/null 2>&1; then
+        curl -fsSL https://npmmirror.com/mirrors/node/v22.23.4/node-v22.23.4-linux-x64.tar.gz -o /tmp/node.tgz
+        tar -C /usr/local --strip-components=1 -xzf /tmp/node.tgz
+      fi
       node --version
       cd web
       npm ci --registry=https://registry.npmmirror.com
