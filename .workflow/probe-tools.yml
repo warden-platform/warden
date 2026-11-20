@@ -1,0 +1,27 @@
+version: "1.0"
+name: probe-tools
+displayName: 工具探针
+stages:
+- name: probe
+  displayName: 探针
+  strategy: naturally
+  trigger: auto
+  steps:
+  - step: custom-build@custom
+    name: probe
+    displayName: 工具探针
+    commands: |
+      echo "PATH=$PATH"
+      command -v go node npm setup curl wget 2>/dev/null
+      ls /usr/local/go/bin 2>/dev/null
+      ls /mnt/pipeline-tools/standard 2>/dev/null
+      ls /opt 2>/dev/null
+      find / -maxdepth 4 -name 'setup' -type f 2>/dev/null | head
+    notify: []
+    strategy:
+      retry: "0"
+triggers:
+  trigger: manual
+notify: []
+strategy:
+  blocking: true
