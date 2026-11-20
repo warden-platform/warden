@@ -8,8 +8,9 @@
 # 凭据：.secrets/acr_username 与 .secrets/acr_password（600，已 gitignore）。
 # 流程：login → 构建 web/control（国内镜像源）→ 推 version 与 latest 双 tag →
 #       manifest 验证。只打 warden-*:<version> 本地 tag，不改生产在用的 latest。
-# 日志：追加到仓库根 acr-publish.log；建议用 systemd-run 托管以免 SSH 断开中断：
-#   systemd-run --unit=warden-acr-publish --collect bash scripts/publish-acr.sh v0.4.0
+# 日志：追加到仓库根 acr-publish.log；建议用 systemd-run 托管以免 SSH 断开中断
+# （systemd 临时服务不继承工作目录，脚本必须用绝对路径）：
+#   systemd-run --unit=warden-acr-publish --collect bash /root/warden/scripts/publish-acr.sh v0.4.0
 # 失败排查：tail acr-publish.log；systemctl is-failed warden-acr-publish。
 # ACR 仓库不存在且命名空间未开自动创建时 push 会拒绝——先在 ACR 控制台建仓库。
 # 注意：必须 --provenance=false --sbom=false——ACR 个人版不支持 BuildKit 默认的
