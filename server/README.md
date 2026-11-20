@@ -24,7 +24,7 @@ internal/control/             HTTP 路由和控制面编排
 internal/domain/              领域对象、Hash 和 TaskEnvelope
 internal/policy/              Embedded/Remote OPA Provider
 internal/connector/           Runtime、TokenRequest 和 K8s Action
-internal/storage/postgres/    pgx 存储适配器和 Outbox
+internal/storage/postgres/    pgx 存储适配器与 RLS 租户隔离
 ```
 
 依赖方向和新代码放置规则见根目录 [`README.md`](../README.md)。

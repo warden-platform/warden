@@ -163,11 +163,6 @@ func (h *Handler) escalateRuntimeDatabaseQueryApproval(ctx context.Context, exec
 	if err := h.audit.CreateTx(ctx, tx, audit); err != nil {
 		return nil, false, err
 	}
-	if err := h.outbox.PublishTx(ctx, tx, "access_request.submitted.v1", "execution", exec.ID, map[string]any{
-		"execution_id": exec.ID, "status": domain.ExecWaitingApproval, "trace_id": exec.TraceID,
-	}); err != nil {
-		return nil, false, err
-	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, false, err
 	}

@@ -26,7 +26,7 @@ ALTER TABLE access_requests ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255);
 ALTER TABLE access_grants ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255);
 ALTER TABLE executions ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255);
 ALTER TABLE audit_events ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255);
-ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255);
+DO $$ BEGIN IF to_regclass('outbox_events') IS NOT NULL THEN ALTER TABLE outbox_events ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(255); END IF; END $$;
 
 UPDATE principals SET tenant_id='platform' WHERE tenant_id IS NULL OR btrim(tenant_id) IN ('', 'default');
 UPDATE connectors SET tenant_id='platform' WHERE tenant_id IS NULL OR btrim(tenant_id) IN ('', 'default');
@@ -93,21 +93,21 @@ UPDATE audit_events ae SET tenant_id=COALESCE(p.tenant_id, 'platform')
 FROM principals p
 WHERE ae.tenant_id IS NULL AND p.id=ae.actor_id;
 UPDATE audit_events SET tenant_id='platform' WHERE tenant_id IS NULL;
-UPDATE outbox_events SET tenant_id='platform' WHERE tenant_id IS NULL;
+DO $$ BEGIN IF to_regclass('outbox_events') IS NOT NULL THEN UPDATE outbox_events SET tenant_id='platform' WHERE tenant_id IS NULL; END IF; END $$;
 
 ALTER TABLE policy_decisions ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE access_requests ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE access_grants ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE executions ALTER COLUMN tenant_id SET NOT NULL;
 ALTER TABLE audit_events ALTER COLUMN tenant_id SET NOT NULL;
-ALTER TABLE outbox_events ALTER COLUMN tenant_id SET NOT NULL;
+DO $$ BEGIN IF to_regclass('outbox_events') IS NOT NULL THEN ALTER TABLE outbox_events ALTER COLUMN tenant_id SET NOT NULL; END IF; END $$;
 
 CREATE INDEX IF NOT EXISTS idx_policy_decisions_tenant_created ON policy_decisions(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_access_requests_tenant_status ON access_requests(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_access_grants_tenant_status ON access_grants(tenant_id, status);
 CREATE INDEX IF NOT EXISTS idx_executions_tenant_created ON executions(tenant_id, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_audit_events_tenant_created ON audit_events(tenant_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_outbox_events_tenant_status ON outbox_events(tenant_id, status);
+DO $$ BEGIN IF to_regclass('outbox_events') IS NOT NULL THEN CREATE INDEX IF NOT EXISTS idx_outbox_events_tenant_status ON outbox_events(tenant_id, status); END IF; END $$;
 
 -- Tenant identifiers are slugs for compatibility with the existing API.  FK
 -- constraints prevent orphaned ownership values and make future private

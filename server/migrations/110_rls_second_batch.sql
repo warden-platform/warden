@@ -4,7 +4,7 @@
 -- shared-read：action_definitions 是平台共享动作目录，业务租户可读 platform
 --   行（运行时查询用 tenant_id='platform' OR tenant_id=$n），但只能写本租户。
 -- 豁免：tenant_quotas（超管管理表，tenant_id=slug PK，跨租户配额管理不走 RLS）；
---   outbox_events（无消费者，生命周期阶段将整体移除）。
+--   outbox_events（无消费者，已由迁移 111 整体移除）。
 -- 无 tenant_id 的表（principal_api_keys/admin_sessions/cluster_pairings/
 --   ai_runs/ai_messages/ai_tool_calls/federated_assertion_replays/各绑定规则表）
 -- 不适用 RLS，靠应用层鉴权与父表隔离。

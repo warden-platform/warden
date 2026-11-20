@@ -148,11 +148,6 @@ func (h *Handler) decideApproval(ctx context.Context, id string, approve bool, a
 			if err := h.audit.CreateTx(ctx, tx, completedEvent); err != nil {
 				return nil, decisionError(500, "AUDIT_WRITE_FAILED", "审批审计写入失败")
 			}
-			if err := h.outbox.PublishTx(ctx, tx, "execution.completed.v1", "execution", exec.ID, map[string]any{
-				"execution_id": exec.ID, "status": exec.Status, "trace_id": exec.TraceID,
-			}); err != nil {
-				return nil, decisionError(500, "OUTBOX_WRITE_FAILED", "事件写入失败")
-			}
 		} else {
 			expiresAt := time.Now().Add(time.Duration(action.TimeoutSeconds) * time.Second)
 			grant := &domain.AccessGrant{
@@ -188,11 +183,6 @@ func (h *Handler) decideApproval(ctx context.Context, id string, approve bool, a
 				if err := h.audit.CreateTx(ctx, tx, event); err != nil {
 					return nil, decisionError(500, "AUDIT_WRITE_FAILED", "审批审计写入失败")
 				}
-			}
-			if err := h.outbox.PublishTx(ctx, tx, "execution.queued.v1", "execution", exec.ID, map[string]any{
-				"execution_id": exec.ID, "grant_id": grant.ID, "trace_id": exec.TraceID,
-			}); err != nil {
-				return nil, decisionError(500, "OUTBOX_WRITE_FAILED", "事件写入失败")
 			}
 		}
 	} else {

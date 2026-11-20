@@ -62,7 +62,6 @@ type Handler struct {
 	queryTemplates       *postgres.QueryTemplateRepo
 	notificationChannels NotificationChannelStore
 	dingTalkRepo         *postgres.DingTalkRepo
-	outbox               *postgres.OutboxRepo
 	aiConfig             *ai.Config
 	aiStore              AIStore
 }
@@ -207,7 +206,6 @@ func NewHandler(pool *pgxpool.Pool, adminPool *pgxpool.Pool) (*Handler, error) {
 		h.queryTemplates = postgres.NewQueryTemplateRepo(pool)
 		h.notificationChannels = postgres.NewNotificationChannelRepo(pool)
 		h.dingTalkRepo = postgres.NewDingTalkRepo(pool)
-		h.outbox = postgres.NewOutboxRepo(pool)
 		h.aiStore = postgres.NewAIRepo(pool)
 		// 先接线旁路池，再同步管理员密码（UpdatePassword 走特权池，
 		// 否则启动期无租户 ctx 会被 RLS 静默拦截）。
@@ -1032,14 +1030,6 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, http.StatusInternalServerError, "AUDIT_WRITE_FAILED", "审计写入失败")
 			return
 		}
-		if err := h.outbox.PublishTx(ctx, tx, "access_request.submitted.v1", "execution", exec.ID, map[string]any{
-			"execution_id": exec.ID,
-			"status":       exec.Status,
-			"trace_id":     traceID,
-		}); err != nil {
-			jsonError(w, http.StatusInternalServerError, "OUTBOX_WRITE_FAILED", "事件写入失败")
-			return
-		}
 		if err := tx.Commit(ctx); err != nil {
 			jsonError(w, http.StatusInternalServerError, "EXECUTION_TRANSACTION_FAILED", "提交审批执行失败")
 			return
@@ -1105,14 +1095,6 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 				jsonError(w, http.StatusInternalServerError, "AUDIT_WRITE_FAILED", "审计写入失败")
 				return
 			}
-			if err := h.outbox.PublishTx(ctx, tx, "execution.completed.v1", "execution", exec.ID, map[string]any{
-				"execution_id": exec.ID,
-				"status":       exec.Status,
-				"trace_id":     traceID,
-			}); err != nil {
-				jsonError(w, http.StatusInternalServerError, "OUTBOX_WRITE_FAILED", "事件写入失败")
-				return
-			}
 			if err := tx.Commit(ctx); err != nil {
 				jsonError(w, http.StatusInternalServerError, "EXECUTION_TRANSACTION_FAILED", "提交执行失败")
 				return
@@ -1152,15 +1134,6 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := h.audit.CreateTx(ctx, tx, executionEvent("execution.queued")); err != nil {
 			jsonError(w, http.StatusInternalServerError, "AUDIT_WRITE_FAILED", "审计写入失败")
-			return
-		}
-		if err := h.outbox.PublishTx(ctx, tx, "execution.queued.v1", "execution", exec.ID, map[string]any{
-			"execution_id": exec.ID,
-			"grant_id":     grant.ID,
-			"status":       exec.Status,
-			"trace_id":     traceID,
-		}); err != nil {
-			jsonError(w, http.StatusInternalServerError, "OUTBOX_WRITE_FAILED", "事件写入失败")
 			return
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -1634,6 +1607,12 @@ func (h *Handler) CancelExecution(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		e.Status = domain.ExecCancelled
+	} else {
+		// DISPATCHED/RUNNING 已派发至连接器，无召回通道（取消协议属后续功能）；
+		// 终态（SUCCEEDED/FAILED/UNKNOWN/CANCELLED/EXPIRED）已结束。诚实返回 409，
+		// 不再静默 200 伪装成功。已派发任务将运行至完成或租约超时回收。
+		jsonError(w, http.StatusConflict, "EXECUTION_NOT_CANCELABLE", "执行已派发或已结束，无法取消")
+		return
 	}
 	jsonResp(w, http.StatusOK, executionToResp(e))
 }

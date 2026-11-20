@@ -120,7 +120,6 @@ Compose 通过 `docker compose --env-file .env -f deploy/docker-compose.yaml ...
 | `WARDEN_RELEASE_VERSION` | 读 Chart `appVersion` | UI 展示的发布版本 |
 | `WARDEN_ENABLE_LEGACY_CONNECTOR_KEY` | `false` | 旧共享 Connector Key 兼容开关；迁移完成后必须保持关闭 |
 | `WARDEN_ENABLE_LEGACY_DISPATCH_RESULT` | `false` | 兼容不回传 dispatch token 的旧 Connector |
-| `WARDEN_OUTBOX_ENABLED` | `false` | 启用事务 Outbox 写入；仅在部署了消费者时开启 |
 | `WARDEN_SA_DIR` | 空（用 InCluster 配置） | K8s Connector 本地覆盖 ServiceAccount 目录；与 `KUBERNETES_SERVICE_HOST/PORT` 配合 |
 
 ### 策略决策

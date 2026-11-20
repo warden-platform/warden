@@ -687,11 +687,10 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 - 直接改数据库不会触发会话撤销，旧权限最多残留 8 小时——**不要绕过页面改库**。
 - 应急时可在数据库层撤销某账号的全部活跃会话，但事后必须补审计记录。
 
-### 审计与 Outbox
+### 审计
 
 - 审计是 append-only；角色变更审计 `account.role_updated` 与角色变更在同一事务提交，写入失败则整体回滚。
 - 排查"审计页看不到登录事件"时，检查事件是否带 `tenant_id`：早期数据或部分链路可能为空。
-- `WARDEN_OUTBOX_ENABLED=true` 才会写 Outbox 事件；Publisher 后台循环尚未实现，开启前确认已有消费者。
 
 ### 定时与后台任务
 
