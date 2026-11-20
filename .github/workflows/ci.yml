@@ -24,6 +24,12 @@ jobs:
           --health-retries 10
     steps:
       - uses: actions/checkout@v4
+      # Gitee Go build@docker 不支持 buildArgs，operator/connector 用同构
+      # 变体 Dockerfile；此处强制变体与主文件仅 TARGET 默认值不同。
+      - name: Dockerfile variants in sync
+        run: |
+          diff <(sed 's/ARG TARGET=warden-operator/ARG TARGET=warden-control/' server/Dockerfile.operator) server/Dockerfile
+          diff <(sed 's/ARG TARGET=warden-connector/ARG TARGET=warden-control/' server/Dockerfile.connector) server/Dockerfile
       - uses: actions/setup-go@v5
         with:
           go-version-file: server/go.mod

@@ -8,9 +8,10 @@ WORKDIR /src
 COPY server/go.mod server/go.sum ./
 RUN go mod download
 COPY server/ .
-# 必填：warden-control / warden-operator / warden-connector。
-# 不设默认值——漏传时构建立即失败，避免把错误二进制静默推成别的镜像。
-ARG TARGET
+# TARGET 决定构建哪个二进制。Gitee Go build@docker 不支持 buildArgs，
+# operator/connector 用同构变体 Dockerfile.operator / Dockerfile.connector
+# （仅 TARGET 默认值不同，CI 有同步校验，改本文件须同步变体）。
+ARG TARGET=warden-control
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${TARGET}
 RUN mkdir -p /out/artifacts/server/bin/linux-amd64 /out/artifacts/server/bin/linux-arm64 /out/artifacts/server/bin/windows-amd64 /out/artifacts/server/bin/macos-amd64 /out/artifacts/server/bin/macos-arm64 && \
     if [ "$TARGET" = "warden-control" ]; then \
