@@ -190,7 +190,7 @@ func (h *Handler) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
 // identity's trusted email, across all organizations, for the unaffiliated
 // waiting screen. No business scope is required — only a valid session.
 func (h *Handler) MyInvitations(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -199,7 +199,7 @@ func (h *Handler) MyInvitations(w http.ResponseWriter, r *http.Request) {
 		jsonResp(w, http.StatusOK, []PrincipalInvitation{})
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `
+	rows, err := h.adminPool.Query(r.Context(), `
 		SELECT i.id::text, i.tenant_id, i.email, i.role, i.status, i.created_at, NULL::timestamptz, COALESCE(t.name, i.tenant_id)
 		FROM principal_invitations i
 		JOIN tenants t ON t.slug = i.tenant_id
@@ -235,7 +235,7 @@ func (h *Handler) MyInvitations(w http.ResponseWriter, r *http.Request) {
 // success the identity's own pending session is revoked (via the shared move
 // helper) so it re-logs in with real tenant capabilities.
 func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -261,7 +261,7 @@ func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
 	myID := identity.Principal.ID
 	ctx := r.Context()
 
-	tx, err := h.pool.Begin(ctx)
+	tx, err := h.adminPool.Begin(ctx)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "开启事务失败")
 		return

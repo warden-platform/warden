@@ -142,11 +142,21 @@ func (r *ExternalIdentityRepo) RevokeWorkspace(ctx context.Context, source, work
 }
 
 type DelegationTokenRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
 }
 
 func NewDelegationTokenRepo(pool *pgxpool.Pool) *DelegationTokenRepo {
 	return &DelegationTokenRepo{pool: pool}
+}
+
+// SetAdminPool 配置旁路池（BYPASSRLS）；未设回退主池。
+func (r *DelegationTokenRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+func (r *DelegationTokenRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 func (r *DelegationTokenRepo) Create(ctx context.Context, token *domain.DelegationToken) error {
@@ -160,7 +170,7 @@ func (r *DelegationTokenRepo) Create(ctx context.Context, token *domain.Delegati
 }
 
 func (r *DelegationTokenRepo) GetForAuthentication(ctx context.Context, id string) (*domain.DelegationToken, *domain.Principal, error) {
-	row := r.pool.QueryRow(ctx, `SELECT t.id,t.tenant_id,t.parent_credential_id,t.principal_id,
+	row := r.admin().QueryRow(ctx, `SELECT t.id,t.tenant_id,t.parent_credential_id,t.principal_id,
 		COALESCE(t.on_behalf_of_principal_id::text,''),COALESCE(t.accountable_principal_id::text,''),t.token_hash,t.scopes,
 		t.external_context,COALESCE(t.acting_project_id::text,''),t.issued_at,t.expires_at,t.last_used_at,t.revoked_at,
 		p.id,p.kind,p.name,p.status,p.tenant_id,p.metadata,p.created_at,p.updated_at

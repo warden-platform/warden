@@ -15,11 +15,21 @@ import (
 )
 
 type PrincipalRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
 }
 
 func NewPrincipalRepo(pool *pgxpool.Pool) *PrincipalRepo {
 	return &PrincipalRepo{pool: pool}
+}
+
+// SetAdminPool 配置旁路池（BYPASSRLS）；未设回退主池。
+func (r *PrincipalRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+func (r *PrincipalRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 func principalTenant(ctx context.Context) string {
@@ -74,7 +84,7 @@ func (r *PrincipalRepo) GetByName(ctx context.Context, name string) (*domain.Pri
 
 // UpdatePassword stores a bcrypt password hash for the given principal.
 func (r *PrincipalRepo) UpdatePassword(ctx context.Context, id, hash string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE principals SET password_hash = $2, updated_at = now() WHERE id = $1`, id, hash)
+	_, err := r.admin().Exec(ctx, `UPDATE principals SET password_hash = $2, updated_at = now() WHERE id = $1`, id, hash)
 	return err
 }
 
@@ -100,8 +110,14 @@ func (r *PrincipalRepo) Delete(ctx context.Context, id string) error {
 	defer tx.Rollback(ctx)
 	tenantID := repositoryTenant(ctx)
 
-	if _, err = tx.Exec(ctx, `UPDATE principals SET status='DISABLED', updated_at=now() WHERE id=$1 AND tenant_id=$2`, id, tenantID); err != nil {
+	cmd, err := tx.Exec(ctx, `UPDATE principals SET status='DISABLED', updated_at=now() WHERE id=$1 AND tenant_id=$2`, id, tenantID)
+	if err != nil {
 		return err
+	}
+	// 首条未命中（id 不属于本租户）即停止，避免级联撤销/取消他租户的
+	// grant/request/execution。下面级联亦补 tenant_id 过滤作纵深防御。
+	if cmd.RowsAffected() == 0 {
+		return nil
 	}
 	if _, err = tx.Exec(ctx, `UPDATE principal_api_keys SET status='REVOKED', revoked_at=now() WHERE principal_id=$1 AND status='ACTIVE'`, id); err != nil {
 		return err
@@ -115,21 +131,21 @@ func (r *PrincipalRepo) Delete(ctx context.Context, id string) error {
 		WHERE tenant_id=$2 AND principal_id=$1 AND status='ACTIVE'`, id, tenantID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE access_grants SET status='REVOKED' WHERE principal_id=$1 AND status='ACTIVE'`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE access_grants SET status='REVOKED' WHERE tenant_id=$2 AND principal_id=$1 AND status='ACTIVE'`, id, tenantID); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE access_requests SET status='CANCELLED', updated_at=now()
-		WHERE principal_id=$1 AND status='PENDING'`, id); err != nil {
+		WHERE tenant_id=$2 AND principal_id=$1 AND status='PENDING'`, id, tenantID); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE executions SET status='CANCELLED', error_code='PRINCIPAL_DISABLED',
 		error_message='请求身份已停用',updated_at=now()
-		WHERE principal_id=$1 AND status IN ('WAITING_APPROVAL','QUEUED')`, id); err != nil {
+		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('WAITING_APPROVAL','QUEUED')`, id, tenantID); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE executions SET status='UNKNOWN', error_code='PRINCIPAL_DISABLED_DURING_DISPATCH',
-		error_message='任务分发后请求身份被停用，目标系统可能已经执行',dispatch_token=NULL,dispatch_expires_at=NULL,updated_at=now()
-		WHERE principal_id=$1 AND status IN ('DISPATCHED','RUNNING')`, id); err != nil {
+		error_message='任务分发后请求身份被停用，目标系统可能已经执行',dispatch_token=[REDACTED],dispatch_expires_at=NULL,updated_at=now()
+		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('DISPATCHED','RUNNING')`, id, tenantID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -190,7 +206,10 @@ func (r *PrincipalRepo) Create(ctx context.Context, p *domain.Principal) error {
 		p.Status = domain.PrincipalStatusActive
 	}
 	if p.TenantID == "" {
-		p.TenantID = "default"
+		p.TenantID = repositoryTenant(ctx)
+	}
+	if p.TenantID == "" {
+		return fmt.Errorf("principal create requires a tenant (set TenantID or tenant context)")
 	}
 	if p.Metadata == nil {
 		p.Metadata = map[string]any{}
@@ -205,10 +224,20 @@ func (r *PrincipalRepo) Create(ctx context.Context, p *domain.Principal) error {
 }
 
 type APIKeyRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
 }
 
 func NewAPIKeyRepo(pool *pgxpool.Pool) *APIKeyRepo { return &APIKeyRepo{pool: pool} }
+
+// SetAdminPool 配置旁路池（BYPASSRLS）；未设回退主池。
+func (r *APIKeyRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+func (r *APIKeyRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
+}
 
 func (r *APIKeyRepo) Create(ctx context.Context, key *domain.PrincipalAPIKey) error {
 	return r.pool.QueryRow(ctx, `INSERT INTO principal_api_keys
@@ -220,7 +249,7 @@ func (r *APIKeyRepo) Create(ctx context.Context, key *domain.PrincipalAPIKey) er
 }
 
 func (r *APIKeyRepo) GetForAuthentication(ctx context.Context, id string) (*domain.PrincipalAPIKey, *domain.Principal, error) {
-	row := r.pool.QueryRow(ctx, `SELECT k.id,k.principal_id,k.name,k.key_prefix,k.key_hash,k.status,k.purpose,COALESCE(k.audience,''),k.scopes,
+	row := r.admin().QueryRow(ctx, `SELECT k.id,k.principal_id,k.name,k.key_prefix,k.key_hash,k.status,k.purpose,COALESCE(k.audience,''),k.scopes,
 		k.expires_at,k.last_used_at,COALESCE(host(k.last_used_ip),''),COALESCE(k.created_by::text,''),k.created_at,
 		k.revoked_at,COALESCE(k.revoked_by::text,''),COALESCE(k.rotation_parent_id::text,''),
 		p.id,p.kind,p.name,p.status,p.tenant_id,p.metadata,p.created_at,p.updated_at
@@ -1389,7 +1418,19 @@ func (r *ActionRepo) SummariesByIDs(ctx context.Context, ids []string) (map[stri
 }
 
 type ExecutionRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
+}
+
+// SetAdminPool 配置合法跨租户旁路池（BYPASSRLS）。未设置时旁路回退主池。
+func (r *ExecutionRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+
+// admin 返回旁路池：超管全局查询与后台 janitor 全表扫描须绕过 RLS。
+func (r *ExecutionRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 type DecisionRepo struct {
@@ -1709,7 +1750,7 @@ func (r *ExecutionRepo) UpdateResult(ctx context.Context, id string, result map[
 // status, identity, query target and audit records remain, so Warden retains
 // accountability without becoming a secondary log or business-data archive.
 func (r *ExecutionRepo) PurgeTransientLogResults(ctx context.Context, olderThan time.Duration) (int64, error) {
-	command, err := r.pool.Exec(ctx, `UPDATE executions e
+	command, err := r.admin().Exec(ctx, `UPDATE executions e
 		SET result = jsonb_build_object('purged', true, 'reason', 'transient_query_result_expired')
 		FROM action_definitions a
 		WHERE e.action_id=a.id AND a.name IN ('huawei.lts.logs.query','aliyun.sls.logs.query','database.table.rows.query','database.query.execute','database.query_template.execute')
@@ -1835,7 +1876,7 @@ func (r *ExecutionRepo) ListAllTenants(ctx context.Context, status string, limit
 		query += ` ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 		args = append(args, limit, offset)
 	}
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := r.admin().Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -2028,7 +2069,7 @@ func (r *ExecutionRepo) ClaimTasks(ctx context.Context, connectorID string, limi
 // was lost. UNKNOWN is fail-safe because the target may already have observed
 // a side effect; an operator can inspect it without an unsafe automatic retry.
 func (r *ExecutionRepo) ExpireDispatchLeases(ctx context.Context) (int64, error) {
-	command, err := r.pool.Exec(ctx, `UPDATE executions
+	command, err := r.admin().Exec(ctx, `UPDATE executions
 		SET status='UNKNOWN', error_code='DISPATCH_LEASE_EXPIRED',
 			error_message='任务分发租约过期，目标系统可能已经执行',
 			dispatch_token=NULL, dispatch_expires_at=NULL, updated_at=now()
@@ -2043,7 +2084,7 @@ func (r *ExecutionRepo) ExpireDispatchLeases(ctx context.Context) (int64, error)
 // ExpireQueuedExecutions prevents tasks with expired or revoked grants from
 // remaining QUEUED forever after a Connector goes offline.
 func (r *ExecutionRepo) ExpireQueuedExecutions(ctx context.Context) (int64, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.admin().Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -2226,7 +2267,19 @@ func (r *AuditRepo) List(ctx context.Context, filter AuditListFilter, limit, off
 }
 
 type RequestRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
+}
+
+// SetAdminPool 配置合法跨租户旁路池（BYPASSRLS）。未设置时旁路回退主池。
+func (r *RequestRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+
+// admin 返回旁路池：钉钉回调按 ID 跨租户取请求、后台过期扫描须绕过 RLS。
+func (r *RequestRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 func NewRequestRepo(pool *pgxpool.Pool) *RequestRepo {
@@ -2290,7 +2343,7 @@ func (r *RequestRepo) GetByIDAnyTenant(ctx context.Context, id string) (*domain.
 		approved_at, expires_at, created_at, updated_at
 		FROM access_requests WHERE id = $1`
 	var ar domain.AccessRequest
-	err := r.pool.QueryRow(ctx, query, id).Scan(&ar.ID, &ar.TenantID, &ar.ExecutionID, &ar.PrincipalID, &ar.ResourceID, &ar.ActionID, &ar.ActingProjectID, &ar.ExternalContext,
+	err := r.admin().QueryRow(ctx, query, id).Scan(&ar.ID, &ar.TenantID, &ar.ExecutionID, &ar.PrincipalID, &ar.ResourceID, &ar.ActionID, &ar.ActingProjectID, &ar.ExternalContext,
 		&ar.DelegationTokenID, &ar.OnBehalfOfPrincipalID, &ar.AccountablePrincipalID, &ar.Parameters, &ar.ParameterHash,
 		&ar.Reason, &ar.Status, &ar.DecisionID, &ar.ApprovedBy,
 		&ar.ApprovedAt, &ar.ExpiresAt, &ar.CreatedAt, &ar.UpdatedAt)
@@ -2445,7 +2498,7 @@ func (r *RequestRepo) ListByPrincipal(ctx context.Context, principalID, status s
 }
 
 func (r *RequestRepo) ListExpiredPending(ctx context.Context, limit int) ([]domain.AccessRequest, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, COALESCE(execution_id::text,''), principal_id, resource_id, action_id,
+	rows, err := r.admin().Query(ctx, `SELECT id, tenant_id, COALESCE(execution_id::text,''), principal_id, resource_id, action_id,
 		COALESCE(acting_project_id::text,''), external_context, COALESCE(delegation_token_id::text,''), COALESCE(on_behalf_of_principal_id::text,''), COALESCE(accountable_principal_id::text,''), parameters, parameter_hash, COALESCE(reason,''), status, COALESCE(decision_id::text,''),
 		COALESCE(approved_by::text,''), approved_at, expires_at, created_at, updated_at
 		FROM access_requests WHERE status='PENDING' AND expires_at IS NOT NULL AND expires_at <= now()
@@ -2806,6 +2859,7 @@ func (r *IntegrationRepo) loadCredentialProfilesBatch(ctx context.Context, integ
 // ReplaceCredentialProfiles atomically replaces an Integration's purpose-bound
 // credential profiles. Empty profiles clear the set.
 func (r *IntegrationRepo) ReplaceCredentialProfiles(ctx context.Context, integrationID string, profiles []domain.IntegrationCredentialProfile) error {
+	tenantID := repositoryTenant(ctx)
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -2815,8 +2869,8 @@ func (r *IntegrationRepo) ReplaceCredentialProfiles(ctx context.Context, integra
 		return err
 	}
 	for _, profile := range profiles {
-		if _, err := tx.Exec(ctx, `INSERT INTO integration_credential_profiles(integration_id, name, username, credential_ref)
-			VALUES ($1,$2,nullif($3,''),$4)`, integrationID, profile.Name, profile.Username, profile.CredentialRef); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO integration_credential_profiles(integration_id, name, username, credential_ref, tenant_id)
+			VALUES ($1,$2,nullif($3,''),$4,$5)`, integrationID, profile.Name, profile.Username, profile.CredentialRef, tenantID); err != nil {
 			return err
 		}
 	}
@@ -2899,7 +2953,7 @@ func (r *IntegrationRepo) Update(ctx context.Context, ig *domain.Integration) er
 
 func (r *IntegrationRepo) UpdateStatus(ctx context.Context, id string, status domain.IntegrationStatus, lastError string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE integrations SET status=$2, last_error=nullif($3,''),
-		last_probe_at=now(), updated_at=now() WHERE id=$1`, id, status, lastError)
+		last_probe_at=now(), updated_at=now() WHERE id=$1 AND tenant_id=$4`, id, status, lastError, repositoryTenant(ctx))
 	return err
 }
 
@@ -2908,7 +2962,7 @@ func (r *IntegrationRepo) UpdateStatus(ctx context.Context, id string, status do
 // the integration state machine stays user-driven.
 func (r *IntegrationRepo) ReportHealth(ctx context.Context, connectorID, id, lastError string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE integrations SET last_error=nullif($3,''), last_probe_at=now()
-		WHERE id=$1 AND connector_id=$2`, id, connectorID, lastError)
+		WHERE id=$1 AND connector_id=$2 AND tenant_id=$4`, id, connectorID, lastError, repositoryTenant(ctx))
 	return err
 }
 

@@ -303,7 +303,7 @@ func (h *Handler) MarkOperatorPairingDeleted(w http.ResponseWriter, r *http.Requ
 		jsonError(w, http.StatusUnauthorized, "INVALID_PAIRING_TOKEN", "配对凭证无效")
 		return
 	}
-	_, _ = h.pool.Exec(r.Context(), `UPDATE connectors SET status='DISABLED', updated_at=now() WHERE id=$1`, connectorID)
+	_, _ = h.adminPool.Exec(r.Context(), `UPDATE connectors SET status='DISABLED', updated_at=now() WHERE id=$1`, connectorID)
 	jsonResp(w, http.StatusOK, map[string]string{"status": "DELETED"})
 }
 

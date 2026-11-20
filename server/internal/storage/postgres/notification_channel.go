@@ -9,11 +9,21 @@ import (
 )
 
 type NotificationChannelRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
 }
 
 func NewNotificationChannelRepo(pool *pgxpool.Pool) *NotificationChannelRepo {
 	return &NotificationChannelRepo{pool: pool}
+}
+
+// SetAdminPool 配置旁路池（BYPASSRLS）；未设回退主池。
+func (r *NotificationChannelRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+func (r *NotificationChannelRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 func (r *NotificationChannelRepo) Get(ctx context.Context, channelType string) (*domain.NotificationChannel, error) {
@@ -37,7 +47,7 @@ func (r *NotificationChannelRepo) Get(ctx context.Context, channelType string) (
 // across tenants; the partial unique index guarantees at most one match.
 func (r *NotificationChannelRepo) GetByConversation(ctx context.Context, channelType, conversationID string) (*domain.NotificationChannel, error) {
 	var channel domain.NotificationChannel
-	err := r.pool.QueryRow(ctx, `SELECT id, type, name, enabled, events, tenant_id, COALESCE(open_conversation_id,''), created_at, updated_at
+	err := r.admin().QueryRow(ctx, `SELECT id, type, name, enabled, events, tenant_id, COALESCE(open_conversation_id,''), created_at, updated_at
 		FROM notification_channels WHERE type=$1 AND open_conversation_id=$2`, channelType, conversationID).
 		Scan(&channel.ID, &channel.Type, &channel.Name, &channel.Enabled, &channel.Events,
 			&channel.TenantID, &channel.OpenConversationID, &channel.CreatedAt, &channel.UpdatedAt)

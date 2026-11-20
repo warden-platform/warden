@@ -43,7 +43,7 @@ flowchart TB
         POLICY["Policy · Embedded Rego / Remote OPA"]
         ACCESS["Approval / AccessGrant"]
         EXEC["Execution Orchestrator"]
-        AUDIT["Audit / Outbox"]
+        AUDIT["Audit"]
         PAIRING["Pairing / Credential Encryption"]
     end
 
@@ -105,7 +105,7 @@ flowchart TB
 | `warden-linux-helper` | Go 进程，root | 通过 Unix Socket 提供固定 Docker / systemd 动作，不接受 Shell 或任意参数 | Docker 受控接入必需 |
 | `warden-network-connector` | Go 进程，内网主机 | H3C 设备只读发现与审计，主动出站，校验 SSH Host Key 指纹 | 网络设备接入必需 |
 | `warden-host-connector` | Go 进程，macOS/Windows | 通用主机接入、固定命令白名单、心跳与配对 | 主机接入必需 |
-| PostgreSQL | 独立服务 | 业务主数据、审计、Outbox | 是 |
+| PostgreSQL | 独立服务 | 业务主数据、审计（RLS 租户隔离） | 是 |
 | Admin Web | React/Vite + Tailwind | 管理界面，全部数据来自真实 API，无 Mock | 可选 |
 | 独立 OPA | 可选服务 | 远程 Rego 决策 | 否，默认内嵌 |
 | OpenBao / Teleport | 可选服务 | 凭据签发 / 基础设施代理 | **未集成** |
@@ -122,7 +122,7 @@ server/
 │   ├── domain/                领域对象、Hash、TaskEnvelope、Capability（叶子包）
 │   ├── policy/                Embedded / Remote OPA Provider + policy.rego
 │   ├── connector/             Connector Runtime、请求签名、各目标系统 Runner
-│   ├── storage/postgres/      pgx 仓储、Outbox、租户过滤
+│   ├── storage/postgres/      pgx 仓储、RLS 租户隔离
 │   └── control/               HTTP 路由、认证授权、配对、凭据加密、编排
 └── migrations/                顺序 SQL 迁移
 web/src/
@@ -156,7 +156,7 @@ sequenceDiagram
     else REQUIRE_APPROVAL
         C->>R: 写 WAITING_APPROVAL Execution 和 AccessRequest
     else ALLOW
-        C->>R: 写 QUEUED Execution、一次性 Grant、审计和 Outbox
+        C->>R: 写 QUEUED Execution、一次性 Grant、审计
     end
     C-->>A: execution_id / status / trace_id
 ```
@@ -182,7 +182,7 @@ sequenceDiagram
     C->>K: 结构化动作（如 deployment.get）
     K-->>C: target result
     C->>A: 回传结果
-    A->>D: 终态 + 审计 + Outbox
+    A->>D: 终态 + 审计
 ```
 
 Connector Runtime 的默认节奏：心跳 15s、任务轮询 2s、资源同步 5min。审批通过 / 拒绝复用同一个数据库事务与行锁，Web 与钉钉入口一致。
@@ -233,7 +233,6 @@ stateDiagram-v2
 - **启动不跑迁移**：全新库按文件名顺序手工执行；发布流水线按 `deploy/release/migrations.txt` 重放编号 ≥ 035 的幂等迁移。新增此类迁移必须登记清单，否则单测失败。
 - `002_seed.sql` 写入固定权限锚点；运行时 `EnsureAdminPassword` 将登录名与 `WARDEN_ADMIN_USERNAME`、密码哈希与 `WARDEN_ADMIN_PASSWORD_FILE` 同步。
 - `audit_events.action` 是 PostgreSQL 枚举，新增动作名必须补 `ALTER TYPE audit_action ADD VALUE` 迁移。
-- Outbox 写入可开关（`WARDEN_OUTBOX_ENABLED`），Publisher 后台循环尚未实现。
 
 ### 安全设计要点
 
@@ -263,7 +262,7 @@ stateDiagram-v2
 
 ### 尚未完成 / 已知限制
 
-MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、完整 Execution Attempt 与取消协议、Outbox Publisher、SCIM、细粒度 RLS、静态 Admin Key 轮换；以及非内置 `platform_admin` 的 JWT 兼容识别、联邦断言短 JWT 未写 `admin_sessions`、项目权限三套并行判定等设计债。完整列表见 [现状与路线](#roadmap)。
+MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、协作式取消协议（已派发执行的中止）、SCIM、静态 Admin Key 轮换；以及非内置 `platform_admin` 的 JWT 兼容识别、联邦断言短 JWT 未写 `admin_sessions`、项目权限三套并行判定等设计债。完整列表见 [现状与路线](#roadmap)。
 
 
 ---
@@ -307,10 +306,9 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 1. **MFA 与 IdP claim 细粒度角色映射**：当前默认角色由 `WARDEN_OIDC_DEFAULT_ROLE` 静态配置（生产保持 `user`），尚未按 IdP claim 动态授权，MFA 未接入。
 2. **Connector mTLS / SPIFFE 强认证**：当前只信任 Connector ID + bootstrap token。
 3. **完整 Rego 策略版本管理**：可视化矩阵、冲突检测与模拟已完成；Rego Bundle 的草稿、发布、回滚未实现。
-4. **Execution Attempt、`RUNNING`、超时回收与取消协议**：状态常量已在领域模型中，但完整协议未落地。
+4. **协作式取消协议**：取消对 WAITING_APPROVAL/QUEUED 生效；已派发/终态执行诚实返回 409（无连接器召回通道）。连接器侧中止与 `CANCELLING` 状态未实现。`execution_attempts` 死表已移除，租约超时回收（UNKNOWN/EXPIRED）已落地。
 5. **结果脱敏与日志敏感信息检测**：Docker / systemd 日志目前只有行数与大小限制。
 6. **Docker 已停止容器发现**：`docker.container.list` 当前只返回运行中容器。
-7. **Outbox Publisher 后台循环**：Outbox 写入可开关，发布消费者未实现。
 
 #### 授权与身份的第二阶段（规划）
 

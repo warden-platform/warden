@@ -1,4 +1,4 @@
-.PHONY: init-local init-prod-secrets verify migrate migrate-release sync-github server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean
+.PHONY: init-local init-prod-secrets init-db-roles verify migrate migrate-release sync-github server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean
 
 GO_CACHE ?= $(CURDIR)/.cache/go-build
 COMPOSE ?= docker compose --env-file .env -f deploy/docker-compose.yaml
@@ -11,6 +11,10 @@ init-local:
 
 init-prod-secrets:
 	scripts/init-prod-secrets.sh
+
+# 建应用角色（warden_app/warden_privileged）+ 授权 + 注入密码（RLS 地基）。
+init-db-roles:
+	@COMPOSE="$(COMPOSE)" PG_SERVICE="$(PG_SERVICE)" PG_USER="$(PG_USER)" PG_DB="$(PG_DB)" scripts/init-db-roles.sh
 
 # 全新空库：按文件名顺序执行全部迁移（001–034 不幂等，仅限空库）。失败立即停止。
 migrate:

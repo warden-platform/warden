@@ -24,6 +24,7 @@ import (
 
 type Handler struct {
 	pool                 *pgxpool.Pool
+	adminPool            *pgxpool.Pool
 	decisionProvider     policy.Provider
 	taskSigningKey       []byte
 	jwtSigningKey        []byte
@@ -61,7 +62,6 @@ type Handler struct {
 	queryTemplates       *postgres.QueryTemplateRepo
 	notificationChannels NotificationChannelStore
 	dingTalkRepo         *postgres.DingTalkRepo
-	outbox               *postgres.OutboxRepo
 	aiConfig             *ai.Config
 	aiStore              AIStore
 }
@@ -92,7 +92,10 @@ type APIKeyStore interface {
 	Revoke(context.Context, string, string) (bool, error)
 }
 
-func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
+func NewHandler(pool *pgxpool.Pool, adminPool *pgxpool.Pool) (*Handler, error) {
+	if adminPool == nil {
+		adminPool = pool
+	}
 	if _, err := configuredCORSOrigin(); err != nil {
 		return nil, err
 	}
@@ -162,6 +165,7 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 	}
 	h := &Handler{
 		pool:                 pool,
+		adminPool:            adminPool,
 		decisionProvider:     decisionProvider,
 		taskSigningKey:       []byte(taskKey),
 		jwtSigningKey:        []byte(jwtKey),
@@ -202,8 +206,10 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 		h.queryTemplates = postgres.NewQueryTemplateRepo(pool)
 		h.notificationChannels = postgres.NewNotificationChannelRepo(pool)
 		h.dingTalkRepo = postgres.NewDingTalkRepo(pool)
-		h.outbox = postgres.NewOutboxRepo(pool)
 		h.aiStore = postgres.NewAIRepo(pool)
+		// 先接线旁路池，再同步管理员密码（UpdatePassword 走特权池，
+		// 否则启动期无租户 ctx 会被 RLS 静默拦截）。
+		h.SetAdminPool(adminPool)
 		if err := h.EnsureAdminPassword(context.Background()); err != nil {
 			return nil, fmt.Errorf("initialize admin password: %w", err)
 		}
@@ -224,6 +230,39 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 		h.oidc = &oidcState{config: oidcConfig}
 	}
 	return h, nil
+}
+
+// SetAdminPool 配置合法跨租户旁路连接池（BYPASSRLS 特权角色）。未调用时
+// 旁路回退主池（单 DSN 开发/测试形态）。RLS 启用后（P2），认证引导、超管
+// 全局查询、后台 janitor 全表扫描、tenants 管理等旁路仓储将改由此池驱动。
+func (h *Handler) SetAdminPool(pool *pgxpool.Pool) {
+	if pool != nil {
+		h.adminPool = pool
+	}
+	ap := h.adminPool
+	// 旁路仓储改由特权池驱动（未配置特权 DSN 时 ap==主池，行为不变）。
+	// 接口字段用类型断言取具体仓储；fake store 不匹配则跳过。
+	if r, ok := h.principals.(*postgres.PrincipalRepo); ok {
+		r.SetAdminPool(ap)
+	}
+	if r, ok := h.apiKeys.(*postgres.APIKeyRepo); ok {
+		r.SetAdminPool(ap)
+	}
+	if r, ok := h.notificationChannels.(*postgres.NotificationChannelRepo); ok {
+		r.SetAdminPool(ap)
+	}
+	if h.delegationTokens != nil {
+		h.delegationTokens.SetAdminPool(ap)
+	}
+	if h.federated != nil {
+		h.federated.SetAdminPool(ap)
+	}
+	if h.executions != nil {
+		h.executions.SetAdminPool(ap)
+	}
+	if h.requests != nil {
+		h.requests.SetAdminPool(ap)
+	}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
@@ -430,7 +469,7 @@ func (h *Handler) ValidateConnectorCredentials(ctx context.Context) error {
 	if h.pool == nil {
 		return nil
 	}
-	rows, err := h.pool.Query(ctx, "SELECT id, name, task_key_ciphertext FROM connectors "+
+	rows, err := h.adminPool.Query(ctx, "SELECT id, name, task_key_ciphertext FROM connectors "+
 		"WHERE archived_at IS NULL AND task_key_ciphertext IS NOT NULL")
 	if err != nil {
 		return fmt.Errorf("query Connector credentials: %w", err)
@@ -991,14 +1030,6 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			jsonError(w, http.StatusInternalServerError, "AUDIT_WRITE_FAILED", "审计写入失败")
 			return
 		}
-		if err := h.outbox.PublishTx(ctx, tx, "access_request.submitted.v1", "execution", exec.ID, map[string]any{
-			"execution_id": exec.ID,
-			"status":       exec.Status,
-			"trace_id":     traceID,
-		}); err != nil {
-			jsonError(w, http.StatusInternalServerError, "OUTBOX_WRITE_FAILED", "事件写入失败")
-			return
-		}
 		if err := tx.Commit(ctx); err != nil {
 			jsonError(w, http.StatusInternalServerError, "EXECUTION_TRANSACTION_FAILED", "提交审批执行失败")
 			return
@@ -1064,14 +1095,6 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 				jsonError(w, http.StatusInternalServerError, "AUDIT_WRITE_FAILED", "审计写入失败")
 				return
 			}
-			if err := h.outbox.PublishTx(ctx, tx, "execution.completed.v1", "execution", exec.ID, map[string]any{
-				"execution_id": exec.ID,
-				"status":       exec.Status,
-				"trace_id":     traceID,
-			}); err != nil {
-				jsonError(w, http.StatusInternalServerError, "OUTBOX_WRITE_FAILED", "事件写入失败")
-				return
-			}
 			if err := tx.Commit(ctx); err != nil {
 				jsonError(w, http.StatusInternalServerError, "EXECUTION_TRANSACTION_FAILED", "提交执行失败")
 				return
@@ -1111,15 +1134,6 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 		}
 		if err := h.audit.CreateTx(ctx, tx, executionEvent("execution.queued")); err != nil {
 			jsonError(w, http.StatusInternalServerError, "AUDIT_WRITE_FAILED", "审计写入失败")
-			return
-		}
-		if err := h.outbox.PublishTx(ctx, tx, "execution.queued.v1", "execution", exec.ID, map[string]any{
-			"execution_id": exec.ID,
-			"grant_id":     grant.ID,
-			"status":       exec.Status,
-			"trace_id":     traceID,
-		}); err != nil {
-			jsonError(w, http.StatusInternalServerError, "OUTBOX_WRITE_FAILED", "事件写入失败")
 			return
 		}
 		if err := tx.Commit(ctx); err != nil {
@@ -1593,6 +1607,12 @@ func (h *Handler) CancelExecution(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		e.Status = domain.ExecCancelled
+	} else {
+		// DISPATCHED/RUNNING 已派发至连接器，无召回通道（取消协议属后续功能）；
+		// 终态（SUCCEEDED/FAILED/UNKNOWN/CANCELLED/EXPIRED）已结束。诚实返回 409，
+		// 不再静默 200 伪装成功。已派发任务将运行至完成或租约超时回收。
+		jsonError(w, http.StatusConflict, "EXECUTION_NOT_CANCELABLE", "执行已派发或已结束，无法取消")
+		return
 	}
 	jsonResp(w, http.StatusOK, executionToResp(e))
 }

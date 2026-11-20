@@ -209,7 +209,6 @@ append-only 记录，串起身份、策略决策、授权、执行与结果。�
 | **TaskEnvelope** | 控制面交给 Connector 的签名任务数据结构（HMAC-SHA256），含 Grant、参数哈希、时间窗、TraceID |
 | **DispatchToken** | 单次任务领取凭证，防止同一任务被重复执行 |
 | **Idempotency-Key** | 创建 Execution 的请求头，按当前 Principal 幂等 |
-| **Outbox** | 事务性事件表，供后续异步发布；Publisher 后台循环尚未实现 |
 | **AuditEvent** | append-only 审计记录，`action` 为 PostgreSQL 枚举 |
 
 ### 部署与运维

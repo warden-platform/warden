@@ -117,6 +117,9 @@ func (h *Handler) writeRegistrationAuthenticationDenied(ctx context.Context, key
 		CredentialID: key.ID, TargetID: key.Audience, Summary: "Registration credential rejected",
 		Metadata: map[string]any{"reason": reason, "credential_purpose": key.Purpose, "credential_audience": key.Audience,
 			"expected_audience": h.registrationAudience}}
+	// 认证拒绝发生在租户注入前；审计须落到该 credential 所属租户，
+	// 否则 RLS 下 tenant_id='' 被 WITH CHECK 拒绝、拒绝审计静默丢失。
+	ctx = domain.WithTenantID(ctx, principal.TenantID)
 	if err := h.audit.Create(ctx, event); err != nil {
 		log.Printf("write registration authentication denied audit: %v", err)
 	}
