@@ -24,6 +24,7 @@ import (
 
 type Handler struct {
 	pool                 *pgxpool.Pool
+	adminPool            *pgxpool.Pool
 	decisionProvider     policy.Provider
 	taskSigningKey       []byte
 	jwtSigningKey        []byte
@@ -162,6 +163,7 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 	}
 	h := &Handler{
 		pool:                 pool,
+		adminPool:            pool,
 		decisionProvider:     decisionProvider,
 		taskSigningKey:       []byte(taskKey),
 		jwtSigningKey:        []byte(jwtKey),
@@ -224,6 +226,15 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 		h.oidc = &oidcState{config: oidcConfig}
 	}
 	return h, nil
+}
+
+// SetAdminPool 配置合法跨租户旁路连接池（BYPASSRLS 特权角色）。未调用时
+// 旁路回退主池（单 DSN 开发/测试形态）。RLS 启用后（P2），认证引导、超管
+// 全局查询、后台 janitor 全表扫描、tenants 管理等旁路仓储将改由此池驱动。
+func (h *Handler) SetAdminPool(pool *pgxpool.Pool) {
+	if pool != nil {
+		h.adminPool = pool
+	}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {

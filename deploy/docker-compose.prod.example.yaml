@@ -47,6 +47,9 @@ services:
     environment:
       WARDEN_PORT: "8080"
       WARDEN_DATABASE_URL_FILE: /run/secrets/warden_database_url
+      # 合法跨租户旁路（认证引导/超管全局/后台 janitor）用特权角色；
+      # 不配置则回退主 DSN（仅适合开发/测试，生产 RLS 形态必配）。
+      WARDEN_PRIVILEGED_DATABASE_URL_FILE: /run/secrets/warden_privileged_database_url
       WARDEN_TASK_SIGNING_KEY_FILE: /run/secrets/warden_task_signing_key
       WARDEN_JWT_SIGNING_KEY_FILE: /run/secrets/warden_jwt_signing_key
       WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/warden_credential_encryption_key
@@ -71,6 +74,7 @@ services:
       - "127.0.0.1:8080:8080"
     secrets:
       - warden_database_url
+      - warden_privileged_database_url
       - warden_task_signing_key
       - warden_jwt_signing_key
       - warden_credential_encryption_key
@@ -95,6 +99,8 @@ secrets:
     file: ../.secrets/postgres_password
   warden_database_url:
     file: ../.secrets/warden_database_url
+  warden_privileged_database_url:
+    file: ../.secrets/warden_privileged_database_url
   warden_task_signing_key:
     file: ../.secrets/warden_task_signing_key
   warden_jwt_signing_key:

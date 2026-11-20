@@ -59,7 +59,9 @@ make init-prod-secrets
 # 可覆盖：WARDEN_SECRETS_DIR / WARDEN_DB_HOST / WARDEN_DB_PORT / WARDEN_DB_NAME / WARDEN_DB_USER
 ```
 
-脚本生成 7 个文件：4 个内部密钥（hex 32，两两不同）、`postgres_password` 与 `warden_admin_password`（hex 24）、用生成密码拼好的 `warden_database_url`；全部 `600` 权限，任一文件已存在即整体拒绝、绝不覆盖，**不打印任何 Secret 值**。`warden_admin_password` 请自行存入密码管理器。接入自有密钥管理系统（Vault/KMS）的部署可跳过脚本，按同名文件自行准备——原理即 `openssl rand -hex 32`（内部密钥）与 `openssl rand -hex 24`（口令），在受保护系统中生成，不要写进仓库或命令历史。
+脚本生成 10 个文件：4 个内部密钥（hex 32，两两不同）、`postgres_password`（superuser `warden`，仅迁移用）、`warden_app_password` 与 `warden_privileged_password`（hex 24，应用普通角色与特权角色）、`warden_admin_password`（hex 24），以及拼好的 `warden_database_url`（`warden_app` 角色）与 `warden_privileged_database_url`（`warden_privileged` 角色）；全部 `600` 权限，任一文件已存在即整体拒绝、绝不覆盖，**不打印任何 Secret 值**。`warden_admin_password` 请自行存入密码管理器。接入自有密钥管理系统（Vault/KMS）的部署可跳过脚本，按同名文件自行准备——原理即 `openssl rand -hex 32`（内部密钥）与 `openssl rand -hex 24`（口令），在受保护系统中生成，不要写进仓库或命令历史。
+
+**数据库角色拆分（RLS 地基）**：应用运行时连普通角色 `warden_app`（非 owner、非 superuser，受行级安全约束），合法跨租户旁路（认证引导/超管全局/后台清理）连特权角色 `warden_privileged`（BYPASSRLS），superuser `warden` 仅跑迁移。这样数据库层才能强制租户隔离，而不只靠应用手写过滤。生成 Secret 后须执行 `make init-db-roles` 建角色并注入密码（见 §4）。
 
 红线：
 
@@ -105,6 +107,14 @@ done < deploy/release/migrations.txt
 - `002_seed.sql` 保留固定权限锚点，运行时同步用户提供的管理员登录名和密码哈希。
 - `deploy/release/migrations.txt` 收录编号 ≥ 035 的幂等迁移；**新增此类迁移必须登记**，否则 `internal/control` 的单测会失败。编号 068–071 为历史空洞（刻意跳号），不是缺文件。
 - `audit_events.action` 是 PostgreSQL 枚举，新增审计动作名必须配套 `ALTER TYPE audit_action ADD VALUE` 迁移。
+
+迁移完成后初始化应用数据库角色（RLS 地基，见 §2）：
+
+```bash
+make init-db-roles
+```
+
+以 superuser 执行 `deploy/db/roles.sql`（建 `warden_app`/`warden_privileged` + 逐表授权 + 默认 privileges，无密钥可重放），再从 `.secrets/warden_app_password`、`warden_privileged_password` 注入密码并启用登录（密码经 stdin 进 psql，不进命令行、不回显）。非 Compose 部署可直接对 superuser DSN 执行 `deploy/db/roles.sql` 后自行 `ALTER ROLE ... LOGIN PASSWORD`。角色就绪后控制面才能以 `warden_app` 连接启动。
 
 ### 5. 反向代理与 TLS
 

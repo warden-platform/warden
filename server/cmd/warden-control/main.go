@@ -33,6 +33,13 @@ func main() {
 	if err != nil {
 		log.Fatalf("初始化策略决策失败: %v", err)
 	}
+	// 合法跨租户旁路池（特权角色）；未配置 WARDEN_PRIVILEGED_DATABASE_URL 时
+	// 回退主池，单 DSN 开发/测试形态行为不变。
+	adminPool, err := postgres.ConnectAdminPool(startupCtx)
+	if err != nil {
+		log.Fatalf("特权数据库连接失败: %v", err)
+	}
+	handler.SetAdminPool(adminPool)
 	if err := handler.ValidateConnectorCredentials(startupCtx); err != nil {
 		log.Fatalf("Connector 凭证自检失败: %v", err)
 	}
