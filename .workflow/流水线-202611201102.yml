@@ -4,9 +4,10 @@ displayName: 镜像发布（ACR）
 # 发版镜像流水线：手动触发，VERSION 填要发布的版本（与 git tag 一致）。
 # 四个镜像推送到 registry.cn-hangzhou.aliyuncs.com/warden-stable：
 #   warden（控制面）/ warden-web / warden-operator / warden-connector
-# 凭据：Gitee Go「通用变量」（仓库级流水线无凭证管理入口）：
-#   ACR_USERNAME / ACR_PASSWORD / acr_warden_stable（仓库地址含命名空间，
-#   变量名不支持中划线故用下划线）。值存 Gitee Go 设置端，不进仓库。
+# 凭据：type: account 模式。repository/username 非敏感直接写死；
+# password 引用 ${ACR_PASSWORD}——实测通用变量不参与插件参数解析，
+# 须触发时传参：gitee pipeline run ... -p ACR_PASSWORD=<ACR 密码>
+# （或 UI 触发时填写）。密码绝不写进本文件（公开仓库）。
 # 实测插件 schema（plugin scheme 命令）：type 默认 cert（凭证模式，
 # 仓库级无凭证库故必须 type: account）；构建参数字段名是 parameter
 # （KeyMap），不是 buildArgs；context 有效。
@@ -24,8 +25,8 @@ stages:
     name: build_control
     displayName: 控制面 warden
     type: account
-    repository: ${acr_warden_stable}
-    username: ${ACR_USERNAME}
+    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
+    username: huanght
     password: ${ACR_PASSWORD}
     tag: warden:${VERSION}
     dockerfile: ./server/Dockerfile
@@ -42,8 +43,8 @@ stages:
     name: build_web
     displayName: 管理端 warden-web
     type: account
-    repository: ${acr_warden_stable}
-    username: ${ACR_USERNAME}
+    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
+    username: huanght
     password: ${ACR_PASSWORD}
     tag: warden-web:${VERSION}
     dockerfile: ./web/Dockerfile
@@ -59,8 +60,8 @@ stages:
     name: build_operator
     displayName: warden-operator
     type: account
-    repository: ${acr_warden_stable}
-    username: ${ACR_USERNAME}
+    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
+    username: huanght
     password: ${ACR_PASSWORD}
     tag: warden-operator:${VERSION}
     dockerfile: ./server/Dockerfile
@@ -77,8 +78,8 @@ stages:
     name: build_connector
     displayName: warden-connector
     type: account
-    repository: ${acr_warden_stable}
-    username: ${ACR_USERNAME}
+    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
+    username: huanght
     password: ${ACR_PASSWORD}
     tag: warden-connector:${VERSION}
     dockerfile: ./server/Dockerfile
