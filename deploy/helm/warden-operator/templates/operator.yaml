@@ -1,6 +1,6 @@
 {{- if not .Values.controlPlaneURL }}{{ fail "controlPlaneURL is required" }}{{ end }}
-{{- if or (not .Values.image.repository) (contains "your-org" .Values.image.repository) }}{{ fail "image.repository must be set to a real operator image (build per docs/guides.md#onboarding); the default is a placeholder" }}{{ end }}
-{{- if or (not .Values.connectorImage) (contains "your-org" .Values.connectorImage) }}{{ fail "connectorImage must be set to a real connector image (build per docs/guides.md#onboarding); the default is a placeholder" }}{{ end }}
+{{- if not .Values.image.repository }}{{ fail "image.repository is required (default: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-operator)" }}{{ end }}
+{{- if not .Values.connectorImage }}{{ fail "connectorImage is required (default: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector)" }}{{ end }}
 apiVersion: v1
 kind: ServiceAccount
 metadata:

@@ -3,6 +3,15 @@
 > 本文件记录值得让部署者知道的阶段性变更，格式参考 [Keep a Changelog](https://keepachangelog.com/)。
 > 具体部署版本请以镜像 tag、`deploy/release/migrations.txt` 与提交历史为准，更细的提交粒度用 `git log` 查看。
 
+## [未发布]
+
+### 变更
+
+- 部署免构建：compose 生产示例与 Helm Chart 默认镜像改为阿里云 ACR 发布镜像
+  （`registry.cn-hangzhou.aliyuncs.com/warden-stable/{warden,warden-web,warden-operator,warden-connector}`），
+  `scripts/publish-acr.sh` 相应增补 operator/connector 两镜像；私有仓库需先
+  `docker login`（Helm 配 `imagePullSecret`），自建仍为可选路径。
+
 ## [0.4.0] - 2026-11-19
 
 首个正式版本：多租户身份与授权闭环、钉钉租户级群隔离、

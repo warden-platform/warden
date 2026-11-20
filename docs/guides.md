@@ -22,11 +22,28 @@
 
 ### 1. 准备制品
 
+**推荐：直接拉取阿里云 ACR 发布镜像，免本地构建**（每个版本发布时由 `scripts/publish-acr.sh` 推送）：
+
+```bash
+# 仓库为私有时先登录（ACR 访问凭据，非阿里云账号密码）；
+# 公开仓库可跳过此步。
+docker login registry.cn-hangzhou.aliyuncs.com
+
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0          # 控制面
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.0      # 管理端
+# Kubernetes 形态另需：
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-operator:v0.4.0
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector:v0.4.0
+```
+
+`deploy/docker-compose.prod.example.yaml` 与 Helm Chart 默认即指向这些镜像。升级时把 tag 换成新版本重新 pull 即可。
+
+需要定制（改代码、换基础镜像、内网离线）时自建：
+
 | 制品 | 构建方式 | 说明 |
 |---|---|---|
-| 控制面镜像 | `docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<tag> .` | 多阶段构建，运行阶段为 distroless nonroot |
+| 控制面镜像 | `docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<tag> .` | 多阶段构建，运行阶段为 distroless nonroot；`TARGET` 换 `warden-operator` / `warden-connector` 即构建对应镜像 |
 | 预编译发布镜像 | `server/Dockerfile.release` | 需先 `make server-build-linux-amd64` 产出 `server/bin/linux-amd64/` |
-| 发布镜像（阿里云 ACR） | `registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0`（控制面）、`warden-stable/warden-web:v0.4.0`（管理端） | 单机 Compose 可直接拉取免本地构建；发布用 `scripts/publish-acr.sh`（凭据放 `.secrets/acr_*`） |
 | 管理端 | `web/Dockerfile`（构建 `web/dist` 并用 nginx 托管） | 也可自行用任意静态服务器托管 `web/dist` |
 | 随镜像打包的目录 | `deploy/`、`server/migrations/` | 控制面的 `/downloads/*`、Helm Chart、安装脚本都从 `WARDEN_ARTIFACT_ROOT` 读取，缺了会导致接入向导不可用 |
 | Connector / Helper 二进制 | `make server-build-linux-amd64` / `server-build-linux-arm64` / `server-build-hosts` | 同上，供目标机器下载 |
@@ -631,7 +648,7 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 1. **备份**：数据库 `pg_dump`、记录当前镜像 ID、保存当前前端 `dist` 与编排文件。
 2. **本地验证**：`make verify`（Go 测试 + vet + 构建 + 前端构建），见 [CONTRIBUTING.md](../CONTRIBUTING.md)。
 3. **执行迁移**：按上表区分全新库 / 已有库。
-4. **构建镜像**：`docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<new-tag> .`；确认镜像内含 `deploy/` 与 `server/migrations/`。
+4. **准备新镜像**：`docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:<new-tag>`（管理端同理换 `warden-web`）；定制部署则自建：`docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<new-tag> .`，确认镜像内含 `deploy/` 与 `server/migrations/`。
 5. **替换控制面**：滚动或短暂停机切换，等待 `/readyz` 200。
 6. **替换前端**：保留旧 `dist` 目录（例如 `dist.prev-<timestamp>`）后再覆盖。
 7. **验收**：健康检查 → 密码登录 → SSO 登录 → `/auth/me` 能力清单 → 一个只读 Execution → 审计可见。
