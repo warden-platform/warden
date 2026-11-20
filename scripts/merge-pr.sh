@@ -24,14 +24,14 @@ STATE=$(printf '%s' "$PR_JSON" | python3 -c "import json,sys;print(json.load(sys
 HEAD_REF=$(printf '%s' "$PR_JSON" | python3 -c "import json,sys;print(json.load(sys.stdin).get('head',{}).get('ref',''))")
 HEAD_SHA=$(printf '%s' "$PR_JSON" | python3 -c "import json,sys;print(json.load(sys.stdin).get('head',{}).get('sha',''))")
 if [[ "$STATE" != "open" ]]; then
-  echo "PR #$PR 状态为 $STATE（非 open），中止。" >&2; exit 1
+  echo "PR #$PR 状态为 ${STATE}（非 open），中止。" >&2; exit 1
 fi
 echo "    源分支=$HEAD_REF 头提交=$HEAD_SHA"
 
 echo "==> 在 PR 头分支触发 $CI_FILE"
 BUILD_ID=$(gitee pipeline run -R "$REPO" --ref "$HEAD_REF" --file "$CI_FILE" --json --no-tui \
   | python3 -c "import json,sys;print(json.load(sys.stdin)['id'])")
-echo "    ci-gate 构建 #$BUILD_ID，等待通过（超时 ${TIMEOUT}s）"
+echo "    ci-gate 构建 #${BUILD_ID}，等待通过（超时 ${TIMEOUT}s）"
 
 elapsed=0
 while true; do
@@ -40,11 +40,11 @@ while true; do
   case "$STATUS" in
     SUCCESS) echo "    ci-gate SUCCESS"; break ;;
     FAILED|CANCELLED|CANCELED)
-      echo "    ci-gate $STATUS——拒绝合并。查看：gitee pipeline build view $BUILD_ID -R $REPO" >&2
+      echo "    ci-gate ${STATUS}——拒绝合并。查看：gitee pipeline build view $BUILD_ID -R $REPO" >&2
       exit 1 ;;
   esac
   if (( elapsed >= TIMEOUT )); then
-    echo "    等待超时（${TIMEOUT}s），ci-gate 仍 $STATUS——拒绝合并。" >&2; exit 1
+    echo "    等待超时（${TIMEOUT}s），ci-gate 仍 ${STATUS}——拒绝合并。" >&2; exit 1
   fi
   sleep "$POLL"; elapsed=$((elapsed + POLL))
 done
@@ -58,11 +58,11 @@ if [[ "$NEW_SHA" != "$HEAD_SHA" ]]; then
 fi
 
 echo "==> 批准 PR #$PR"
-gitee pr review "$PR" -R "$REPO" -b "ci-gate 通过（构建 #$BUILD_ID），自动批准。" --no-tui >/dev/null
+gitee pr review "$PR" -R "$REPO" -b "ci-gate 通过（构建 #${BUILD_ID}），自动批准。" --no-tui >/dev/null
 
 echo "==> 标记 PR #$PR 测试通过（ci-gate #$BUILD_ID 已通过）"
 gitee api -X POST "/repos/$REPO/pulls/$PR/test" -f force=true >/dev/null
 
-echo "==> 合并 PR #$PR（删源分支）"
+echo "==> 合并 PR #${PR}（删源分支）"
 gitee pr merge "$PR" -R "$REPO" --delete-branch --no-tui
 echo "==> 完成：PR #$PR 已合并。"
