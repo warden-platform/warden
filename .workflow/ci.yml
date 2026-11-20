@@ -4,7 +4,10 @@ displayName: CI 门禁（测试/构建）
 # Gitee master 合入门禁（方案甲）：push/PR 触发，拦截编译/单测/lint 回归。
 # 服务端跑非 DB 门控测试（无 WARDEN_TEST_DATABASE_URL 时 DB 集成测试自动 Skip）；
 # 完整 DB 门控集成测试由 GitHub CI（postgres service）兜底。
-# 真正阻断合入须在 Gitee 仓库设置开启保护分支 master + PR 必过本流水线。
+# 配套 Gitee 保护分支 master：禁止任何人直推（强制 PR）+ 评审模式。
+# 注意：Gitee Go 社区版流水线不上报 commit status，保护分支「检查项」搜不到
+# 本流水线，无法自动强制「门禁必过才能合并」（企业版能力）。ci-gate 在 PR 自动
+# 运行并于 PR 页面流水线栏展示结果，合并前须人工确认通过。
 stages:
 - name: server
   displayName: 服务端门禁
