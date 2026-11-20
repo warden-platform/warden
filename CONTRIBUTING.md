@@ -53,7 +53,7 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 
 注意：Gitee 侧删除 tag 会**级联删除**对应 Release，移动 tag 后须用 API 重建；脚本幂等（树一致跳过 commit，tag/Release 已存在跳过），GitHub 侧操作走系统代理（`GITHUB_PROXY` 可覆盖）。
 
-镜像发布（阿里云 ACR）：在构建机上 `scripts/publish-acr.sh vX.Y.Z`（凭据 `.secrets/acr_username`/`acr_password`，600），构建 control/web 两镜像并推 version+latest 双 tag；建议 `systemd-run --unit=warden-acr-publish --collect bash scripts/publish-acr.sh vX.Y.Z` 托管，日志在仓库根 `acr-publish.log`。
+镜像发布（阿里云 ACR）：在构建机上 `scripts/publish-acr.sh vX.Y.Z`（凭据 `.secrets/acr_username`/`acr_password`，600），构建 control/web/operator/connector 四镜像并推 version+latest 双 tag（control 映射到 `warden-stable/warden`，其余同名）；建议 `systemd-run --unit=warden-acr-publish --collect bash /root/warden/scripts/publish-acr.sh vX.Y.Z` 托管（systemd 不继承工作目录，须绝对路径），日志在仓库根 `acr-publish.log`。compose 示例与 Helm Chart 默认指向这些发布镜像，使用者免构建。
 
 ## 代码约定
 

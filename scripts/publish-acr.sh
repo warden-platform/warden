@@ -6,8 +6,11 @@
 #   ACR_REGISTRY / ACR_NAMESPACE 可覆盖（默认 registry.cn-hangzhou.aliyuncs.com / warden-stable）
 #
 # 凭据：.secrets/acr_username 与 .secrets/acr_password（600，已 gitignore）。
-# 流程：login → 构建 web/control（国内镜像源）→ 推 version 与 latest 双 tag →
-#       manifest 验证。只打 warden-*:<version> 本地 tag，不改生产在用的 latest。
+# 流程：login → 构建 web/control/operator/connector（国内镜像源）→
+#       推 version 与 latest 双 tag → manifest 验证。
+#       只打 warden-*:<version> 本地 tag，不改生产在用的 latest。
+# 仓库映射：warden-control→warden-stable/warden，其余同名
+#       （warden-web / warden-operator / warden-connector）。
 # 日志：追加到仓库根 acr-publish.log；建议用 systemd-run 托管以免 SSH 断开中断
 # （systemd 临时服务不继承工作目录，脚本必须用绝对路径）：
 #   systemd-run --unit=warden-acr-publish --collect bash /root/warden/scripts/publish-acr.sh v0.4.0
@@ -47,13 +50,19 @@ docker build -f web/Dockerfile \
   --build-arg NPM_REGISTRY=https://registry.npmmirror.com \
   -t "warden-web:$VERSION" web/
 
-echo "--- build warden-control:$VERSION"
-docker build -f server/Dockerfile --build-arg TARGET=warden-control \
-  --provenance=false --sbom=false \
-  --build-arg GO_IMAGE=docker.m.daocloud.io/library/golang:1.26-alpine \
-  --build-arg RUNTIME_IMAGE=gcr.m.daocloud.io/distroless/static-debian12:nonroot \
-  --build-arg GOPROXY=https://goproxy.cn,direct \
-  -t "warden-control:$VERSION" .
+build_server_image() {
+  local target="$1" # warden-control / warden-operator / warden-connector
+  echo "--- build $target:$VERSION"
+  docker build -f server/Dockerfile --build-arg TARGET="$target" \
+    --provenance=false --sbom=false \
+    --build-arg GO_IMAGE=docker.m.daocloud.io/library/golang:1.26-alpine \
+    --build-arg RUNTIME_IMAGE=gcr.m.daocloud.io/distroless/static-debian12:nonroot \
+    --build-arg GOPROXY=https://goproxy.cn,direct \
+    -t "$target:$VERSION" .
+}
+build_server_image warden-control
+build_server_image warden-operator
+build_server_image warden-connector
 
 publish() {
   local local_name="$1" repo="$2"
@@ -67,5 +76,7 @@ publish() {
 
 publish warden-web warden-web
 publish warden-control warden
+publish warden-operator warden-operator
+publish warden-connector warden-connector
 
 echo "=== PUBLISH-OK $VERSION $(date -Is) ==="
