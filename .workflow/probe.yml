@@ -1,0 +1,24 @@
+version: "1.0"
+name: probe-env
+displayName: 环境探针（临时）
+stages:
+- name: probe
+  displayName: 探针
+  strategy: naturally
+  trigger: auto
+  steps:
+  - step: custom-build@custom
+    name: probe
+    displayName: 环境探针
+    commands:
+    - which docker buildctl podman 2>/dev/null || echo no-container-tools
+    - ls /run/buildkit 2>/dev/null || echo no-buildkit-socket
+    - env | grep -oE '^(ACR_[A-Z_]+|DOCKER_[A-Z_]+)=' || echo no-acr-env
+    notify: []
+    strategy:
+      retry: "0"
+triggers:
+  trigger: manual
+notify: []
+strategy:
+  blocking: true
