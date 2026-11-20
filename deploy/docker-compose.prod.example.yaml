@@ -5,8 +5,8 @@
 #      按部署环境修改域名/端口/镜像 tag。
 #   2. make init-prod-secrets 一键生成 .secrets/ 全套文件（权限 600，已 gitignore，
 #      切勿提交；自有密钥系统可按同名文件自行准备，见 docs/guides.md#installation）。
-#   3. 拉取发布镜像（默认免构建；仓库为私有时先 docker login registry.cn-hangzhou.aliyuncs.com，
-#      使用 ACR 访问凭据）：
+#   3. 拉取发布镜像（默认免构建，官方仓库公开可匿名拉取；
+#      仅私有仓库需先 docker login <registry>）：
 #      docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0
 #      docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.0
 #      需要定制时也可自建：

@@ -9,8 +9,9 @@
 
 - 部署免构建：compose 生产示例与 Helm Chart 默认镜像改为阿里云 ACR 发布镜像
   （`registry.cn-hangzhou.aliyuncs.com/warden-stable/{warden,warden-web,warden-operator,warden-connector}`），
-  `scripts/publish-acr.sh` 相应增补 operator/connector 两镜像；私有仓库需先
-  `docker login`（Helm 配 `imagePullSecret`），自建仍为可选路径。
+  `scripts/publish-acr.sh` 相应增补 operator/connector 两镜像；官方仓库公开、
+  匿名可拉取，私有/自建仓库才需 `docker login`（Helm 配 `imagePullSecret`），
+  自建仍为可选路径。
 
 ## [0.4.0] - 2026-11-19
 
