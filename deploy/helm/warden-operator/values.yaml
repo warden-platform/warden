@@ -1,6 +1,6 @@
 controlPlaneURL: ""
-# 默认指向阿里云 ACR 官方发布镜像（免构建，见 docs/guides.md#installation）。
-# 仓库为私有时需配置 imagePullSecret（kubectl create secret docker-registry ...）；
+# 默认指向阿里云 ACR 官方发布镜像（公开、匿名可拉取、免构建，见 docs/guides.md#installation）。
+# 仅私有仓库需配置 imagePullSecret（kubectl create secret docker-registry ...）；
 # 定制部署可 --set 为自建镜像。模板对空值做必填校验。
 connectorImage: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector:v0.4.0
 imagePullSecret: ""

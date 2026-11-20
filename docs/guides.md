@@ -25,16 +25,16 @@
 **推荐：直接拉取阿里云 ACR 发布镜像，免本地构建**（每个版本发布时由 `scripts/publish-acr.sh` 推送）：
 
 ```bash
-# 仓库为私有时先登录（ACR 访问凭据，非阿里云账号密码）；
-# 公开仓库可跳过此步。
-docker login registry.cn-hangzhou.aliyuncs.com
-
+# 官方仓库已公开，可匿名直接拉取。
 docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0          # 控制面
 docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.0      # 管理端
 # Kubernetes 形态另需：
 docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-operator:v0.4.0
 docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector:v0.4.0
 ```
+
+> 拉取私有仓库（如企业内网自建镜像）时才需要 `docker login <registry>`；
+> Kubernetes 对应配置 `imagePullSecret`。
 
 `deploy/docker-compose.prod.example.yaml` 与 Helm Chart 默认即指向这些镜像。升级时把 tag 换成新版本重新 pull 即可。
 
