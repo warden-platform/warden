@@ -5,10 +5,10 @@ displayName: 镜像发布（ACR）
 # 四个镜像推送到 registry.cn-hangzhou.aliyuncs.com/warden-stable：
 #   warden（控制面）/ warden-web / warden-operator / warden-connector
 #
-# 凭据：cert 模式，certificate 引用账号级「凭证管理」颁发的令牌 ID
+# 凭据：cert 模式，certificate 引用账号级「凭证管理」的凭证 ali-docker
 # （个人设置 → 流水线 Gitee go → 凭证管理；Docker 仓库账号密码类型，
-# server 含命名空间 warden-stable）。值由 Gitee 加密托管、服务端解析，
-# 本文件只含令牌 ID，公开仓库安全。
+# server 含命名空间 warden-stable）。username/password/server 由服务端
+# 按凭证模板解析，本文件不写任何字面凭据（公开仓库安全）。
 #
 # 实测插件 schema（gitee pipeline plugin scheme）：构建参数字段名是
 # parameter（KeyMap），不是 buildArgs；context 字段有效；type 默认 cert。
@@ -24,7 +24,7 @@ stages:
   - step: build@docker
     name: build_control
     displayName: 控制面 warden
-    certificate: a770f100-c6d4-013f-6b4f-521bcfbadef6
+    certificate: a1d7fac0-c6d5-013f-dc83-4a6d49cc916c
     tag: warden:${VERSION}
     dockerfile: ./server/Dockerfile
     parameter:
@@ -39,7 +39,7 @@ stages:
   - step: build@docker
     name: build_web
     displayName: 管理端 warden-web
-    certificate: a770f100-c6d4-013f-6b4f-521bcfbadef6
+    certificate: a1d7fac0-c6d5-013f-dc83-4a6d49cc916c
     tag: warden-web:${VERSION}
     dockerfile: ./web/Dockerfile
     context: ./web
@@ -53,7 +53,7 @@ stages:
   - step: build@docker
     name: build_operator
     displayName: warden-operator
-    certificate: a770f100-c6d4-013f-6b4f-521bcfbadef6
+    certificate: a1d7fac0-c6d5-013f-dc83-4a6d49cc916c
     tag: warden-operator:${VERSION}
     dockerfile: ./server/Dockerfile
     parameter:
@@ -68,7 +68,7 @@ stages:
   - step: build@docker
     name: build_connector
     displayName: warden-connector
-    certificate: a770f100-c6d4-013f-6b4f-521bcfbadef6
+    certificate: a1d7fac0-c6d5-013f-dc83-4a6d49cc916c
     tag: warden-connector:${VERSION}
     dockerfile: ./server/Dockerfile
     parameter:
