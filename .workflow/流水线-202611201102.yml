@@ -7,8 +7,9 @@ displayName: 镜像发布（ACR）
 # 凭据：Gitee Go「通用变量」（仓库级流水线无凭证管理入口）：
 #   ACR_USERNAME / ACR_PASSWORD / acr_warden_stable（仓库地址含命名空间，
 #   变量名不支持中划线故用下划线）。值存 Gitee Go 设置端，不进仓库。
-# 实测：buildArgs 不支持（变体 Dockerfile 解决 TARGET）；context 有效；
-# 变量未定义时解析为空导致首跑失败。
+# 实测插件 schema（plugin scheme 命令）：type 默认 cert（凭证模式，
+# 仓库级无凭证库故必须 type: account）；构建参数字段名是 parameter
+# （KeyMap），不是 buildArgs；context 有效。
 # 红线：凭据绝不写进本文件（公开仓库）。
 # 兜底：scripts/publish-acr.sh 在 ECS 上可完成同样的发布。
 variables:
@@ -22,11 +23,14 @@ stages:
   - step: build@docker
     name: build_control
     displayName: 控制面 warden
+    type: account
     repository: ${acr_warden_stable}
     username: ${ACR_USERNAME}
     password: ${ACR_PASSWORD}
     tag: warden:${VERSION}
     dockerfile: ./server/Dockerfile
+    parameter:
+      TARGET: warden-control
     isCache: true
     notify: []
     strategy:
@@ -37,6 +41,7 @@ stages:
   - step: build@docker
     name: build_web
     displayName: 管理端 warden-web
+    type: account
     repository: ${acr_warden_stable}
     username: ${ACR_USERNAME}
     password: ${ACR_PASSWORD}
@@ -53,11 +58,14 @@ stages:
   - step: build@docker
     name: build_operator
     displayName: warden-operator
+    type: account
     repository: ${acr_warden_stable}
     username: ${ACR_USERNAME}
     password: ${ACR_PASSWORD}
     tag: warden-operator:${VERSION}
-    dockerfile: ./server/Dockerfile.operator
+    dockerfile: ./server/Dockerfile
+    parameter:
+      TARGET: warden-operator
     isCache: true
     notify: []
     strategy:
@@ -68,11 +76,14 @@ stages:
   - step: build@docker
     name: build_connector
     displayName: warden-connector
+    type: account
     repository: ${acr_warden_stable}
     username: ${ACR_USERNAME}
     password: ${ACR_PASSWORD}
     tag: warden-connector:${VERSION}
-    dockerfile: ./server/Dockerfile.connector
+    dockerfile: ./server/Dockerfile
+    parameter:
+      TARGET: warden-connector
     isCache: true
     notify: []
     strategy:
