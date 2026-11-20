@@ -15,6 +15,9 @@ displayName: 镜像发布（ACR）
 # 兜底：scripts/publish-acr.sh 在 ECS 上可完成同样的发布。
 variables:
   VERSION: v0.4.0
+  # 空默认值仅为声明参数（非敏感）；真实密码触发时传入：
+  # CLI: gitee pipeline run ... -p ACR_PASSWORD=<密码>；或 UI 触发时填写。
+  ACR_PASSWORD: ""
 stages:
 - name: publish
   displayName: 构建并推送
