@@ -11,12 +11,10 @@ stages:
     name: probe
     displayName: 工具探针
     commands: |
-      echo "PATH=$PATH"
-      command -v go node npm setup curl wget 2>/dev/null
-      ls /usr/local/go/bin 2>/dev/null
-      ls /mnt/pipeline-tools/standard 2>/dev/null
-      ls /opt 2>/dev/null
-      find / -maxdepth 4 -name 'setup' -type f 2>/dev/null | head
+      ls /mnt/pipeline-tools/standard/golang
+      ls /mnt/pipeline-tools/standard/node
+      find /mnt/pipeline-tools/standard/golang -maxdepth 3 -name go -type f 2>/dev/null
+      find /mnt/pipeline-tools/standard/node -maxdepth 3 -name node -type f 2>/dev/null
     notify: []
     strategy:
       retry: "0"
