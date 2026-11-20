@@ -68,3 +68,4 @@
 106_warden_identifiers.sql
 107_dingtalk_tenant_group.sql
 108_foreign_key_indexes.sql
+109_rls_first_batch.sql

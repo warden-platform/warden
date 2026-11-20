@@ -1398,7 +1398,19 @@ func (r *ActionRepo) SummariesByIDs(ctx context.Context, ids []string) (map[stri
 }
 
 type ExecutionRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
+}
+
+// SetAdminPool 配置合法跨租户旁路池（BYPASSRLS）。未设置时旁路回退主池。
+func (r *ExecutionRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+
+// admin 返回旁路池：超管全局查询与后台 janitor 全表扫描须绕过 RLS。
+func (r *ExecutionRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 type DecisionRepo struct {
@@ -1718,7 +1730,7 @@ func (r *ExecutionRepo) UpdateResult(ctx context.Context, id string, result map[
 // status, identity, query target and audit records remain, so Warden retains
 // accountability without becoming a secondary log or business-data archive.
 func (r *ExecutionRepo) PurgeTransientLogResults(ctx context.Context, olderThan time.Duration) (int64, error) {
-	command, err := r.pool.Exec(ctx, `UPDATE executions e
+	command, err := r.admin().Exec(ctx, `UPDATE executions e
 		SET result = jsonb_build_object('purged', true, 'reason', 'transient_query_result_expired')
 		FROM action_definitions a
 		WHERE e.action_id=a.id AND a.name IN ('huawei.lts.logs.query','aliyun.sls.logs.query','database.table.rows.query','database.query.execute','database.query_template.execute')
@@ -1844,7 +1856,7 @@ func (r *ExecutionRepo) ListAllTenants(ctx context.Context, status string, limit
 		query += ` ORDER BY created_at DESC LIMIT $1 OFFSET $2`
 		args = append(args, limit, offset)
 	}
-	rows, err := r.pool.Query(ctx, query, args...)
+	rows, err := r.admin().Query(ctx, query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -2037,7 +2049,7 @@ func (r *ExecutionRepo) ClaimTasks(ctx context.Context, connectorID string, limi
 // was lost. UNKNOWN is fail-safe because the target may already have observed
 // a side effect; an operator can inspect it without an unsafe automatic retry.
 func (r *ExecutionRepo) ExpireDispatchLeases(ctx context.Context) (int64, error) {
-	command, err := r.pool.Exec(ctx, `UPDATE executions
+	command, err := r.admin().Exec(ctx, `UPDATE executions
 		SET status='UNKNOWN', error_code='DISPATCH_LEASE_EXPIRED',
 			error_message='任务分发租约过期，目标系统可能已经执行',
 			dispatch_token=NULL, dispatch_expires_at=NULL, updated_at=now()
@@ -2052,7 +2064,7 @@ func (r *ExecutionRepo) ExpireDispatchLeases(ctx context.Context) (int64, error)
 // ExpireQueuedExecutions prevents tasks with expired or revoked grants from
 // remaining QUEUED forever after a Connector goes offline.
 func (r *ExecutionRepo) ExpireQueuedExecutions(ctx context.Context) (int64, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.admin().Begin(ctx)
 	if err != nil {
 		return 0, err
 	}
@@ -2235,7 +2247,19 @@ func (r *AuditRepo) List(ctx context.Context, filter AuditListFilter, limit, off
 }
 
 type RequestRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
+}
+
+// SetAdminPool 配置合法跨租户旁路池（BYPASSRLS）。未设置时旁路回退主池。
+func (r *RequestRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+
+// admin 返回旁路池：钉钉回调按 ID 跨租户取请求、后台过期扫描须绕过 RLS。
+func (r *RequestRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 func NewRequestRepo(pool *pgxpool.Pool) *RequestRepo {
@@ -2299,7 +2323,7 @@ func (r *RequestRepo) GetByIDAnyTenant(ctx context.Context, id string) (*domain.
 		approved_at, expires_at, created_at, updated_at
 		FROM access_requests WHERE id = $1`
 	var ar domain.AccessRequest
-	err := r.pool.QueryRow(ctx, query, id).Scan(&ar.ID, &ar.TenantID, &ar.ExecutionID, &ar.PrincipalID, &ar.ResourceID, &ar.ActionID, &ar.ActingProjectID, &ar.ExternalContext,
+	err := r.admin().QueryRow(ctx, query, id).Scan(&ar.ID, &ar.TenantID, &ar.ExecutionID, &ar.PrincipalID, &ar.ResourceID, &ar.ActionID, &ar.ActingProjectID, &ar.ExternalContext,
 		&ar.DelegationTokenID, &ar.OnBehalfOfPrincipalID, &ar.AccountablePrincipalID, &ar.Parameters, &ar.ParameterHash,
 		&ar.Reason, &ar.Status, &ar.DecisionID, &ar.ApprovedBy,
 		&ar.ApprovedAt, &ar.ExpiresAt, &ar.CreatedAt, &ar.UpdatedAt)
@@ -2454,7 +2478,7 @@ func (r *RequestRepo) ListByPrincipal(ctx context.Context, principalID, status s
 }
 
 func (r *RequestRepo) ListExpiredPending(ctx context.Context, limit int) ([]domain.AccessRequest, error) {
-	rows, err := r.pool.Query(ctx, `SELECT id, tenant_id, COALESCE(execution_id::text,''), principal_id, resource_id, action_id,
+	rows, err := r.admin().Query(ctx, `SELECT id, tenant_id, COALESCE(execution_id::text,''), principal_id, resource_id, action_id,
 		COALESCE(acting_project_id::text,''), external_context, COALESCE(delegation_token_id::text,''), COALESCE(on_behalf_of_principal_id::text,''), COALESCE(accountable_principal_id::text,''), parameters, parameter_hash, COALESCE(reason,''), status, COALESCE(decision_id::text,''),
 		COALESCE(approved_by::text,''), approved_at, expires_at, created_at, updated_at
 		FROM access_requests WHERE status='PENDING' AND expires_at IS NOT NULL AND expires_at <= now()

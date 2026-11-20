@@ -235,6 +235,13 @@ func (h *Handler) SetAdminPool(pool *pgxpool.Pool) {
 	if pool != nil {
 		h.adminPool = pool
 	}
+	// 旁路仓储改由特权池驱动（未配置特权 DSN 时 pool==主池，行为不变）。
+	if h.executions != nil {
+		h.executions.SetAdminPool(h.adminPool)
+	}
+	if h.requests != nil {
+		h.requests.SetAdminPool(h.adminPool)
+	}
 }
 
 func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
