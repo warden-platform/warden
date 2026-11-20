@@ -1,13 +1,16 @@
-ARG GO_IMAGE=golang:1.26-alpine
-ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian12:nonroot
+# 默认国内镜像源（Gitee Go / 国内网络可直接构建）；海外构建可 --build-arg 换回官方源。
+ARG GO_IMAGE=docker.m.daocloud.io/library/golang:1.26-alpine
+ARG RUNTIME_IMAGE=gcr.m.daocloud.io/distroless/static-debian12:nonroot
 FROM ${GO_IMAGE} AS build
-ARG GOPROXY=https://proxy.golang.org,direct
+ARG GOPROXY=https://goproxy.cn,direct
 ENV GOPROXY=${GOPROXY}
 WORKDIR /src
 COPY server/go.mod server/go.sum ./
 RUN go mod download
 COPY server/ .
-ARG TARGET=warden-control
+# 必填：warden-control / warden-operator / warden-connector。
+# 不设默认值——漏传时构建立即失败，避免把错误二进制静默推成别的镜像。
+ARG TARGET
 RUN CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/${TARGET}
 RUN mkdir -p /out/artifacts/server/bin/linux-amd64 /out/artifacts/server/bin/linux-arm64 /out/artifacts/server/bin/windows-amd64 /out/artifacts/server/bin/macos-amd64 /out/artifacts/server/bin/macos-arm64 && \
     if [ "$TARGET" = "warden-control" ]; then \
