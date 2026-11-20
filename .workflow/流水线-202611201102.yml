@@ -4,8 +4,11 @@ displayName: 镜像发布（ACR）
 # 发版镜像流水线：手动触发，VERSION 填要发布的版本（与 git tag 一致）。
 # 四个镜像推送到 registry.cn-hangzhou.aliyuncs.com/warden-stable：
 #   warden（控制面）/ warden-web / warden-operator / warden-connector
-# 凭据：流水线变量 ACR_USERNAME / ACR_PASSWORD（文本类型，在流水线
-# 「参数设置/添加变量」中配置，值存 Gitee Go 设置端，不进仓库）。
+# 凭据：Gitee Go「凭证管理」中的镜像仓库凭证 acr-warden-stable
+#（server 须含命名空间：registry.cn-hangzhou.aliyuncs.com/warden-stable，
+# 插件按 server/tag 拼镜像全名；用户名/密码为 ACR 访问凭据）。
+# 实测：社区 image-build 插件只认 certificate，repository/username/
+# password/buildArgs 字段均被忽略；context 字段有效。
 # 红线：凭据绝不写进本文件（公开仓库）。
 # 兜底：scripts/publish-acr.sh 在 ECS 上可完成同样的发布。
 variables:
@@ -19,13 +22,9 @@ stages:
   - step: build@docker
     name: build_control
     displayName: 控制面 warden
-    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
-    username: ${ACR_USERNAME}
-    password: ${ACR_PASSWORD}
+    certificate: acr-warden-stable
     tag: warden:${VERSION}
     dockerfile: ./server/Dockerfile
-    buildArgs:
-      TARGET: warden-control
     isCache: true
     notify: []
     strategy:
@@ -36,9 +35,7 @@ stages:
   - step: build@docker
     name: build_web
     displayName: 管理端 warden-web
-    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
-    username: ${ACR_USERNAME}
-    password: ${ACR_PASSWORD}
+    certificate: acr-warden-stable
     tag: warden-web:${VERSION}
     dockerfile: ./web/Dockerfile
     context: ./web
@@ -52,13 +49,9 @@ stages:
   - step: build@docker
     name: build_operator
     displayName: warden-operator
-    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
-    username: ${ACR_USERNAME}
-    password: ${ACR_PASSWORD}
+    certificate: acr-warden-stable
     tag: warden-operator:${VERSION}
-    dockerfile: ./server/Dockerfile
-    buildArgs:
-      TARGET: warden-operator
+    dockerfile: ./server/Dockerfile.operator
     isCache: true
     notify: []
     strategy:
@@ -69,13 +62,9 @@ stages:
   - step: build@docker
     name: build_connector
     displayName: warden-connector
-    repository: registry.cn-hangzhou.aliyuncs.com/warden-stable
-    username: ${ACR_USERNAME}
-    password: ${ACR_PASSWORD}
+    certificate: acr-warden-stable
     tag: warden-connector:${VERSION}
-    dockerfile: ./server/Dockerfile
-    buildArgs:
-      TARGET: warden-connector
+    dockerfile: ./server/Dockerfile.connector
     isCache: true
     notify: []
     strategy:
