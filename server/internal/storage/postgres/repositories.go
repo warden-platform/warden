@@ -100,8 +100,14 @@ func (r *PrincipalRepo) Delete(ctx context.Context, id string) error {
 	defer tx.Rollback(ctx)
 	tenantID := repositoryTenant(ctx)
 
-	if _, err = tx.Exec(ctx, `UPDATE principals SET status='DISABLED', updated_at=now() WHERE id=$1 AND tenant_id=$2`, id, tenantID); err != nil {
+	cmd, err := tx.Exec(ctx, `UPDATE principals SET status='DISABLED', updated_at=now() WHERE id=$1 AND tenant_id=$2`, id, tenantID)
+	if err != nil {
 		return err
+	}
+	// 首条未命中（id 不属于本租户）即停止，避免级联撤销/取消他租户的
+	// grant/request/execution。下面级联亦补 tenant_id 过滤作纵深防御。
+	if cmd.RowsAffected() == 0 {
+		return nil
 	}
 	if _, err = tx.Exec(ctx, `UPDATE principal_api_keys SET status='REVOKED', revoked_at=now() WHERE principal_id=$1 AND status='ACTIVE'`, id); err != nil {
 		return err
@@ -115,21 +121,21 @@ func (r *PrincipalRepo) Delete(ctx context.Context, id string) error {
 		WHERE tenant_id=$2 AND principal_id=$1 AND status='ACTIVE'`, id, tenantID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE access_grants SET status='REVOKED' WHERE principal_id=$1 AND status='ACTIVE'`, id); err != nil {
+	if _, err = tx.Exec(ctx, `UPDATE access_grants SET status='REVOKED' WHERE tenant_id=$2 AND principal_id=$1 AND status='ACTIVE'`, id, tenantID); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE access_requests SET status='CANCELLED', updated_at=now()
-		WHERE principal_id=$1 AND status='PENDING'`, id); err != nil {
+		WHERE tenant_id=$2 AND principal_id=$1 AND status='PENDING'`, id, tenantID); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE executions SET status='CANCELLED', error_code='PRINCIPAL_DISABLED',
 		error_message='请求身份已停用',updated_at=now()
-		WHERE principal_id=$1 AND status IN ('WAITING_APPROVAL','QUEUED')`, id); err != nil {
+		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('WAITING_APPROVAL','QUEUED')`, id, tenantID); err != nil {
 		return err
 	}
 	if _, err = tx.Exec(ctx, `UPDATE executions SET status='UNKNOWN', error_code='PRINCIPAL_DISABLED_DURING_DISPATCH',
-		error_message='任务分发后请求身份被停用，目标系统可能已经执行',dispatch_token=NULL,dispatch_expires_at=NULL,updated_at=now()
-		WHERE principal_id=$1 AND status IN ('DISPATCHED','RUNNING')`, id); err != nil {
+		error_message='任务分发后请求身份被停用，目标系统可能已经执行',dispatch_token=[REDACTED],dispatch_expires_at=NULL,updated_at=now()
+		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('DISPATCHED','RUNNING')`, id, tenantID); err != nil {
 		return err
 	}
 	return tx.Commit(ctx)
@@ -190,7 +196,10 @@ func (r *PrincipalRepo) Create(ctx context.Context, p *domain.Principal) error {
 		p.Status = domain.PrincipalStatusActive
 	}
 	if p.TenantID == "" {
-		p.TenantID = "default"
+		p.TenantID = repositoryTenant(ctx)
+	}
+	if p.TenantID == "" {
+		return fmt.Errorf("principal create requires a tenant (set TenantID or tenant context)")
 	}
 	if p.Metadata == nil {
 		p.Metadata = map[string]any{}
@@ -2806,6 +2815,7 @@ func (r *IntegrationRepo) loadCredentialProfilesBatch(ctx context.Context, integ
 // ReplaceCredentialProfiles atomically replaces an Integration's purpose-bound
 // credential profiles. Empty profiles clear the set.
 func (r *IntegrationRepo) ReplaceCredentialProfiles(ctx context.Context, integrationID string, profiles []domain.IntegrationCredentialProfile) error {
+	tenantID := repositoryTenant(ctx)
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -2815,8 +2825,8 @@ func (r *IntegrationRepo) ReplaceCredentialProfiles(ctx context.Context, integra
 		return err
 	}
 	for _, profile := range profiles {
-		if _, err := tx.Exec(ctx, `INSERT INTO integration_credential_profiles(integration_id, name, username, credential_ref)
-			VALUES ($1,$2,nullif($3,''),$4)`, integrationID, profile.Name, profile.Username, profile.CredentialRef); err != nil {
+		if _, err := tx.Exec(ctx, `INSERT INTO integration_credential_profiles(integration_id, name, username, credential_ref, tenant_id)
+			VALUES ($1,$2,nullif($3,''),$4,$5)`, integrationID, profile.Name, profile.Username, profile.CredentialRef, tenantID); err != nil {
 			return err
 		}
 	}
@@ -2899,7 +2909,7 @@ func (r *IntegrationRepo) Update(ctx context.Context, ig *domain.Integration) er
 
 func (r *IntegrationRepo) UpdateStatus(ctx context.Context, id string, status domain.IntegrationStatus, lastError string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE integrations SET status=$2, last_error=nullif($3,''),
-		last_probe_at=now(), updated_at=now() WHERE id=$1`, id, status, lastError)
+		last_probe_at=now(), updated_at=now() WHERE id=$1 AND tenant_id=$4`, id, status, lastError, repositoryTenant(ctx))
 	return err
 }
 
@@ -2908,7 +2918,7 @@ func (r *IntegrationRepo) UpdateStatus(ctx context.Context, id string, status do
 // the integration state machine stays user-driven.
 func (r *IntegrationRepo) ReportHealth(ctx context.Context, connectorID, id, lastError string) error {
 	_, err := r.pool.Exec(ctx, `UPDATE integrations SET last_error=nullif($3,''), last_probe_at=now()
-		WHERE id=$1 AND connector_id=$2`, id, connectorID, lastError)
+		WHERE id=$1 AND connector_id=$2 AND tenant_id=$4`, id, connectorID, lastError, repositoryTenant(ctx))
 	return err
 }
 

@@ -247,6 +247,7 @@ func (r *QueryTemplateRepo) ListPublishRequests(ctx context.Context, status stri
 // ties the request to the URL's template so an approver cannot approve a
 // request for a different template.
 func (r *QueryTemplateRepo) ApprovePublish(ctx context.Context, requestID, templateID, approvedBy string) error {
+	tenantID := repositoryTenant(ctx)
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -255,8 +256,8 @@ func (r *QueryTemplateRepo) ApprovePublish(ctx context.Context, requestID, templ
 	var boundTemplate string
 	err = tx.QueryRow(ctx, `UPDATE database_query_template_publish_requests
 		SET status='APPROVED', approved_by=$2, decided_at=now(), updated_at=now()
-		WHERE id=$1 AND template_id=$3 AND status='PENDING'
-		RETURNING template_id`, requestID, nullIf(approvedBy), templateID).Scan(&boundTemplate)
+		WHERE id=$1 AND template_id=$3 AND status='PENDING' AND tenant_id=$4
+		RETURNING template_id`, requestID, nullIf(approvedBy), templateID, tenantID).Scan(&boundTemplate)
 	if err != nil {
 		if err == pgx.ErrNoRows {
 			return fmt.Errorf("publish request %s is not pending for template %s", requestID, templateID)
@@ -265,7 +266,7 @@ func (r *QueryTemplateRepo) ApprovePublish(ctx context.Context, requestID, templ
 	}
 	command, err := tx.Exec(ctx, `UPDATE database_query_templates
 		SET status='PUBLISHED', approved_by=$2, published_at=now(), updated_at=now()
-		WHERE id=$1 AND status='DRAFT'`, boundTemplate, nullIf(approvedBy))
+		WHERE id=$1 AND status='DRAFT' AND tenant_id=$3`, boundTemplate, nullIf(approvedBy), tenantID)
 	if err != nil {
 		return err
 	}
@@ -280,7 +281,7 @@ func (r *QueryTemplateRepo) ApprovePublish(ctx context.Context, requestID, templ
 func (r *QueryTemplateRepo) RejectPublish(ctx context.Context, requestID, templateID, reason string) error {
 	command, err := r.pool.Exec(ctx, `UPDATE database_query_template_publish_requests
 		SET status='REJECTED', rejected_reason=$2, decided_at=now(), updated_at=now()
-		WHERE id=$1 AND template_id=$3 AND status='PENDING'`, requestID, nullIf(reason), templateID)
+		WHERE id=$1 AND template_id=$3 AND status='PENDING' AND tenant_id=$4`, requestID, nullIf(reason), templateID, repositoryTenant(ctx))
 	if err != nil {
 		return err
 	}
