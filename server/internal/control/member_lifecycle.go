@@ -26,7 +26,7 @@ import (
 // are revoked immediately. Guardrails: cannot target the built-in super admin or
 // yourself, and cannot remove the last tenant administrator of an organization.
 func (h *Handler) RemoveAccountFromOrganization(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -46,7 +46,7 @@ func (h *Handler) RemoveAccountFromOrganization(w http.ResponseWriter, r *http.R
 	}
 
 	ctx := r.Context()
-	tx, err := h.pool.Begin(ctx)
+	tx, err := h.adminPool.Begin(ctx)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "开启事务失败")
 		return
@@ -174,7 +174,7 @@ func (h *Handler) RemoveAccountFromOrganization(w http.ResponseWriter, r *http.R
 // re-activate automatically on the next IdP login, and a removed SSO member
 // must be re-assigned from the unaffiliated list instead.
 func (h *Handler) ReenableAccount(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -184,7 +184,7 @@ func (h *Handler) ReenableAccount(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	tx, err := h.pool.Begin(ctx)
+	tx, err := h.adminPool.Begin(ctx)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "开启事务失败")
 		return

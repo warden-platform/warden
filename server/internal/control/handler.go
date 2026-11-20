@@ -93,7 +93,10 @@ type APIKeyStore interface {
 	Revoke(context.Context, string, string) (bool, error)
 }
 
-func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
+func NewHandler(pool *pgxpool.Pool, adminPool *pgxpool.Pool) (*Handler, error) {
+	if adminPool == nil {
+		adminPool = pool
+	}
 	if _, err := configuredCORSOrigin(); err != nil {
 		return nil, err
 	}
@@ -163,7 +166,7 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 	}
 	h := &Handler{
 		pool:                 pool,
-		adminPool:            pool,
+		adminPool:            adminPool,
 		decisionProvider:     decisionProvider,
 		taskSigningKey:       []byte(taskKey),
 		jwtSigningKey:        []byte(jwtKey),
@@ -206,6 +209,9 @@ func NewHandler(pool *pgxpool.Pool) (*Handler, error) {
 		h.dingTalkRepo = postgres.NewDingTalkRepo(pool)
 		h.outbox = postgres.NewOutboxRepo(pool)
 		h.aiStore = postgres.NewAIRepo(pool)
+		// 先接线旁路池，再同步管理员密码（UpdatePassword 走特权池，
+		// 否则启动期无租户 ctx 会被 RLS 静默拦截）。
+		h.SetAdminPool(adminPool)
 		if err := h.EnsureAdminPassword(context.Background()); err != nil {
 			return nil, fmt.Errorf("initialize admin password: %w", err)
 		}
@@ -235,12 +241,29 @@ func (h *Handler) SetAdminPool(pool *pgxpool.Pool) {
 	if pool != nil {
 		h.adminPool = pool
 	}
-	// 旁路仓储改由特权池驱动（未配置特权 DSN 时 pool==主池，行为不变）。
+	ap := h.adminPool
+	// 旁路仓储改由特权池驱动（未配置特权 DSN 时 ap==主池，行为不变）。
+	// 接口字段用类型断言取具体仓储；fake store 不匹配则跳过。
+	if r, ok := h.principals.(*postgres.PrincipalRepo); ok {
+		r.SetAdminPool(ap)
+	}
+	if r, ok := h.apiKeys.(*postgres.APIKeyRepo); ok {
+		r.SetAdminPool(ap)
+	}
+	if r, ok := h.notificationChannels.(*postgres.NotificationChannelRepo); ok {
+		r.SetAdminPool(ap)
+	}
+	if h.delegationTokens != nil {
+		h.delegationTokens.SetAdminPool(ap)
+	}
+	if h.federated != nil {
+		h.federated.SetAdminPool(ap)
+	}
 	if h.executions != nil {
-		h.executions.SetAdminPool(h.adminPool)
+		h.executions.SetAdminPool(ap)
 	}
 	if h.requests != nil {
-		h.requests.SetAdminPool(h.adminPool)
+		h.requests.SetAdminPool(ap)
 	}
 }
 
@@ -448,7 +471,7 @@ func (h *Handler) ValidateConnectorCredentials(ctx context.Context) error {
 	if h.pool == nil {
 		return nil
 	}
-	rows, err := h.pool.Query(ctx, "SELECT id, name, task_key_ciphertext FROM connectors "+
+	rows, err := h.adminPool.Query(ctx, "SELECT id, name, task_key_ciphertext FROM connectors "+
 		"WHERE archived_at IS NULL AND task_key_ciphertext IS NOT NULL")
 	if err != nil {
 		return fmt.Errorf("query Connector credentials: %w", err)

@@ -49,11 +49,11 @@ func scanTenantSummary(row interface{ Scan(...any) error }) (domain.TenantSummar
 }
 
 func (h *Handler) ListTenants(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), tenantSummaryQuery+` ORDER BY t.created_at`)
+	rows, err := h.adminPool.Query(r.Context(), tenantSummaryQuery+` ORDER BY t.created_at`)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询租户失败")
 		return
@@ -80,12 +80,12 @@ func (h *Handler) ListTenants(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) GetTenant(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
 	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))
-	tenant, err := scanTenantSummary(h.pool.QueryRow(r.Context(), tenantSummaryQuery+` WHERE t.slug=$1`, slug))
+	tenant, err := scanTenantSummary(h.adminPool.QueryRow(r.Context(), tenantSummaryQuery+` WHERE t.slug=$1`, slug))
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			jsonError(w, http.StatusNotFound, "TENANT_NOT_FOUND", "租户不存在")
@@ -98,7 +98,7 @@ func (h *Handler) GetTenant(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -120,7 +120,7 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusBadRequest, "RESERVED_TENANT_SLUG", "该组织标识为系统保留")
 		return
 	}
-	tx, err := h.pool.Begin(r.Context())
+	tx, err := h.adminPool.Begin(r.Context())
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "TENANT_CREATE_FAILED", "创建租户失败")
 		return
@@ -152,7 +152,7 @@ func (h *Handler) CreateTenant(w http.ResponseWriter, r *http.Request) {
 // BootstrapTenant atomically creates the tenant boundary, its default project,
 // concurrency guard and first tenant administrator.
 func (h *Handler) BootstrapTenant(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -185,7 +185,7 @@ func (h *Handler) BootstrapTenant(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusInternalServerError, "PASSWORD_HASH_FAILED", "管理员密码处理失败")
 		return
 	}
-	tx, err := h.pool.Begin(r.Context())
+	tx, err := h.adminPool.Begin(r.Context())
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "TENANT_CREATE_FAILED", "创建租户失败")
 		return

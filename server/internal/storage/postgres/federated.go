@@ -25,9 +25,21 @@ var (
 // explicit external-project bindings. It intentionally lives beside the
 // existing external-identity repository so the delegation lifecycle remains
 // unchanged.
-type FederatedRepo struct{ pool *pgxpool.Pool }
+type FederatedRepo struct {
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
+}
 
 func NewFederatedRepo(pool *pgxpool.Pool) *FederatedRepo { return &FederatedRepo{pool: pool} }
+
+// SetAdminPool 配置旁路池（BYPASSRLS）；未设回退主池。
+func (r *FederatedRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+func (r *FederatedRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
+}
 
 func (r *FederatedRepo) BindTenant(ctx context.Context, binding *domain.ExternalTenantBinding) error {
 	tenantID := repositoryTenant(ctx)
@@ -57,7 +69,7 @@ func (r *FederatedRepo) BindTenant(ctx context.Context, binding *domain.External
 
 func (r *FederatedRepo) ResolveTenant(ctx context.Context, source, enterpriseID, workspaceID string) (*domain.ExternalTenantBinding, error) {
 	var binding domain.ExternalTenantBinding
-	err := r.pool.QueryRow(ctx, `
+	err := r.admin().QueryRow(ctx, `
 		SELECT id,tenant_id,source,external_enterprise_id,external_workspace_id,status,
 		       COALESCE(created_by::text,''),created_at,updated_at,revoked_at
 		FROM external_tenant_bindings
@@ -122,7 +134,7 @@ func (r *FederatedRepo) ConsumeAssertion(ctx context.Context, issuer, assertionI
 // land in their original tenant regardless of routing rules or defaults.
 func (r *FederatedRepo) IdentityTenant(ctx context.Context, issuer, subject string) (string, bool, error) {
 	var tenantID string
-	err := r.pool.QueryRow(ctx, `SELECT tenant_id FROM federated_identities WHERE issuer=$1 AND subject=$2`, issuer, subject).Scan(&tenantID)
+	err := r.admin().QueryRow(ctx, `SELECT tenant_id FROM federated_identities WHERE issuer=$1 AND subject=$2`, issuer, subject).Scan(&tenantID)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return "", false, nil
 	}
@@ -141,7 +153,7 @@ func (r *FederatedRepo) IdentityTenant(ctx context.Context, issuer, subject stri
 // role always wins, so a later role change made by an administrator in Warden is
 // never silently overwritten by the next IdP login.
 func (r *FederatedRepo) ProvisionIdentity(ctx context.Context, issuer, subject, email, displayName, tenantID, defaultRole string, metadata map[string]any) (*domain.Principal, error) {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.admin().Begin(ctx)
 	if err != nil {
 		return nil, err
 	}

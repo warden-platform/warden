@@ -188,7 +188,7 @@ func newTestDatabaseHandler(t *testing.T, pool *pgxpool.Pool) (*Handler, *http.S
 	t.Setenv("WARDEN_ADMIN_API_KEY", testAdminAPIKey)
 	t.Setenv("WARDEN_ADMIN_PASSWORD", "test-admin-password-123")
 	t.Setenv("WARDEN_ADMIN_USERNAME", "admin")
-	h, err := NewHandler(pool)
+	h, err := NewHandler(pool, pool)
 	if err != nil {
 		t.Fatalf("NewHandler: %v", err)
 	}

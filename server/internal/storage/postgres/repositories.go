@@ -15,11 +15,21 @@ import (
 )
 
 type PrincipalRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
 }
 
 func NewPrincipalRepo(pool *pgxpool.Pool) *PrincipalRepo {
 	return &PrincipalRepo{pool: pool}
+}
+
+// SetAdminPool 配置旁路池（BYPASSRLS）；未设回退主池。
+func (r *PrincipalRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+func (r *PrincipalRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
 }
 
 func principalTenant(ctx context.Context) string {
@@ -74,7 +84,7 @@ func (r *PrincipalRepo) GetByName(ctx context.Context, name string) (*domain.Pri
 
 // UpdatePassword stores a bcrypt password hash for the given principal.
 func (r *PrincipalRepo) UpdatePassword(ctx context.Context, id, hash string) error {
-	_, err := r.pool.Exec(ctx, `UPDATE principals SET password_hash = $2, updated_at = now() WHERE id = $1`, id, hash)
+	_, err := r.admin().Exec(ctx, `UPDATE principals SET password_hash = $2, updated_at = now() WHERE id = $1`, id, hash)
 	return err
 }
 
@@ -214,10 +224,20 @@ func (r *PrincipalRepo) Create(ctx context.Context, p *domain.Principal) error {
 }
 
 type APIKeyRepo struct {
-	pool *pgxpool.Pool
+	pool      *pgxpool.Pool
+	adminPool *pgxpool.Pool
 }
 
 func NewAPIKeyRepo(pool *pgxpool.Pool) *APIKeyRepo { return &APIKeyRepo{pool: pool} }
+
+// SetAdminPool 配置旁路池（BYPASSRLS）；未设回退主池。
+func (r *APIKeyRepo) SetAdminPool(p *pgxpool.Pool) { r.adminPool = p }
+func (r *APIKeyRepo) admin() *pgxpool.Pool {
+	if r.adminPool != nil {
+		return r.adminPool
+	}
+	return r.pool
+}
 
 func (r *APIKeyRepo) Create(ctx context.Context, key *domain.PrincipalAPIKey) error {
 	return r.pool.QueryRow(ctx, `INSERT INTO principal_api_keys
@@ -229,7 +249,7 @@ func (r *APIKeyRepo) Create(ctx context.Context, key *domain.PrincipalAPIKey) er
 }
 
 func (r *APIKeyRepo) GetForAuthentication(ctx context.Context, id string) (*domain.PrincipalAPIKey, *domain.Principal, error) {
-	row := r.pool.QueryRow(ctx, `SELECT k.id,k.principal_id,k.name,k.key_prefix,k.key_hash,k.status,k.purpose,COALESCE(k.audience,''),k.scopes,
+	row := r.admin().QueryRow(ctx, `SELECT k.id,k.principal_id,k.name,k.key_prefix,k.key_hash,k.status,k.purpose,COALESCE(k.audience,''),k.scopes,
 		k.expires_at,k.last_used_at,COALESCE(host(k.last_used_ip),''),COALESCE(k.created_by::text,''),k.created_at,
 		k.revoked_at,COALESCE(k.revoked_by::text,''),COALESCE(k.rotation_parent_id::text,''),
 		p.id,p.kind,p.name,p.status,p.tenant_id,p.metadata,p.created_at,p.updated_at

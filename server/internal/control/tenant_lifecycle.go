@@ -94,7 +94,7 @@ func (h *Handler) DisableTenant(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	ctx := r.Context()
-	tx, err := h.pool.BeginTx(ctx, pgx.TxOptions{})
+	tx, err := h.adminPool.BeginTx(ctx, pgx.TxOptions{})
 	if err != nil {
 		jsonError(w, 500, "TENANT_DISABLE_FAILED", "停用租户失败")
 		return

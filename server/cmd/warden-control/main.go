@@ -28,18 +28,18 @@ func main() {
 	if err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
 	}
-
-	handler, err := control.NewHandler(pool)
-	if err != nil {
-		log.Fatalf("初始化策略决策失败: %v", err)
-	}
 	// 合法跨租户旁路池（特权角色）；未配置 WARDEN_PRIVILEGED_DATABASE_URL 时
-	// 回退主池，单 DSN 开发/测试形态行为不变。
+	// 回退主池，单 DSN 开发/测试形态行为不变。须先于 NewHandler 建立，
+	// 供启动期管理员密码同步等无租户 ctx 的旁路使用。
 	adminPool, err := postgres.ConnectAdminPool(startupCtx)
 	if err != nil {
 		log.Fatalf("特权数据库连接失败: %v", err)
 	}
-	handler.SetAdminPool(adminPool)
+
+	handler, err := control.NewHandler(pool, adminPool)
+	if err != nil {
+		log.Fatalf("初始化策略决策失败: %v", err)
+	}
 	if err := handler.ValidateConnectorCredentials(startupCtx); err != nil {
 		log.Fatalf("Connector 凭证自检失败: %v", err)
 	}

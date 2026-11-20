@@ -57,7 +57,7 @@ type Account struct {
 }
 
 func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -85,7 +85,7 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 	// self-declared metadata: it must match the branch RemoveAccountFromOrganization
 	// takes (federated -> unaffiliated hall, local -> disable), so the UI badge
 	// and the removal confirmation never promise a different outcome.
-	rows, err := h.pool.Query(r.Context(), `
+	rows, err := h.adminPool.Query(r.Context(), `
 		SELECT p.id::text, p.name, p.status, p.tenant_id,
 		       COALESCE(NULLIF(p.metadata->>'display_name',''), NULLIF(f.display_name,''), ''),
 		       COALESCE(NULLIF(p.metadata->>'email',''), NULLIF(f.email,''), ''),
@@ -136,7 +136,7 @@ func (h *Handler) ListAccounts(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -165,7 +165,7 @@ func (h *Handler) UpdateAccountRole(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	tx, err := h.pool.Begin(ctx)
+	tx, err := h.adminPool.Begin(ctx)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "开启事务失败")
 		return

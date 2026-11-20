@@ -37,17 +37,17 @@ type MemberProject struct {
 // sub-admins alike), so the super administrator can see who belongs to each
 // enterprise. Scoped to the requested tenant; platform-admin only.
 func (h *Handler) ListTenantMembers(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
 	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))
 	var exists bool
-	if err := h.pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM tenants WHERE slug=$1)`, slug).Scan(&exists); err != nil || !exists {
+	if err := h.adminPool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM tenants WHERE slug=$1)`, slug).Scan(&exists); err != nil || !exists {
 		jsonError(w, http.StatusNotFound, "TENANT_NOT_FOUND", "租户不存在")
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `
+	rows, err := h.adminPool.Query(r.Context(), `
 		SELECT p.id::text, p.name, p.status,
 		       COALESCE(NULLIF(p.metadata->>'display_name',''), NULLIF(f.display_name,''), ''),
 		       COALESCE(NULLIF(p.metadata->>'email',''), NULLIF(f.email,''), ''),
@@ -82,7 +82,7 @@ func (h *Handler) ListTenantMembers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	for i := range members {
-		mrows, err := h.pool.Query(r.Context(), `
+		mrows, err := h.adminPool.Query(r.Context(), `
 			SELECT pm.project_id::text, pr.name, pm.role, pm.status
 			FROM project_memberships pm JOIN projects pr ON pr.id=pm.project_id
 			WHERE pm.principal_id=$1::uuid AND pm.tenant_id=$2
@@ -109,7 +109,7 @@ func (h *Handler) ListTenantMembers(w http.ResponseWriter, r *http.Request) {
 // role (member or sub-admin). The super administrator uses this to populate a
 // tenant; the created member logs in with the RAM-style name <name>@<slug>.
 func (h *Handler) CreateTenantMember(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -142,7 +142,7 @@ func (h *Handler) CreateTenantMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var p domain.Principal
-	err = h.pool.QueryRow(r.Context(), `INSERT INTO principals
+	err = h.adminPool.QueryRow(r.Context(), `INSERT INTO principals
 		(kind, name, status, tenant_id, metadata, password_hash)
 		VALUES ('user',$1,'ACTIVE',$2,jsonb_build_object('role',$3::text),$4)
 		RETURNING id, kind, name, status, tenant_id, metadata, created_at, updated_at`,

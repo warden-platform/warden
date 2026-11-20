@@ -84,7 +84,7 @@ func (h *Handler) resolveConnectorRequestKey(ctx context.Context, r *http.Reques
 		if err := json.Unmarshal(body, &request); err != nil || strings.TrimSpace(request.Name) == "" {
 			return "", nil, errors.New("invalid connector registration")
 		}
-		rows, err := h.pool.Query(ctx, `SELECT c.id, c.tenant_id, c.task_key_ciphertext, c.archived_at IS NOT NULL FROM connectors c
+		rows, err := h.adminPool.Query(ctx, `SELECT c.id, c.tenant_id, c.task_key_ciphertext, c.archived_at IS NOT NULL FROM connectors c
 			JOIN tenants t ON t.slug=c.tenant_id AND t.status='ACTIVE'
 			WHERE c.name=$1`, strings.TrimSpace(request.Name))
 		if err != nil {
@@ -151,7 +151,7 @@ func (h *Handler) resolveConnectorRequestKey(ctx context.Context, r *http.Reques
 		if connectorID == "" {
 			return "", nil, errors.New("connector id is required")
 		}
-		err := h.pool.QueryRow(ctx, `SELECT c.task_key_ciphertext FROM connectors c
+		err := h.adminPool.QueryRow(ctx, `SELECT c.task_key_ciphertext FROM connectors c
 			JOIN tenants t ON t.slug=c.tenant_id AND t.status='ACTIVE'
 			WHERE c.id=$1 AND c.archived_at IS NULL`, connectorID).Scan(&encryptedKey)
 		if err != nil {
@@ -163,7 +163,7 @@ func (h *Handler) resolveConnectorRequestKey(ctx context.Context, r *http.Reques
 		// Bind all connector-runtime handlers to the tenant stored with the
 		// authenticated connector. The connector cannot choose this value.
 		var resolvedTenant string
-		if err := h.pool.QueryRow(ctx, `SELECT tenant_id FROM connectors WHERE id=$1 AND archived_at IS NULL`, connectorID).Scan(&resolvedTenant); err == nil {
+		if err := h.adminPool.QueryRow(ctx, `SELECT tenant_id FROM connectors WHERE id=$1 AND archived_at IS NULL`, connectorID).Scan(&resolvedTenant); err == nil {
 			*r = *r.WithContext(domain.WithTenantID(r.Context(), resolvedTenant))
 		}
 	}

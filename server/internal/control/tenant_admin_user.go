@@ -9,7 +9,7 @@ import (
 )
 
 func (h *Handler) CreateTenantAdmin(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -28,7 +28,7 @@ func (h *Handler) CreateTenantAdmin(w http.ResponseWriter, r *http.Request) {
 	}
 	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))
 	var tenantID string
-	if err := h.pool.QueryRow(r.Context(), `SELECT slug FROM tenants WHERE slug=$1 AND status='ACTIVE'`, slug).Scan(&tenantID); err != nil {
+	if err := h.adminPool.QueryRow(r.Context(), `SELECT slug FROM tenants WHERE slug=$1 AND status='ACTIVE'`, slug).Scan(&tenantID); err != nil {
 		jsonError(w, http.StatusNotFound, "TENANT_NOT_FOUND", "租户不存在或已停用")
 		return
 	}
@@ -38,7 +38,7 @@ func (h *Handler) CreateTenantAdmin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var p domain.Principal
-	err = h.pool.QueryRow(r.Context(), `INSERT INTO principals
+	err = h.adminPool.QueryRow(r.Context(), `INSERT INTO principals
 		(kind, name, status, tenant_id, metadata, password_hash)
 		VALUES ('user',$1,'ACTIVE',$2,'{"role":"tenant_admin"}'::jsonb,$3)
 		RETURNING id, kind, name, status, tenant_id, metadata, created_at, updated_at`, req.Name, tenantID, hash).
@@ -51,19 +51,19 @@ func (h *Handler) CreateTenantAdmin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) ListTenantAdmins(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
 	slug := strings.ToLower(strings.TrimSpace(r.PathValue("slug")))
 	if !h.tenantIsActive(r.Context(), slug) {
 		var exists bool
-		if err := h.pool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM tenants WHERE slug=$1)`, slug).Scan(&exists); err != nil || !exists {
+		if err := h.adminPool.QueryRow(r.Context(), `SELECT EXISTS(SELECT 1 FROM tenants WHERE slug=$1)`, slug).Scan(&exists); err != nil || !exists {
 			jsonError(w, http.StatusNotFound, "TENANT_NOT_FOUND", "租户不存在")
 			return
 		}
 	}
-	rows, err := h.pool.Query(r.Context(), `SELECT id,kind,name,status,tenant_id,metadata,last_login_at,created_at,updated_at
+	rows, err := h.adminPool.Query(r.Context(), `SELECT id,kind,name,status,tenant_id,metadata,last_login_at,created_at,updated_at
 		FROM principals WHERE tenant_id=$1 AND kind='user' AND metadata->>'role'='tenant_admin' ORDER BY created_at`, slug)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询租户管理员失败")

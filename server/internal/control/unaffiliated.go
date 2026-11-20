@@ -123,11 +123,11 @@ type UnaffiliatedIdentity struct {
 // identity so the platform super administrator can see who is waiting to be
 // pulled into an organization. Gated to warden:admin + platform tenant.
 func (h *Handler) ListUnaffiliatedIdentities(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
-	rows, err := h.pool.Query(r.Context(), `
+	rows, err := h.adminPool.Query(r.Context(), `
 		SELECT p.id::text, p.name,
 			COALESCE(NULLIF(p.metadata->>'display_name',''), NULLIF(f.display_name,''), ''),
 			COALESCE(NULLIF(p.metadata->>'email',''), NULLIF(f.email,''), ''),
@@ -177,7 +177,7 @@ type assignUnaffiliatedRequest struct {
 // and revokes the current pending-state session so the effect is immediate and
 // consistent on the next login.
 func (h *Handler) AssignUnaffiliatedIdentity(w http.ResponseWriter, r *http.Request) {
-	if h.pool == nil {
+	if h.adminPool == nil {
 		databaseUnavailable(w)
 		return
 	}
@@ -211,7 +211,7 @@ func (h *Handler) AssignUnaffiliatedIdentity(w http.ResponseWriter, r *http.Requ
 
 	ctx := r.Context()
 	var active bool
-	if err := h.pool.QueryRow(ctx, `SELECT status='ACTIVE' FROM tenants WHERE slug=$1`, targetTenant).Scan(&active); err != nil {
+	if err := h.adminPool.QueryRow(ctx, `SELECT status='ACTIVE' FROM tenants WHERE slug=$1`, targetTenant).Scan(&active); err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			jsonError(w, http.StatusNotFound, "TENANT_NOT_FOUND", "目标组织不存在")
 			return
@@ -232,7 +232,7 @@ func (h *Handler) AssignUnaffiliatedIdentity(w http.ResponseWriter, r *http.Requ
 		}
 	}
 
-	tx, err := h.pool.Begin(ctx)
+	tx, err := h.adminPool.Begin(ctx)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "开启事务失败")
 		return
