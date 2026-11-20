@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
@@ -26,7 +26,12 @@ function flattenConfig(config: Record<string, ConfigSection>): Record<string, st
 export default defineConfig(({ mode }) => {
   // Share config.yaml (non-secret) and .env (secret) with warden-control.
   // Explicit process environment wins for one-off overrides.
-  const fileConfig = flattenConfig(parse(readFileSync(`${projectRoot}/config.yaml`, 'utf8')) as Record<string, ConfigSection>)
+  // config.yaml is optional: container builds only have the web/ context
+  // (no repo root); these values only feed the dev server, not the build.
+  const configFile = `${projectRoot}/config.yaml`
+  const fileConfig = existsSync(configFile)
+    ? flattenConfig(parse(readFileSync(configFile, 'utf8')) as Record<string, ConfigSection>)
+    : {}
   const fileEnv = loadEnv(mode, projectRoot, '')
   const env = { ...fileConfig, ...fileEnv, ...process.env }
   const webPort = Number(env.WARDEN_WEB_PORT || 4173)
