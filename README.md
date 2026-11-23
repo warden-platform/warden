@@ -1,19 +1,65 @@
 # Warden
 
-> 面向 AI Agent 的**动作级授权与代理执行平台**。
-> Agent 拿到的不是 kubeconfig、长期 Token 或数据库口令，而是一次受策略、审批、签名与审计约束的**执行**，以及一个可追溯的 `execution_id`。
+[![CI](https://github.com/warden-platform/warden/actions/workflows/ci.yml/badge.svg)](https://github.com/warden-platform/warden/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/warden-platform/warden)](https://github.com/warden-platform/warden/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
+> **别把 kubeconfig 交给 AI Agent。**
+> 给它一个被策略、审批、签名和审计约束的 `execution_id`，而不是长期凭据。
+
+Warden 是面向 AI Agent 的**动作级授权与代理执行平台**——外部 Agent 与目标基础设施之间的中间层。Agent 每次操作都走「身份 → 动作目录 → Rego 策略 → 人工审批 → 限时授权 → HMAC 签名信封 → 内网 Connector 执行 → 审计」全链路，任一层拒绝即不执行。
+
+## 快速体验
 
 | | |
 |---|---|
-| 定位 | 位于外部 Agent 与目标基础设施之间的授权 / 代理执行中间层 |
+| 在线体验 | https://warden.squawksync.cloud/login（`demo@acme` / `12345678`，只读演示数据） |
+| 本地一键演示 | `make demo` —— 免构建，ACR 公开镜像 + 预置演示数据，一条命令起完整环境 |
+
+## 30 秒看懂「怎么用」
+
+```bash
+curl -X POST https://warden.example.com/api/v1/executions \
+  -H "Authorization: Bearer $WARDEN_AGENT_KEY" \
+  -d '{"resource":"prod/checkout-api",
+       "action":"deployment.update_image@v2",
+       "params":{"image":"registry.example.com/checkout:1.8.3"}}'
+# → 202 {"execution_id":"...","status":"WAITING_APPROVAL"}
+```
+
+默认走审批：谁、在什么时间、对哪个资源、执行什么动作、为什么，全程可追溯。
+
+## 和现有方案的关系
+
+| 方案 | 它解决什么 | 还差什么 |
+|---|---|---|
+| 长期 Token / kubeconfig | 让 Agent 能干活 | 权限无边界、泄露即全量、无法按次审批 |
+| Vault / OpenBao | 凭据集中管理、短命凭据 | 不判断「这个动作该不该发生」 |
+| Teleport | 人和机器的安全接入 | 不提供动作级审批与执行编排 |
+| Kubernetes RBAC | 集群内资源授权 | 管不到 Jenkins / 数据库 / 网络设备 |
+| **Warden** | 动作级授权 + 审批 + 代理执行 + 审计 | 不替代以上任何一层 |
+
+## 界面预览
+
+| 运行总览 | 资源目录 | 拓扑图谱 |
+|---|---|---|
+| ![运行总览](docs/screenshots/02-运行总览.png) | ![资源目录](docs/screenshots/03-资源目录.png) | ![拓扑图谱](docs/screenshots/07-拓扑图谱.png) |
+
+| 执行记录 | 访问审批 | 审计追踪 |
+|---|---|---|
+| ![执行记录](docs/screenshots/04-执行记录.png) | ![访问审批](docs/screenshots/05-访问审批.png) | ![审计追踪](docs/screenshots/06-审计追踪.png) |
+
+<details><summary>项目元信息与文档入口</summary>
+
+| | |
+|---|---|
 | 技术栈 | Go（控制面 + 多种 Connector）、React + TypeScript + Vite（管理端）、PostgreSQL |
 | 隔离模型 | 共享控制面 + 逻辑多租户（`tenant_id` 为租户 slug） |
-| 许可 | [Apache-2.0](LICENSE) |
-| 发布状态 | v0.4.0（2026-11-19）· Apache-2.0；变更记录见 [CHANGELOG.md](CHANGELOG.md) |
+| 发布状态 | Release v0.4.0（2026-11-19）；生产运行 v0.4.2（CHANGELOG [未发布]）· [Apache-2.0](LICENSE) |
 
-**文档入口**：[docs/README.md](docs/README.md)（按"想学 / 想做 / 想查 / 想理解"分类）。
-**接口手册**：[docs/api.md](docs/api.md)。
-**参与贡献**：[CONTRIBUTING.md](CONTRIBUTING.md)；**安全漏洞**：[SECURITY.md](SECURITY.md)。
+**文档入口**：[docs/README.md](docs/README.md)（按"想学 / 想做 / 想查 / 想理解"分类）· **[接口手册](docs/api.md)** · **[参与贡献](CONTRIBUTING.md)** · **[安全漏洞](SECURITY.md)**
+
+</details>
 
 ---
 
@@ -21,11 +67,7 @@
 
 AI Agent 需要操作基础设施：更新 Deployment、查日志、触发构建、查数据库。传统做法是把长期凭据交给 Agent，代价是**权限无边界、泄露即全量暴露、无法审计单次操作、无法按需审批**。
 
-Warden 的答案是「不交凭据，只交付一次受约束的执行」：
-
-> 谁让哪个 Agent，基于什么任务，在什么时间，对哪个资源，执行什么**受约束动作**，以及为什么被允许、怎样执行、如何追溯。
-
-最终有效权限是多层交集，任一层拒绝即不执行：
+Warden 的答案是「不交凭据，只交付一次受约束的执行」。最终有效权限是多层交集，任一层拒绝即不执行：
 
 ```text
 可信主体状态 ∩ 资源/动作目录 ∩ Rego 决策 ∩ AccessGrant 范围与有效期
@@ -36,33 +78,9 @@ Warden 的答案是「不交凭据，只交付一次受约束的执行」：
 
 ---
 
-## 在线体验
+## 本地开发（从源码）
 
-不想本地部署，可直接访问公开演示站（数据为预置的虚构演示数据）：
-
-| | |
-|---|---|
-| 地址 | **https://warden.squawksync.cloud/login** |
-| 演示账号 | `demo@acme` |
-| 密码 | `12345678` |
-
-> 这是只读体验用的公共演示账号，请勿在演示环境存放真实凭据或敏感数据。
-
-**界面预览**：
-
-| 运行总览 | 资源目录 | 拓扑图谱 |
-|---|---|---|
-| ![运行总览](docs/screenshots/02-运行总览.png) | ![资源目录](docs/screenshots/03-资源目录.png) | ![拓扑图谱](docs/screenshots/07-拓扑图谱.png) |
-
-| 执行记录 | 访问审批 | 审计追踪 |
-|---|---|---|
-| ![执行记录](docs/screenshots/04-执行记录.png) | ![访问审批](docs/screenshots/05-访问审批.png) | ![审计追踪](docs/screenshots/06-审计追踪.png) |
-
-更多界面见 [docs/screenshots/](docs/screenshots/)（登录页、执行通道等共 8 张）。
-
----
-
-## 5 分钟跑起来
+> 只想体验请看上方 **快速体验**（`make demo` 免构建、一条命令）；下面是从源码跑起来，完整可复制步骤（密钥文件、迁移、登录、第一次 API 调用与验证点）见 **[docs/quickstart.md](docs/quickstart.md)**（约 15 分钟）。
 
 前置：Docker、Go（版本见 `server/go.mod`）、Node.js（版本见 `web/Dockerfile`）、`openssl`、`curl`。
 
@@ -87,7 +105,7 @@ WARDEN_FOREGROUND=1 scripts/start-local-control.sh
 make web-install && make web-dev
 ```
 
-完整可复制的步骤（含密钥文件、迁移、登录、第一次 API 调用与验证点）见 **[docs/quickstart.md](docs/quickstart.md)**。生产部署请读 **[生产部署](docs/guides.md#installation)**，不要照抄本地配置。
+生产部署请读 **[生产部署](docs/guides.md#installation)**，不要照抄本地配置。
 
 ---
 
