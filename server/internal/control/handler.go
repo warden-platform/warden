@@ -2811,20 +2811,28 @@ func (h *Handler) PollTasks(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusForbidden, "CONNECTOR_NOT_ACTIVE", "Connector 不存在或未激活")
 		return
 	}
+	// 签名密钥在 claim 之前一次性取齐并校验。若解密失败或密钥过短在 claim
+	// 之后才发现，任务已 QUEUED→DISPATCHED 且 use_count 已消耗，却因 return 500
+	// 无法送达 connector，最终被 ExpireDispatchLeases 记为 UNKNOWN（任务丢失 +
+	// 授权浪费）。提前校验可 fail-closed：凭证坏在 claim 前就拦下，不留孤儿任务。
+	signingKey := h.taskSigningKey
+	var encryptedKey []byte
+	if err := h.pool.QueryRow(r.Context(), `SELECT task_key_ciphertext FROM connectors WHERE id=$1`, connID).Scan(&encryptedKey); err == nil && len(encryptedKey) > 0 {
+		if signingKey, err = h.credentialCipher.Decrypt(encryptedKey); err != nil {
+			jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "Connector 凭证解密失败")
+			return
+		}
+	}
+	if len(signingKey) < 32 {
+		jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "任务签名密钥无效")
+		return
+	}
 	tasks, err := h.executions.ClaimTasks(r.Context(), connID, 10)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询任务失败")
 		return
 	}
 	for i := range tasks {
-		signingKey := h.taskSigningKey
-		var encryptedKey []byte
-		if err := h.pool.QueryRow(r.Context(), `SELECT task_key_ciphertext FROM connectors WHERE id=$1`, connID).Scan(&encryptedKey); err == nil && len(encryptedKey) > 0 {
-			if signingKey, err = h.credentialCipher.Decrypt(encryptedKey); err != nil {
-				jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "Connector 凭证解密失败")
-				return
-			}
-		}
 		if err := tasks[i].Sign(signingKey); err != nil {
 			jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "任务签名失败")
 			return
@@ -3132,6 +3140,10 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 		integrationID string
 		complete      bool
 		resources     []syncResourceItem
+		// failed 记录该 batch 内 upsert 失败或被跳过（空 name/type）的资源数。
+		// >0 时禁止 orphan——否则这些资源未写入本次 sync_generation，会被
+		// MarkMissingFromSync 误标为 ORPHANED（资源从活跃目录消失直到下轮）。
+		failed int
 	}
 	grouped := len(req.Groups) > 0
 	var batches []syncBatch
@@ -3202,6 +3214,7 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 		for _, item := range batches[i].resources {
 			total++
 			if item.Name == "" || item.ResourceType == "" {
+				batches[i].failed++
 				continue
 			}
 			res := &domain.Resource{
@@ -3230,6 +3243,7 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 			}
 			if err := h.resources.UpsertFromSync(ctx, res); err != nil {
 				log.Printf("资源同步失败 (connector=%s resource=%s/%s): %v", req.ConnectorID, item.Namespace, item.Name, err)
+				batches[i].failed++
 				continue
 			}
 			synced++
@@ -3237,8 +3251,14 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 	}
 	// Orphan stale resources per batch, but only for complete batches. A partial
 	// discovery pass must not delete resources it merely failed to observe.
-	for _, batch := range batches {
+	for i := range batches {
+		batch := &batches[i]
 		if !batch.complete {
+			continue
+		}
+		if batch.failed > 0 {
+			log.Printf("跳过失效资源回收 (connector=%s integration=%s)：本批 %d 条资源同步失败，保留上一版以避险删",
+				req.ConnectorID, batch.integrationID, batch.failed)
 			continue
 		}
 		if grouped {
