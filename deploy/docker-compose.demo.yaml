@@ -1,0 +1,87 @@
+# 本地一键演示编排（demo）——免构建，用 ACR 公开镜像，仅 localhost http。
+#
+# 由 `make demo`（scripts/demo/run-demo.sh）使用，用户无需 Go/Node/Docker 构建，
+# 一条命令起 postgres + 控制面 + 管理端并灌好演示数据。
+#
+# 与生产的差异（仅演示安全边界）：
+#   - 端口只绑 127.0.0.1，http 明文（无 TLS）
+#   - WARDEN_COOKIE_SECURE=false（http 下会话 cookie 不加 Secure）
+#   - 演示账号弱密码 12345678（仅限本机演示，run-demo.sh 会提示）
+services:
+  postgresql:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: warden
+      POSTGRES_USER: warden
+      POSTGRES_PASSWORD_FILE: /run/secrets/postgres_password
+    ports:
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - warden-demo-pgdata:/var/lib/postgresql/data
+      - ../server/migrations:/migrations:ro
+    secrets:
+      - postgres_password
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warden -d warden"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  warden-control:
+    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.2
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    environment:
+      WARDEN_PORT: "8080"
+      WARDEN_DATABASE_URL_FILE: /run/secrets/warden_database_url
+      WARDEN_PRIVILEGED_DATABASE_URL_FILE: /run/secrets/warden_privileged_database_url
+      WARDEN_TASK_SIGNING_KEY_FILE: /run/secrets/warden_task_signing_key
+      WARDEN_JWT_SIGNING_KEY_FILE: /run/secrets/warden_jwt_signing_key
+      WARDEN_CREDENTIAL_ENCRYPTION_KEY_FILE: /run/secrets/warden_credential_encryption_key
+      WARDEN_ADMIN_API_KEY_FILE: /run/secrets/warden_admin_api_key
+      WARDEN_ADMIN_USERNAME: "admin"
+      WARDEN_ADMIN_PASSWORD_FILE: /run/secrets/warden_admin_password
+      WARDEN_COOKIE_SECURE: "false"
+      WARDEN_PUBLIC_CONTROL_URL: "http://localhost:8080"
+      WARDEN_CORS_ORIGIN: "http://localhost:8081"
+    ports:
+      - "127.0.0.1:8080:8080"
+    secrets:
+      - warden_database_url
+      - warden_privileged_database_url
+      - warden_task_signing_key
+      - warden_jwt_signing_key
+      - warden_credential_encryption_key
+      - warden_admin_api_key
+      - warden_admin_password
+
+  web:
+    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.2
+    depends_on:
+      - warden-control
+    volumes:
+      - ./nginx.prod.example.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "127.0.0.1:8081:8080"
+
+secrets:
+  postgres_password:
+    file: ../.secrets/postgres_password
+  warden_database_url:
+    file: ../.secrets/warden_database_url
+  warden_privileged_database_url:
+    file: ../.secrets/warden_privileged_database_url
+  warden_task_signing_key:
+    file: ../.secrets/warden_task_signing_key
+  warden_jwt_signing_key:
+    file: ../.secrets/warden_jwt_signing_key
+  warden_credential_encryption_key:
+    file: ../.secrets/warden_credential_encryption_key
+  warden_admin_api_key:
+    file: ../.secrets/warden_admin_api_key
+  warden_admin_password:
+    file: ../.secrets/warden_admin_password
+
+volumes:
+  warden-demo-pgdata:
