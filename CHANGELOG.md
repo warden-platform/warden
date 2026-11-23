@@ -29,7 +29,7 @@
 ### 下次发版待办（逐项勾销）
 
 - [x] 生产部署切换到「从 ACR 拉公开镜像」（已完成，生产 compose 已指向 `warden:v0.4.1`，服务器不再 `docker build`）。
-- [ ] 迁移 `112` 与上述「变更」一并部署。
+- [x] 迁移 `112` 与上述「变更」已随 v0.4.1 部署生产（2026-11-23）。
 - [ ] 剩余 P2：Connection Heartbeat 无条件重置状态（会抹掉未启用的 DEGRADED/QUARANTINED）；
   幂等键并发命中唯一约束未捕获 23505（返回 500 而非幂等 200）；登录限流为进程内存态（多副本/重启失效）；
   无 `tenant_id` 的 child/绑定表无 RLS（credential_leases / execution_resource_bindings 等，靠父表 join 兜底）；
