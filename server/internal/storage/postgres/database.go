@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"log"
 
 	"gitee.com/warden-platform/warden/server/internal/config"
 	"gitee.com/warden-platform/warden/server/internal/domain"
@@ -73,4 +74,47 @@ func connectPoolFromDSN(ctx context.Context, dsn string) (*pgxpool.Pool, error) 
 	}
 
 	return pool, nil
+}
+
+// AssertRLSRuntime 校验 RLS 运行时配置，防止整套租户隔离因一条 DSN 配置漂移
+// 而静默失效。返回 error 表示应拒绝启动。
+//
+// 判断：
+//   - 主池角色受 RLS 约束（非 superuser 且非 BYPASSRLS）→ 正常；此时特权 DSN
+//     必须已显式配置，否则 ConnectAdminPool 会回退主池，超管全局视图与后台
+//     janitor（租约回收/审批过期等）将匹配 0 行而静默停摆。
+//   - 主池角色是 superuser → 开发/测试形态，RLS 不在数据库层生效；打警告放行。
+//   - 主池角色非 superuser 却带 BYPASSRLS → 配置错误（业务走了旁路角色，等于
+//     无隔离且无任何告警），拒绝启动。
+func AssertRLSRuntime(ctx context.Context, pool *pgxpool.Pool) error {
+	var rolsuper, rolbypassrls bool
+	err := pool.QueryRow(ctx,
+		"SELECT rolsuper, rolbypassrls FROM pg_roles WHERE rolname = current_user",
+	).Scan(&rolsuper, &rolbypassrls)
+	if err != nil {
+		return fmt.Errorf("探测数据库角色属性: %w", err)
+	}
+
+	rlsEffective := !rolsuper && !rolbypassrls
+
+	switch {
+	case rlsEffective:
+		privileged, err := config.Secret("WARDEN_PRIVILEGED_DATABASE_URL")
+		if err != nil {
+			return fmt.Errorf("读取 WARDEN_PRIVILEGED_DATABASE_URL: %w", err)
+		}
+		if privileged == "" {
+			return fmt.Errorf("主数据库角色受 RLS 约束，但未配置 WARDEN_PRIVILEGED_DATABASE_URL：" +
+				"超管全局视图与后台任务（租约回收/审批过期）将静默失效，拒绝启动")
+		}
+		return nil
+
+	case rolsuper:
+		log.Print("警告：主数据库角色为 superuser，RLS 租户隔离未在数据库层生效（仅限开发/测试环境）")
+		return nil
+
+	default:
+		return fmt.Errorf("主数据库角色具备 BYPASSRLS 但非 superuser：应为受 RLS 约束的普通角色 " +
+			"warden_app，当前配置会绕过租户隔离，拒绝启动")
+	}
 }

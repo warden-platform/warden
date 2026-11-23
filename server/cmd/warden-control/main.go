@@ -28,6 +28,12 @@ func main() {
 	if err != nil {
 		log.Fatalf("数据库连接失败: %v", err)
 	}
+	// RLS 运行时校验：断言主池角色受 RLS 约束且（受约束时）特权 DSN 已配。
+	// 误配（业务走旁路角色 / 漏配特权 DSN）会导致租户隔离静默失效或后台任务停摆，
+	// 一律拒绝启动；superuser 开发形态打警告放行。
+	if err := postgres.AssertRLSRuntime(startupCtx, pool); err != nil {
+		log.Fatalf("RLS 配置校验失败: %v", err)
+	}
 	// 合法跨租户旁路池（特权角色）；未配置 WARDEN_PRIVILEGED_DATABASE_URL 时
 	// 回退主池，单 DSN 开发/测试形态行为不变。须先于 NewHandler 建立，
 	// 供启动期管理员密码同步等无租户 ctx 的旁路使用。
