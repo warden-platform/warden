@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -2880,15 +2879,8 @@ func (h *Handler) SubmitTaskResult(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(result.DispatchToken) == "" {
-		if !strings.EqualFold(strings.TrimSpace(os.Getenv("WARDEN_ENABLE_LEGACY_DISPATCH_RESULT")), "true") {
-			jsonError(w, http.StatusConflict, "MISSING_DISPATCH_TOKEN", "缺少任务分发凭证")
-			return
-		}
-		if err := h.pool.QueryRow(ctx, `SELECT dispatch_token::text FROM executions
-			WHERE id=$1 AND connector_id=$2 AND status='DISPATCHED'`, execID, exec.ConnectorID).Scan(&result.DispatchToken); err != nil {
-			jsonError(w, http.StatusConflict, "MISSING_DISPATCH_TOKEN", "缺少任务分发凭证")
-			return
-		}
+		jsonError(w, http.StatusConflict, "MISSING_DISPATCH_TOKEN", "缺少任务分发凭证")
+		return
 	}
 	result.Result = domain.SanitizeResult(result.Result)
 
