@@ -3132,6 +3132,10 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 		integrationID string
 		complete      bool
 		resources     []syncResourceItem
+		// failed 记录该 batch 内 upsert 失败或被跳过（空 name/type）的资源数。
+		// >0 时禁止 orphan——否则这些资源未写入本次 sync_generation，会被
+		// MarkMissingFromSync 误标为 ORPHANED（资源从活跃目录消失直到下轮）。
+		failed int
 	}
 	grouped := len(req.Groups) > 0
 	var batches []syncBatch
@@ -3202,6 +3206,7 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 		for _, item := range batches[i].resources {
 			total++
 			if item.Name == "" || item.ResourceType == "" {
+				batches[i].failed++
 				continue
 			}
 			res := &domain.Resource{
@@ -3230,6 +3235,7 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 			}
 			if err := h.resources.UpsertFromSync(ctx, res); err != nil {
 				log.Printf("资源同步失败 (connector=%s resource=%s/%s): %v", req.ConnectorID, item.Namespace, item.Name, err)
+				batches[i].failed++
 				continue
 			}
 			synced++
@@ -3237,8 +3243,14 @@ func (h *Handler) SyncResources(w http.ResponseWriter, r *http.Request) {
 	}
 	// Orphan stale resources per batch, but only for complete batches. A partial
 	// discovery pass must not delete resources it merely failed to observe.
-	for _, batch := range batches {
+	for i := range batches {
+		batch := &batches[i]
 		if !batch.complete {
+			continue
+		}
+		if batch.failed > 0 {
+			log.Printf("跳过失效资源回收 (connector=%s integration=%s)：本批 %d 条资源同步失败，保留上一版以避险删",
+				req.ConnectorID, batch.integrationID, batch.failed)
 			continue
 		}
 		if grouped {
