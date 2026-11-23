@@ -973,6 +973,10 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			exec.ErrorMessage = fmt.Sprintf("策略规则「%v」明确拒绝该操作", policyDecision.OPAOutput["matrix_rule_name"])
 		}
 		if err := h.executions.CreateTx(ctx, tx, exec); err != nil {
+			if errors.Is(err, postgres.ErrDuplicateIdempotency) {
+				h.respondIdempotencyHit(w, ctx, tx, exec, res, act, actingProjectID, externalContext)
+				return
+			}
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存拒绝结果失败")
 			return
 		}
@@ -997,6 +1001,10 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			exec.PendingSecret = pending
 		}
 		if err := h.executions.CreateTx(ctx, tx, exec); err != nil {
+			if errors.Is(err, postgres.ErrDuplicateIdempotency) {
+				h.respondIdempotencyHit(w, ctx, tx, exec, res, act, actingProjectID, externalContext)
+				return
+			}
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存审批执行失败")
 			return
 		}
@@ -1045,6 +1053,10 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 	case domain.DecisionAllow:
 		exec.Status = domain.ExecQueued
 		if err := h.executions.CreateTx(ctx, tx, exec); err != nil {
+			if errors.Is(err, postgres.ErrDuplicateIdempotency) {
+				h.respondIdempotencyHit(w, ctx, tx, exec, res, act, actingProjectID, externalContext)
+				return
+			}
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存执行失败")
 			return
 		}
@@ -3667,6 +3679,26 @@ func (h *Handler) UpdateApprovalRule(w http.ResponseWriter, r *http.Request) {
 		"priority":          rule.Priority,
 		"description":       rule.Description,
 	})
+}
+
+// respondIdempotencyHit 处理幂等键并发冲突：CreateTx 命中部分唯一索引返回
+// postgres.ErrDuplicateIdempotency 后，回查已存在执行并校验参数一致，幂等返回
+// 200（而非 500）。返回 true 表示已写响应，调用方应直接 return。
+func (h *Handler) respondIdempotencyHit(w http.ResponseWriter, ctx context.Context, tx pgx.Tx, exec *domain.Execution, res *domain.Resource, act *domain.ActionDefinition, actingProjectID string, externalContext map[string]any) bool {
+	existing, err := h.executions.GetByIdempotencyKey(ctx, exec.PrincipalID, exec.IdempotencyKey)
+	if err != nil || existing == nil {
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询幂等键失败")
+		return true
+	}
+	if existing.ResourceID != res.ID || existing.ActionID != act.ID || existing.ActingProjectID != actingProjectID ||
+		existing.ParameterHash != exec.ParameterHash || !externalContextsEqual(existing.ExternalContext, externalContext) {
+		jsonError(w, http.StatusConflict, "IDEMPOTENCY_CONFLICT", "相同幂等键已用于不同请求")
+		return true
+	}
+	// 唯一约束冲突已使事务进入 abort 状态，回滚后返回已存在的执行。
+	_ = tx.Rollback(ctx)
+	jsonResp(w, http.StatusOK, executionToResp(existing))
+	return true
 }
 
 func executionToResp(e *domain.Execution) map[string]any {

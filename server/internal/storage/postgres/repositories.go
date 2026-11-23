@@ -1506,6 +1506,11 @@ func (r *ExecutionRepo) CreateTx(ctx context.Context, tx pgx.Tx, e *domain.Execu
 	return createExecution(ctx, tx, e)
 }
 
+// ErrDuplicateIdempotency 表示并发下相同 (principal_id, idempotency_key) 已存在，
+// createExecution 命中部分唯一索引后不插入（DO NOTHING）。调用方应回查幂等键
+// 返回已存在的执行，而非报 500。
+var ErrDuplicateIdempotency = errors.New("duplicate idempotency key")
+
 func createExecution(ctx context.Context, db interface {
 	QueryRow(context.Context, string, ...any) pgx.Row
 }, e *domain.Execution) error {
@@ -1517,8 +1522,9 @@ func createExecution(ctx context.Context, db interface {
 		executor_type, pending_secret)
 		VALUES ($1,$2,$3,nullif($4,'')::uuid,$5,nullif($6,'')::uuid,nullif($7,'')::uuid,nullif($8,'')::uuid,
 		nullif($9,'')::uuid,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26)
+		ON CONFLICT (principal_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
 		RETURNING id, created_at, updated_at`
-	return db.QueryRow(ctx, query,
+	err := db.QueryRow(ctx, query,
 		tenantID, nullIf(e.GrantID), e.PrincipalID, e.ActingProjectID, e.ExternalContext,
 		e.DelegationTokenID, e.OnBehalfOfPrincipalID, e.AccountablePrincipalID, e.CredentialID, e.ResourceID, e.ActionID,
 		e.Parameters, e.ParameterHash, e.Status, nullIf(e.DecisionID),
@@ -1526,6 +1532,10 @@ func createExecution(ctx context.Context, db interface {
 		e.TimeoutSeconds, e.ExpiresAt, nullIf(e.ConnectorID), nullIf(e.ErrorCode), nullIf(e.ErrorMessage),
 		e.ExecutorType, e.PendingSecret).
 		Scan(&e.ID, &e.CreatedAt, &e.UpdatedAt)
+	if err == pgx.ErrNoRows && e.IdempotencyKey != "" {
+		return ErrDuplicateIdempotency
+	}
+	return err
 }
 
 func (r *ExecutionRepo) AttachGrantTx(ctx context.Context, tx pgx.Tx, id, grantID string, expiresAt time.Time) error {
