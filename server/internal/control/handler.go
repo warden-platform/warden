@@ -2811,20 +2811,28 @@ func (h *Handler) PollTasks(w http.ResponseWriter, r *http.Request) {
 		jsonError(w, http.StatusForbidden, "CONNECTOR_NOT_ACTIVE", "Connector 不存在或未激活")
 		return
 	}
+	// 签名密钥在 claim 之前一次性取齐并校验。若解密失败或密钥过短在 claim
+	// 之后才发现，任务已 QUEUED→DISPATCHED 且 use_count 已消耗，却因 return 500
+	// 无法送达 connector，最终被 ExpireDispatchLeases 记为 UNKNOWN（任务丢失 +
+	// 授权浪费）。提前校验可 fail-closed：凭证坏在 claim 前就拦下，不留孤儿任务。
+	signingKey := h.taskSigningKey
+	var encryptedKey []byte
+	if err := h.pool.QueryRow(r.Context(), `SELECT task_key_ciphertext FROM connectors WHERE id=$1`, connID).Scan(&encryptedKey); err == nil && len(encryptedKey) > 0 {
+		if signingKey, err = h.credentialCipher.Decrypt(encryptedKey); err != nil {
+			jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "Connector 凭证解密失败")
+			return
+		}
+	}
+	if len(signingKey) < 32 {
+		jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "任务签名密钥无效")
+		return
+	}
 	tasks, err := h.executions.ClaimTasks(r.Context(), connID, 10)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询任务失败")
 		return
 	}
 	for i := range tasks {
-		signingKey := h.taskSigningKey
-		var encryptedKey []byte
-		if err := h.pool.QueryRow(r.Context(), `SELECT task_key_ciphertext FROM connectors WHERE id=$1`, connID).Scan(&encryptedKey); err == nil && len(encryptedKey) > 0 {
-			if signingKey, err = h.credentialCipher.Decrypt(encryptedKey); err != nil {
-				jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "Connector 凭证解密失败")
-				return
-			}
-		}
 		if err := tasks[i].Sign(signingKey); err != nil {
 			jsonError(w, http.StatusInternalServerError, "TASK_SIGNING_FAILED", "任务签名失败")
 			return
