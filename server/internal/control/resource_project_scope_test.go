@@ -196,7 +196,7 @@ func TestExecutionPersistsActingProjectAcrossDecisionAndAudit(t *testing.T) {
 	}
 	const dispatchToken = "00000000-0000-4000-8000-000000000123"
 	if _, err := pool.Exec(ctx, `UPDATE executions SET status='DISPATCHED', executor_type='connector', connector_id=$2,
-		dispatch_token=$3, dispatch_expires_at=now()+interval '5 minutes' WHERE id=$1`, execution.ID, connectorID, dispatchToken); err != nil {
+		dispatch_token=$3, dispatch_token_hash=$4, dispatch_expires_at=now()+interval '5 minutes' WHERE id=$1`, execution.ID, connectorID, dispatchToken, domain.HashDispatchToken(dispatchToken)); err != nil {
 		t.Fatal(err)
 	}
 	resultBody := bytes.NewBufferString(`{"dispatchToken":"` + dispatchToken + `","status":"SUCCEEDED","result":{"ok":true}}`)

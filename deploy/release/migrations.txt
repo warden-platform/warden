@@ -71,3 +71,4 @@
 109_rls_first_batch.sql
 110_rls_second_batch.sql
 111_drop_execution_attempts_outbox.sql
+112_dispatch_token_hash.sql
