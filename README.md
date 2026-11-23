@@ -1,5 +1,9 @@
 # Warden
 
+[![CI](https://github.com/warden-platform/warden/actions/workflows/ci.yml/badge.svg)](https://github.com/warden-platform/warden/actions/workflows/ci.yml)
+[![Release](https://img.shields.io/github/v/release/warden-platform/warden)](https://github.com/warden-platform/warden/releases)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
 > 面向 AI Agent 的**动作级授权与代理执行平台**。
 > Agent 拿到的不是 kubeconfig、长期 Token 或数据库口令，而是一次受策略、审批、签名与审计约束的**执行**，以及一个可追溯的 `execution_id`。
 
@@ -9,7 +13,7 @@
 | 技术栈 | Go（控制面 + 多种 Connector）、React + TypeScript + Vite（管理端）、PostgreSQL |
 | 隔离模型 | 共享控制面 + 逻辑多租户（`tenant_id` 为租户 slug） |
 | 许可 | [Apache-2.0](LICENSE) |
-| 发布状态 | v0.4.0（2026-11-19）· Apache-2.0；变更记录见 [CHANGELOG.md](CHANGELOG.md) |
+| 发布状态 | Release v0.4.0（2026-11-19）；生产运行 v0.4.2（CHANGELOG [未发布]）· [Apache-2.0](LICENSE) |
 
 **文档入口**：[docs/README.md](docs/README.md)（按"想学 / 想做 / 想查 / 想理解"分类）。
 **接口手册**：[docs/api.md](docs/api.md)。
