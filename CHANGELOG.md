@@ -5,13 +5,38 @@
 
 ## [未发布]
 
-### 变更
+### 变更（已合并 master，尚未部署生产）
 
-- 部署免构建：compose 生产示例与 Helm Chart 默认镜像改为阿里云 ACR 发布镜像
+- **dispatch_token 哈希落库**：任务分发令牌明文仅一次性下发给 Connector，数据库只存
+  sha256 哈希（迁移 `112_dispatch_token_hash.sql`），防止库只读者回放令牌伪造执行结果；
+  同步移除 `WARDEN_ENABLE_LEGACY_DISPATCH_RESULT` 旧兼容路径。
+- **钉钉卡片流自动重连**：连接失败 5 秒退避重试，避免一次网络抖动后审批卡片回调永久失联。
+- **RLS 运行时探针**：启动断言主池角色受 RLS 约束且特权 DSN 已配，配置漂移即拒绝启动
+  （不再静默失效）。
+- **admin API key 审计溯源**：break-glass key 认证标记 `auth_source=admin_api_key`、
+  登录会话标 `admin_session`，审计可区分来源。
+- **请求日志补状态码 + X-Request-ID**、**前端 4 处加载失败不再静默吞空态**、
+  **资源同步部分失败跳过 orphan**、**任务签名 claim 前校验**。
+
+### 部署免构建
+
+- 生产 Compose 示例与 Helm Chart 默认镜像改为阿里云 ACR 发布镜像
   （`registry.cn-hangzhou.aliyuncs.com/warden-stable/{warden,warden-web,warden-operator,warden-connector}`），
   `scripts/publish-acr.sh` 相应增补 operator/connector 两镜像；官方仓库公开、
   匿名可拉取，私有/自建仓库才需 `docker login`（Helm 配 `imagePullSecret`），
   自建仍为可选路径。
+
+### 下次发版待办（逐项勾销）
+
+- [ ] 生产部署切换到「从 ACR 拉公开镜像」（替代服务器 `docker build`，省编译 + 磁盘）。
+- [ ] 迁移 `112` 与上述「变更」一并部署。
+- [ ] 剩余 P2：Connection Heartbeat 无条件重置状态（会抹掉未启用的 DEGRADED/QUARANTINED）；
+  幂等键并发命中唯一约束未捕获 23505（返回 500 而非幂等 200）；登录限流为进程内存态（多副本/重启失效）；
+  无 `tenant_id` 的 child/绑定表无 RLS（credential_leases / execution_resource_bindings 等，靠父表 join 兜底）；
+  `notifyApprovalAsync` 无并发上限；在途配额检查 TOCTOU。
+- [ ] 死代码/死状态清理：`ExecutionRepo.UpdateStatus`（无 CAS 盲覆盖）、`RUNNING/CANCELLING/DEGRADED/QUARANTINED` 死枚举。
+- [ ] 前端卫生：`ApiExecution.status` 裸 string、90s 心跳阈值魔数、中文文案当控制流键（`action-panel/utils.ts`）、CANCELLED/EXPIRED 时长误判「未结束」。
+- [ ] 长期：迁移 106 第 8 步无条件撤销会话（`migrate-release` 每次重放即全站登出）；执行列表项目过滤 SQL 下推（已定维持现状）。
 
 ## [0.4.0] - 2026-11-19
 
