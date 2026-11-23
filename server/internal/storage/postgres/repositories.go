@@ -1638,13 +1638,6 @@ func (r *ExecutionRepo) GetRecentDatabaseQueryPreview(ctx context.Context, princ
 	return &preview, nil
 }
 
-func (r *ExecutionRepo) UpdateStatus(ctx context.Context, id string, status domain.ExecutionStatus, errorCode, errorMessage string) error {
-	query := `UPDATE executions SET status = $2, error_code = $3, error_message = $4, updated_at = now()
-		WHERE id = $1 AND tenant_id=$5`
-	_, err := r.pool.Exec(ctx, query, id, status, nullIf(errorCode), nullIf(errorMessage), repositoryTenant(ctx))
-	return err
-}
-
 // TransitionStatus applies a compare-and-set state transition. Callers must
 // name the expected source state so concurrent terminal updates cannot overwrite
 // one another.
