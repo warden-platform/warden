@@ -23,8 +23,7 @@ export function connectorSupportsAction(connector: ApiConnector, action: ApiActi
 }
 
 export const actionNeedsUpgrade = (action: ApiAction) =>
-  action.available === false &&
-  (action.availability_code === 'CONNECTOR_UPGRADE_REQUIRED' || action.availability_reason === '需要升级执行通道')
+  action.available === false && action.availability_code === 'CONNECTOR_UPGRADE_REQUIRED'
 
 export function withTimeout<T>(promise: Promise<T>, milliseconds = 10_000): Promise<T> {
   return Promise.race([

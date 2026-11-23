@@ -215,7 +215,20 @@ func (h *Handler) notifyApprovalAsync(parent context.Context, request domain.Acc
 		log.Printf("skip DingTalk approval notification without tenant context: event=%s request=%s", event, request.ID)
 		return
 	}
+	// 非阻塞限流：信号量满则丢弃本次通知（卡片状态仍由后续生命周期事件的
+	// reconcile 兜底），避免审批批次（批量过期/卡片风暴）派生无界 goroutine。
+	if h.notifySem != nil {
+		select {
+		case h.notifySem <- struct{}{}:
+		default:
+			log.Printf("DingTalk approval notification dropped (concurrency limit): event=%s request=%s", event, request.ID)
+			return
+		}
+	}
 	go func(tenantID string) {
+		if h.notifySem != nil {
+			defer func() { <-h.notifySem }()
+		}
 		background := domain.WithTenantID(context.Background(), tenantID)
 		ctx, cancel := context.WithTimeout(background, 25*time.Second)
 		defer cancel()

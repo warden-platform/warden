@@ -19,7 +19,7 @@ export function apiResourceToView(r: ApiResource, connectorName: string): Resour
 
 export function apiExecutionToView(e: ApiExecution, resourceLookup?: (id: string) => ApiResource | undefined): Execution {
   const res = e.resourceName ? undefined : resourceLookup?.(e.resourceId)
-  const hasFinished = e.status === 'SUCCEEDED' || e.status === 'FAILED'
+  const hasFinished = ['SUCCEEDED', 'FAILED', 'CANCELLED', 'EXPIRED', 'UNKNOWN'].includes(e.status)
   const dur =
     hasFinished && e.updatedAt && e.createdAt
       ? Math.max(0, (new Date(e.updatedAt).getTime() - new Date(e.createdAt).getTime()) / 1000).toFixed(1) + 's'
