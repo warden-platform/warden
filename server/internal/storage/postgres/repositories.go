@@ -2551,10 +2551,17 @@ func (r *ConnectorRepo) GetByID(ctx context.Context, id string) (*domain.Connect
 
 func (r *ConnectorRepo) Heartbeat(ctx context.Context, id string) error {
 	tenantID := repositoryTenant(ctx)
+	// 停用（DISABLED）/隔离（QUARANTINED）是非健康态，不应被一次心跳自动复活；
+	// DELETE_REQUESTED 显式转为 DISABLED；其余（ACTIVE/DEGRADED/TESTING/DRAFT）
+	// 心跳恢复 ACTIVE。
 	_, err := r.pool.Exec(ctx, `UPDATE connectors SET last_heartbeat = now(),
-		status=CASE WHEN EXISTS (
-			SELECT 1 FROM cluster_pairings WHERE connector_id=$1 AND status='DELETE_REQUESTED'
-		) THEN 'DISABLED'::connector_status ELSE 'ACTIVE'::connector_status END
+		status=CASE
+			WHEN EXISTS (
+				SELECT 1 FROM cluster_pairings WHERE connector_id=$1 AND status='DELETE_REQUESTED'
+			) THEN 'DISABLED'::connector_status
+			WHEN status IN ('DISABLED','QUARANTINED') THEN status
+			ELSE 'ACTIVE'::connector_status
+		END
 		WHERE id=$1 AND tenant_id=$2`, id, tenantID)
 	return err
 }
