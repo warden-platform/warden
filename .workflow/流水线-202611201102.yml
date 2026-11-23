@@ -14,7 +14,7 @@ displayName: 镜像发布（ACR）
 # parameter（KeyMap），不是 buildArgs；context 字段有效；type 默认 cert。
 # 兜底：scripts/publish-acr.sh 在 ECS 上可完成同样的发布。
 variables:
-  VERSION: v0.4.1
+  VERSION: v0.4.2
 stages:
 - name: publish
   displayName: 构建并推送
