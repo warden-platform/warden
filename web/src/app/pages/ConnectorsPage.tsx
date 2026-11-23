@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Activity, AlertTriangle, ArrowRight, Boxes, CheckCircle2, Loader2, Network, ServerCog, ShieldCheck } from 'lucide-react'
 import { useNavigate } from '../../shared/router'
 import type { ApiConnector, ApiError, ConnectorCheckResponse } from '../../shared/api'
-import { checkConnector, connectorHealthLabel, isConnectorHealthy, listConnectors } from '../../shared/api'
+import { checkConnector, connectorHealthLabel, HEARTBEAT_FRESH_SECONDS, isConnectorHealthy, listConnectors } from '../../shared/api'
 import { connectorChannelPrefix, connectorTypeLabel, mapEnvironment } from '../../shared/types'
 import { Badge } from '../components/Badge'
 import { EmptyState, ErrorState, LoadingState } from '../components/States'
@@ -57,7 +57,7 @@ export function ConnectorsPage() {
         <div className="panel">
           <div className="ops-ph">
             <span>Connector Channels · 执行通道</span>
-            <span className="topbar-live" title="心跳在 90 秒内视为在线">
+            <span className="topbar-live" title={`心跳在 ${HEARTBEAT_FRESH_SECONDS} 秒内视为在线`}>
               <i aria-hidden="true" />
               {connectors.filter((c) => isConnectorHealthy(c, now)).length}/{connectors.length} 在线
             </span>

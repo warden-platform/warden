@@ -743,7 +743,7 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 		connectorType = connector.ConnectorType
 	}
 	if !controlPlane {
-		if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > 90*time.Second {
+		if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > connectorHeartbeatFreshWindow {
 			jsonError(w, http.StatusConflict, "CONNECTOR_NOT_ACTIVE", "资源所属 Connector 心跳已超时")
 			return
 		}
@@ -2515,6 +2515,10 @@ func (h *Handler) ListResourceActions(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusOK, result)
 }
 
+// connectorHeartbeatFreshWindow 心跳新鲜阈值：超过即视为离线/心跳 stale。
+// 前端 web/src/shared/api/connectors.ts 的 HEARTBEAT_FRESH_SECONDS 须与此一致。
+const connectorHeartbeatFreshWindow = 90 * time.Second
+
 var genericKubernetesConcreteTypes = map[string]bool{
 	"configmap": true, "service": true, "deployment": true, "statefulset": true, "daemonset": true,
 	"job": true, "cronjob": true, "ingress": true, "networkpolicy": true, "poddisruptionbudget": true,
@@ -2584,7 +2588,7 @@ func resourceActionAvailability(ctx context.Context, h *Handler, resource *domai
 	if connector.Status != domain.ConnectorActive {
 		return false, "CONNECTOR_NOT_ACTIVE", "执行通道未激活"
 	}
-	if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > 90*time.Second {
+	if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > connectorHeartbeatFreshWindow {
 		return false, "CONNECTOR_HEARTBEAT_TIMEOUT", "执行通道心跳已超时"
 	}
 	if resource.IntegrationID != "" {
