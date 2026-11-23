@@ -62,7 +62,7 @@ function useClock() {
 export function AppTopbar({ onMenu }: { onMenu: () => void }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const { auth, signOut } = useApp()
+  const { auth, signOut, notify } = useApp()
   const title = resolveTitle(location.pathname)
   const { dark, toggle } = useDarkMode()
   const clock = useClock()
@@ -76,8 +76,8 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
     if (!isSuperAdmin) return
     listTenants()
       .then((items) => setOrgs(items ?? []))
-      .catch(() => setOrgs([]))
-  }, [isSuperAdmin])
+      .catch(() => { setOrgs([]); notify('组织列表加载失败', 'error') })
+  }, [isSuperAdmin, notify])
   const switchOrg = (slug: string) => {
     setObservedTenant(slug)
     // Full navigation remounts every page so no stale tenant data survives.
