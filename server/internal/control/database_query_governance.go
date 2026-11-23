@@ -119,9 +119,9 @@ func (h *Handler) escalateRuntimeDatabaseQueryApproval(ctx context.Context, exec
 	defer tx.Rollback(ctx)
 	command, err := tx.Exec(ctx, `UPDATE executions
 		SET status='WAITING_APPROVAL', result=$3, error_code=NULL, error_message=NULL,
-			grant_id=NULL, expires_at=NULL, dispatch_token=NULL, dispatch_expires_at=NULL, updated_at=now()
-		WHERE id=$1 AND dispatch_token=$2::uuid AND status='DISPATCHED'
-			AND tenant_id=$4 AND dispatch_expires_at >= now()`, exec.ID, dispatchToken, assessment, domain.TenantIDFromContext(ctx))
+			grant_id=NULL, expires_at=NULL, dispatch_token_hash=NULL, dispatch_expires_at=NULL, updated_at=now()
+		WHERE id=$1 AND dispatch_token_hash=$2 AND status='DISPATCHED'
+			AND tenant_id=$4 AND dispatch_expires_at >= now()`, exec.ID, domain.HashDispatchToken(dispatchToken), assessment, domain.TenantIDFromContext(ctx))
 	if err != nil || command.RowsAffected() != 1 {
 		return nil, command.RowsAffected() == 1, err
 	}

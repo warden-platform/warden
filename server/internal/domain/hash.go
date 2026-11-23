@@ -36,6 +36,13 @@ func NewTraceID() string {
 	return hex.EncodeToString(h.Sum(nil)[:16])
 }
 
+// HashDispatchToken 对任务分发令牌做不可逆哈希，落库存哈希而非明文，防止
+// 拥有库只读权限者可回放 dispatch_token 伪造执行结果。
+func HashDispatchToken(token string) string {
+	sum := sha256.Sum256([]byte(token))
+	return hex.EncodeToString(sum[:])
+}
+
 func flatten(v any) string {
 	switch val := v.(type) {
 	case string:

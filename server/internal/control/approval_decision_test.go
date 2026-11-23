@@ -92,6 +92,18 @@ func TestDecideApprovalApproveIssuesOneTimeGrant(t *testing.T) {
 	if len(tasks) != 1 {
 		t.Fatalf("first claim tasks=%d, want 1", len(tasks))
 	}
+	// dispatch_token 哈希落库：明文清空、存 sha256 哈希（防库只读者回放）
+	var tokenHash string
+	var plaintextCleared bool
+	if err := pool.QueryRow(ctx, `SELECT dispatch_token IS NULL, COALESCE(dispatch_token_hash,'') FROM executions WHERE id=$1`, tasks[0].ExecutionID).Scan(&plaintextCleared, &tokenHash); err != nil {
+		t.Fatal(err)
+	}
+	if !plaintextCleared || tokenHash == "" {
+		t.Fatal("dispatch_token 明文未清空或哈希未落库")
+	}
+	if tokenHash != domain.HashDispatchToken(tasks[0].DispatchToken) {
+		t.Fatalf("dispatch_token_hash=%s != hash(明文)", tokenHash)
+	}
 	if err := pool.QueryRow(ctx, `SELECT status FROM access_grants WHERE id=$1`, grantID).Scan(&grantStatus); err != nil {
 		t.Fatal(err)
 	}

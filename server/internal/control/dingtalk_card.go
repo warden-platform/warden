@@ -190,13 +190,27 @@ func (h *Handler) startDingTalkCardStream(ctx context.Context) {
 	client := streamclient.NewStreamClient(streamclient.WithAppCredential(streamclient.NewAppCredentialConfig(h.dingTalkCard.app.appKey, h.dingTalkCard.app.appSecret)))
 	client.RegisterCardCallbackRouter(h.handleDingTalkCardCallback)
 	go func() {
-		if err := client.Start(ctx); err != nil && ctx.Err() == nil {
-			log.Printf("DingTalk card Stream start failed: %v", err)
+		for {
+			if ctx.Err() != nil {
+				return
+			}
+			if err := client.Start(ctx); err != nil {
+				if ctx.Err() != nil {
+					return // 正常关闭
+				}
+				log.Printf("DingTalk card Stream connection failed: %v; retrying in 5s", err)
+				select {
+				case <-time.After(5 * time.Second):
+				case <-ctx.Done():
+					return
+				}
+				continue
+			}
+			log.Printf("DingTalk card Stream connected")
+			<-ctx.Done()
+			client.Close()
 			return
 		}
-		log.Printf("DingTalk card Stream connected")
-		<-ctx.Done()
-		client.Close()
 	}()
 }
 

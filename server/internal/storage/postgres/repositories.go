@@ -143,8 +143,8 @@ func (r *PrincipalRepo) Delete(ctx context.Context, id string) error {
 		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('WAITING_APPROVAL','QUEUED')`, id, tenantID); err != nil {
 		return err
 	}
-	if _, err = tx.Exec(ctx, `UPDATE executions SET status='UNKNOWN', error_code='PRINCIPAL_DISABLED_DURING_DISPATCH',
-		error_message='任务分发后请求身份被停用，目标系统可能已经执行',dispatch_token=[REDACTED],dispatch_expires_at=NULL,updated_at=now()
+if _, err = tx.Exec(ctx, `UPDATE executions SET status='UNKNOWN', error_code='PRINCIPAL_DISABLED_DURING_DISPATCH',
+		error_message='任务分发后请求身份被停用，目标系统可能已经执行',dispatch_token_hash=NULL,dispatch_expires_at=NULL,updated_at=now()
 		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('DISPATCHED','RUNNING')`, id, tenantID); err != nil {
 		return err
 	}
@@ -1689,9 +1689,9 @@ func (r *ExecutionRepo) Finalize(ctx context.Context, id, dispatchToken string, 
 	tenantID := repositoryTenant(ctx)
 	command, err := r.pool.Exec(ctx, `UPDATE executions
 		SET status=$3, result=$4, error_code=$5, error_message=$6,
-			dispatch_token=NULL, dispatch_expires_at=NULL, updated_at=now()
-		WHERE id=$1 AND dispatch_token=$2::uuid AND status='DISPATCHED'
-			AND tenant_id=$7 AND dispatch_expires_at >= now()`, id, dispatchToken, status, result, nullIf(errorCode), nullIf(errorMessage), tenantID)
+			dispatch_token_hash=NULL, dispatch_expires_at=NULL, updated_at=now()
+		WHERE id=$1 AND dispatch_token_hash=$2 AND status='DISPATCHED'
+			AND tenant_id=$7 AND dispatch_expires_at >= now()`, id, domain.HashDispatchToken(dispatchToken), status, result, nullIf(errorCode), nullIf(errorMessage), tenantID)
 	if err != nil {
 		return false, err
 	}
@@ -1710,9 +1710,9 @@ func (r *ExecutionRepo) FinalizeWithLease(ctx context.Context, id, dispatchToken
 	defer tx.Rollback(ctx)
 	command, err := tx.Exec(ctx, `UPDATE executions
 		SET status=$3, result=$4, error_code=$5, error_message=$6,
-			dispatch_token=NULL, dispatch_expires_at=NULL, updated_at=now()
-		WHERE id=$1 AND dispatch_token=$2::uuid AND status='DISPATCHED'
-			AND tenant_id=$7 AND dispatch_expires_at >= now()`, id, dispatchToken, status, result, nullIf(errorCode), nullIf(errorMessage), tenantID)
+			dispatch_token_hash=NULL, dispatch_expires_at=NULL, updated_at=now()
+		WHERE id=$1 AND dispatch_token_hash=$2 AND status='DISPATCHED'
+			AND tenant_id=$7 AND dispatch_expires_at >= now()`, id, domain.HashDispatchToken(dispatchToken), status, result, nullIf(errorCode), nullIf(errorMessage), tenantID)
 	if err != nil || command.RowsAffected() != 1 {
 		return command.RowsAffected() == 1, err
 	}
@@ -2052,6 +2052,13 @@ func (r *ExecutionRepo) ClaimTasks(ctx context.Context, connectorID string, limi
 		return nil, err
 	}
 	rows.Close()
+	// 令牌明文仅当次下发，落库存哈希防库只读者可回放（rows 已关闭，连接空闲可安全写）。
+	for _, task := range tasks {
+		if _, err := tx.Exec(ctx, `UPDATE executions SET dispatch_token_hash=$1, dispatch_token=NULL WHERE id=$2`,
+			domain.HashDispatchToken(task.DispatchToken), task.ExecutionID); err != nil {
+			return nil, err
+		}
+	}
 	for _, grantID := range grantIDs {
 		if _, err := tx.Exec(ctx, `UPDATE access_grants SET use_count = use_count + 1,
 			status = CASE WHEN use_count + 1 >= max_uses THEN 'USED' ELSE status END
@@ -2072,7 +2079,7 @@ func (r *ExecutionRepo) ExpireDispatchLeases(ctx context.Context) (int64, error)
 	command, err := r.admin().Exec(ctx, `UPDATE executions
 		SET status='UNKNOWN', error_code='DISPATCH_LEASE_EXPIRED',
 			error_message='任务分发租约过期，目标系统可能已经执行',
-			dispatch_token=NULL, dispatch_expires_at=NULL, updated_at=now()
+			dispatch_token_hash=NULL, dispatch_expires_at=NULL, updated_at=now()
 		WHERE status='DISPATCHED' AND (dispatch_expires_at < now()
 			OR (dispatch_expires_at IS NULL AND updated_at < now()-interval '5 minutes'))`)
 	if err != nil {
