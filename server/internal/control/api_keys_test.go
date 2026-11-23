@@ -283,3 +283,19 @@ func TestIdentityAuthMiddlewareAddsAuthenticatedIdentity(t *testing.T) {
 		t.Fatalf("got %d", resp.Code)
 	}
 }
+
+// TestAdminAPIKeyAuthenticationMarksSource 验证 admin API key（break-glass）
+// 认证返回的 identity 带 auth_source 审计标记，便于区别于登录会话，事后溯源。
+func TestAdminAPIKeyAuthenticationMarksSource(t *testing.T) {
+	h := &Handler{adminAPIKey: "0123456789abcdef0123456789abcdef"}
+	identity, err := h.authenticate(context.Background(), h.adminAPIKey, "192.0.2.10:1234")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identity == nil || identity.Kind != "ADMIN" || !identity.IsPlatformAdmin {
+		t.Fatalf("admin api key auth = %#v, want ADMIN platform identity", identity)
+	}
+	if identity.AuditMetadata == nil || identity.AuditMetadata["auth_source"] != "admin_api_key" {
+		t.Fatalf("auth_source = %v, want admin_api_key", identity.AuditMetadata)
+	}
+}
