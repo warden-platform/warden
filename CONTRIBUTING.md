@@ -59,10 +59,9 @@ master 是保护分支，禁止直接 push，一律走 PR：
 2. `make verify` 全绿后按主题 commit、push、走上面的 PR 流程合入；打 annotated tag（如 `v0.4.1`）并 push。
 3. `make sync-github TAG=v0.4.1` 一键同步：导出 tag 树追加快照 commit、推 tag、从 CHANGELOG 对应小节提取正文创建 GitHub Release；日常不同步 tag 时直接 `make sync-github`。
 4. 镜像发布：**Gitee Go「镜像发布（ACR）」流水线手动触发、填 `VERSION=vX.Y.Z`**（`build@docker` 引用账号级凭证 `ali-docker`，见 `.workflow/流水线-*.yml`），构建 control/web/operator/connector 四镜像只打 version tag；兜底用构建机 `scripts/publish-acr.sh vX.Y.Z`（version+latest 双 tag，凭据 `.secrets/acr_*` 600）。compose 示例与 Helm Chart 默认指向 ACR 公开镜像，使用者免构建。
-5. 生产部署：
-   - 备份（pg_dump `-Fc` + compose/nginx 快照）→ 应用 `deploy/release/migrations.txt` 中的新迁移（`docker exec ... psql -v ON_ERROR_STOP=1 -1 < SQL`）→ 部署镜像并重启 → 公网验证 health/登录/SSO 未破坏。
-   - **当前**：服务器 `docker build`（冷编译约 20min、磁盘压力大）。
-   - **待切换**：生产 `docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:vX.Y.Z` 直接部署（镜像公开匿名可拉，免编译免磁盘压力，见 CHANGELOG 待办）。
+5. 生产部署（从 ACR 拉公开镜像，服务器不编译）：
+   - 备份（pg_dump `-Fc` + compose/nginx 快照）→ 应用 `deploy/release/migrations.txt` 中的新迁移（`docker exec ... psql -v ON_ERROR_STOP=1 -1 < SQL`）→ 生产 compose 的 `image` 指向 `registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:vX.Y.Z` → `docker compose up -d`（自动 pull）→ 公网验证 health/登录/SSO 未破坏。
+   - 镜像由「镜像发布（ACR）」流水线构建推 ACR，公开匿名可拉（免编译、免磁盘压力、与开源使用者同源可复现）；服务器不再 `docker build`。
 
 注意：Gitee 侧删除 tag 会**级联删除**对应 Release，移动 tag 后须用 API 重建；`sync-github` 幂等（树一致跳过 commit，tag/Release 已存在跳过），GitHub 侧走系统代理（`GITHUB_PROXY` 可覆盖）；`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
 
