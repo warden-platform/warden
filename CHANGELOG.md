@@ -30,12 +30,8 @@
 
 - [x] 生产部署切换到「从 ACR 拉公开镜像」（已完成，生产 compose 已指向 `warden:v0.4.1`，服务器不再 `docker build`）。
 - [x] 迁移 `112` 与上述「变更」已随 v0.4.1 部署生产（2026-11-23）。
-- [ ] 剩余 P2：Connection Heartbeat 无条件重置状态（会抹掉未启用的 DEGRADED/QUARANTINED）；
-  幂等键并发命中唯一约束未捕获 23505（返回 500 而非幂等 200）；登录限流为进程内存态（多副本/重启失效）；
-  无 `tenant_id` 的 child/绑定表无 RLS（credential_leases / execution_resource_bindings 等，靠父表 join 兜底）；
-  `notifyApprovalAsync` 无并发上限；在途配额检查 TOCTOU。
-- [ ] 死代码/死状态清理：`ExecutionRepo.UpdateStatus`（无 CAS 盲覆盖）、`RUNNING/CANCELLING/DEGRADED/QUARANTINED` 死枚举。
-- [ ] 前端卫生：`ApiExecution.status` 裸 string、90s 心跳阈值魔数、中文文案当控制流键（`action-panel/utils.ts`）、CANCELLED/EXPIRED 时长误判「未结束」。
+- [x] P2 已清（2026-11-23）：死代码清理（UpdateStatus + 死枚举标注）、Heartbeat 停用/隔离态不复活、幂等键并发 23505 幂等返回、审批通知并发限流、前端卫生（状态枚举 union / 终态时长 / 去中文控制流键 / 心跳魔数命名化）。
+- [ ] 剩余 P2 已评估登记为已知限制（见 architecture 债务表，不硬改）：登录限流单实例内存态（多副本需共享存储）、child/绑定表无 tenant_id（需设计）、在途配额 TOCTOU（护栏非精确）。
 - [ ] 长期：迁移 106 第 8 步无条件撤销会话（`migrate-release` 每次重放即全站登出）；执行列表项目过滤 SQL 下推（已定维持现状）。
 
 ## [0.4.0] - 2026-11-19

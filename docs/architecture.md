@@ -328,6 +328,8 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 | `audit_events.action` 是 PostgreSQL 枚举 | 每个新审计动作名都必须配套迁移，否则审计静默丢失 | 已有单测约束迁移清单，但枚举仍需手工补 |
 | 非内置 `platform_admin` 仍被 JWT 签发兼容识别 | 直接改库或遗留数据仍可能获得 `warden:admin`，严格单超管尚未形成运行时硬约束 | 管理入口与迁移 `099` 已限制；后续需收敛 `issueJWTWithTTL` 分支及既有测试 |
 | 静态 `WARDEN_ADMIN_API_KEY` 是全局共享 break-glass 超管凭据，无运行期过期，轮换需改 `_FILE` 内容 + 重启 | 泄露即全权接管 | 已加 `auth_source` 审计溯源标记区分 break-glass 与登录会话；定期轮换按手册操作 |
+| 登录限流（10 次/5min）为进程内存 map | 多副本负载均衡下限流强度 = 单实例 ×N，重启即清零 | 已知限制（bcrypt-12 作第二道防线）；多副本需引入共享存储（DB/Redis） |
+| 在途配额检查（先 `count(*)` 后 insert）非原子，存在 TOCTOU | 并发可突破 `max_concurrent_tasks` | 代码注释已声明「运营护栏非精确计量」，属已知限制 |
 
 ### 与外部组件的关系
 
