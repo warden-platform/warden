@@ -47,9 +47,9 @@ export function ProjectManagePanel({
   const loadRules = () => {
     listProjectNamespaceRules()
       .then((items) => setRules(items ?? []))
-      .catch(() => setRules([]))
+      .catch(() => { setRules([]); notify('命名空间规则加载失败', 'error') })
   }
-  useEffect(loadRules, [])
+  useEffect(loadRules, [notify])
 
   const projectName = useMemo(() => (id: string) => projects.find((p) => p.id === id)?.name ?? id.slice(0, 8), [projects])
   const connectorName = useMemo(() => (id: string) => connectors.find((c) => c.id === id)?.name ?? id.slice(0, 8), [connectors])

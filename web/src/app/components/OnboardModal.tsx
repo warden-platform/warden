@@ -91,8 +91,8 @@ export function OnboardModal({
       .catch((e: ApiError) => setInstallConfigError(e.message || '读取当前发布配置失败'))
     listProjects()
       .then((items) => setProjects(items ?? []))
-      .catch(() => setProjects([]))
-  }, [])
+      .catch(() => { setProjects([]); notify('项目列表加载失败', 'error') })
+  }, [notify])
 
   useEffect(() => {
     if (step !== 3 || !connectorId || ready) return

@@ -3,7 +3,9 @@ package control
 import (
 	"compress/gzip"
 	"context"
+	"crypto/rand"
 	"crypto/subtle"
+	"encoding/hex"
 	"errors"
 	"log"
 	"net/http"
@@ -139,10 +141,66 @@ func LoggingMiddleware(next http.Handler) http.Handler {
 		if strings.HasPrefix(r.URL.Path, "/api/") {
 			w.Header().Set("Cache-Control", "no-store")
 		}
+		// 请求关联 ID：优先透传客户端 X-Request-ID，否则生成；写入响应头与日志，
+		// 便于多租户并发下按请求串联日志与故障定位。
+		requestID := r.Header.Get(requestIDHeader)
+		if requestID == "" {
+			requestID = newRequestID()
+		}
+		w.Header().Set(requestIDHeader, requestID)
+
+		rec := &statusRecorder{ResponseWriter: w}
 		start := time.Now()
-		next.ServeHTTP(w, r)
-		log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start))
+		next.ServeHTTP(rec, r)
+		status := rec.status
+		if status == 0 {
+			// handler 未显式写状态码时 net/http 默认 200
+			status = http.StatusOK
+		}
+		log.Printf("method=%s path=%s status=%d duration_ms=%d request_id=%s",
+			r.Method, r.URL.Path, status, time.Since(start).Milliseconds(), requestID)
 	})
+}
+
+const requestIDHeader = "X-Request-ID"
+
+// statusRecorder 捕获写入的状态码（默认 200），供日志记录；首个状态码一旦
+// 写出即冻结，避免多次 WriteHeader 覆盖。
+type statusRecorder struct {
+	http.ResponseWriter
+	status int
+}
+
+func (r *statusRecorder) WriteHeader(code int) {
+	if r.status == 0 {
+		r.status = code
+	}
+	r.ResponseWriter.WriteHeader(code)
+}
+
+func (r *statusRecorder) Write(b []byte) (int, error) {
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	return r.ResponseWriter.Write(b)
+}
+
+// Flush 透传内层 Flusher，保留 SSE 等流式端点（ai_assistant 等）的可用性。
+func (r *statusRecorder) Flush() {
+	if r.status == 0 {
+		r.status = http.StatusOK
+	}
+	if flusher, ok := r.ResponseWriter.(http.Flusher); ok {
+		flusher.Flush()
+	}
+}
+
+func newRequestID() string {
+	b := make([]byte, 12)
+	if _, err := rand.Read(b); err != nil {
+		return "unknown"
+	}
+	return hex.EncodeToString(b)
 }
 
 func CORSMiddleware(next http.Handler) http.Handler {

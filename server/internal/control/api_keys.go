@@ -80,7 +80,7 @@ func parsePurposeAPIKey(value string) (string, string, domain.APIKeyPurpose, boo
 func (h *Handler) authenticate(ctx context.Context, token, remoteAddr string) (*AuthenticatedIdentity, error) {
 	if subtle.ConstantTimeCompare([]byte(token), []byte(h.adminAPIKey)) == 1 {
 		if h.principals == nil {
-			return &AuthenticatedIdentity{Principal: &domain.Principal{ID: "00000000-0000-0000-0000-000000000003", Kind: domain.PrincipalKindUser, Name: "admin", Status: domain.PrincipalStatusActive, TenantID: "platform"}, TenantID: "platform", IsPlatformAdmin: true, Scopes: []string{"warden:admin"}, Kind: "ADMIN"}, nil
+			return &AuthenticatedIdentity{Principal: &domain.Principal{ID: "00000000-0000-0000-0000-000000000003", Kind: domain.PrincipalKindUser, Name: "admin", Status: domain.PrincipalStatusActive, TenantID: "platform"}, TenantID: "platform", IsPlatformAdmin: true, Scopes: []string{"warden:admin"}, Kind: "ADMIN", AuditMetadata: map[string]any{"auth_source": "admin_api_key"}}, nil
 		}
 		principal, err := h.principals.GetByID(domain.WithTenantID(ctx, "platform"), "00000000-0000-0000-0000-000000000003")
 		if err != nil {
@@ -92,7 +92,7 @@ func (h *Handler) authenticate(ctx context.Context, token, remoteAddr string) (*
 		if !h.tenantIsActive(ctx, principal.TenantID) {
 			return nil, errors.New("tenant is disabled")
 		}
-		return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: true, Scopes: []string{"warden:admin"}, Kind: "ADMIN"}, nil
+		return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: true, Scopes: []string{"warden:admin"}, Kind: "ADMIN", AuditMetadata: map[string]any{"auth_source": "admin_api_key"}}, nil
 	}
 	// JWT branch: a JWT has the shape "xxx.yyy.zzz" (3 base64 segments
 	// separated by dots). We try parsing as JWT first; on failure we fall
@@ -122,7 +122,7 @@ func (h *Handler) authenticate(ctx context.Context, token, remoteAddr string) (*
 			// JWT jti identifies an admin session, not a principal_api_keys UUID.
 			// Keeping the namespaces separate prevents session IDs from being
 			// written into executions/audit_events.credential_id UUID columns.
-			return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: hasScopeValue(scopes, "warden:admin"), SessionID: claims.ID, Scopes: scopes, Kind: "JWT"}, nil
+			return &AuthenticatedIdentity{Principal: principal, TenantID: principal.TenantID, IsPlatformAdmin: hasScopeValue(scopes, "warden:admin"), SessionID: claims.ID, Scopes: scopes, Kind: "JWT", AuditMetadata: map[string]any{"auth_source": "admin_session"}}, nil
 		}
 	}
 	if tokenID, secret, ok := parseDelegationToken(token); ok && h.delegationTokens != nil {
