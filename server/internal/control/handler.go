@@ -61,6 +61,7 @@ type Handler struct {
 	queryTemplates       *postgres.QueryTemplateRepo
 	notificationChannels NotificationChannelStore
 	dingTalkRepo         *postgres.DingTalkRepo
+	notifySem            chan struct{} // 审批通知并发信号量，防批次风暴派生无界 goroutine
 	aiConfig             *ai.Config
 	aiStore              AIStore
 }
@@ -179,6 +180,7 @@ func NewHandler(pool *pgxpool.Pool, adminPool *pgxpool.Pool) (*Handler, error) {
 		dingTalk:             dingTalk,
 		dingTalkCoolApp:      dingTalkCoolApp,
 		dingTalkCard:         dingTalkCard,
+		notifySem:            make(chan struct{}, 32),
 	}
 	aiConfig, err := ai.LoadConfig()
 	if err != nil {
