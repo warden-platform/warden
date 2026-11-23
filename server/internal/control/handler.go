@@ -119,6 +119,11 @@ func NewHandler(pool *pgxpool.Pool, adminPool *pgxpool.Pool) (*Handler, error) {
 	if err != nil {
 		return nil, err
 	}
+	// Admin API key 是静态 break-glass 凭据：以平台管理员身份对接，用于 operator
+	// 注册、系统诊断等无法走登录会话的场景。它是进程启动时一次性读取的静态值，
+	// 无运行期过期——泄露即全权接管，必须妥善保管并定期轮转（改
+	// WARDEN_ADMIN_API_KEY_FILE 内容 + 重启）。所有经此 key 的操作在审计中标记
+	// auth_source=admin_api_key，便于区别于登录会话（admin_session）。
 	adminAPIKey, err := config.Secret("WARDEN_ADMIN_API_KEY")
 	if err != nil {
 		return nil, err

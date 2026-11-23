@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, Check, Copy, ExternalLink, KeyRound, Loader2 } from 'lucide-react'
 import type { ApiConnector, ApiError, ApiProject, Integration } from '../../shared/api'
 import { createIntegration, listProjects, updateIntegration } from '../../shared/api'
+import { useApp } from './Toast'
 
 // Reusable connection-info form for protocol integrations.
 // Used both by the create page (which injects a connector selector via
@@ -22,6 +23,7 @@ export function IntegrationForm({
   onSaved: (message: string) => void
   extraContent?: ReactNode
 }) {
+  const { notify } = useApp()
   const isGrafana = protocol === 'grafana'
   const isDatabase = protocol === 'postgresql' || protocol === 'mysql'
   const isHuaweiCloud = protocol === 'huaweicloud'
@@ -80,8 +82,8 @@ export function IntegrationForm({
         setProjects(next)
         setProjectId((current) => current || next.find((project) => project.is_default)?.id || '')
       })
-      .catch(() => setProjects([]))
-  }, [])
+      .catch(() => { setProjects([]); notify('项目列表加载失败', 'error') })
+  }, [notify])
   const ref = credentialRef.trim() || '<credential-ref>'
   const credentialCommand = isHuawei
     ? linux
