@@ -217,8 +217,8 @@ const (
 	ConnectorDraft       ConnectorStatus = "DRAFT"
 	ConnectorTesting     ConnectorStatus = "TESTING"
 	ConnectorActive      ConnectorStatus = "ACTIVE"
-	ConnectorDegraded    ConnectorStatus = "DEGRADED"
-	ConnectorQuarantined ConnectorStatus = "QUARANTINED"
+	ConnectorDegraded    ConnectorStatus = "DEGRADED"    // 预留：健康降级未实现，心跳当前只置 ACTIVE/DISABLED
+	ConnectorQuarantined ConnectorStatus = "QUARANTINED" // 预留：连接器隔离未实现
 	ConnectorDisabled    ConnectorStatus = "DISABLED"
 )
 
@@ -681,11 +681,11 @@ const (
 	ExecWaitingApproval ExecutionStatus = "WAITING_APPROVAL"
 	ExecQueued          ExecutionStatus = "QUEUED"
 	ExecDispatched      ExecutionStatus = "DISPATCHED"
-	ExecRunning         ExecutionStatus = "RUNNING"
+	ExecRunning         ExecutionStatus = "RUNNING"    // 预留：connector 上报运行中未实现，当前流程 QUEUED→DISPATCHED→终态跳过 RUNNING
 	ExecSucceeded       ExecutionStatus = "SUCCEEDED"
 	ExecFailed          ExecutionStatus = "FAILED"
 	ExecUnknown         ExecutionStatus = "UNKNOWN"
-	ExecCancelling      ExecutionStatus = "CANCELLING"
+	ExecCancelling      ExecutionStatus = "CANCELLING" // 预留：协作式取消未实现，取消只对 WAITING_APPROVAL/QUEUED 生效
 	ExecCancelled       ExecutionStatus = "CANCELLED"
 	ExecExpired         ExecutionStatus = "EXPIRED"
 )

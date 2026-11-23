@@ -61,6 +61,7 @@ type Handler struct {
 	queryTemplates       *postgres.QueryTemplateRepo
 	notificationChannels NotificationChannelStore
 	dingTalkRepo         *postgres.DingTalkRepo
+	notifySem            chan struct{} // 审批通知并发信号量，防批次风暴派生无界 goroutine
 	aiConfig             *ai.Config
 	aiStore              AIStore
 }
@@ -179,6 +180,7 @@ func NewHandler(pool *pgxpool.Pool, adminPool *pgxpool.Pool) (*Handler, error) {
 		dingTalk:             dingTalk,
 		dingTalkCoolApp:      dingTalkCoolApp,
 		dingTalkCard:         dingTalkCard,
+		notifySem:            make(chan struct{}, 32),
 	}
 	aiConfig, err := ai.LoadConfig()
 	if err != nil {
@@ -741,7 +743,7 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 		connectorType = connector.ConnectorType
 	}
 	if !controlPlane {
-		if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > 90*time.Second {
+		if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > connectorHeartbeatFreshWindow {
 			jsonError(w, http.StatusConflict, "CONNECTOR_NOT_ACTIVE", "资源所属 Connector 心跳已超时")
 			return
 		}
@@ -973,6 +975,10 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			exec.ErrorMessage = fmt.Sprintf("策略规则「%v」明确拒绝该操作", policyDecision.OPAOutput["matrix_rule_name"])
 		}
 		if err := h.executions.CreateTx(ctx, tx, exec); err != nil {
+			if errors.Is(err, postgres.ErrDuplicateIdempotency) {
+				h.respondIdempotencyHit(w, ctx, tx, exec, res, act, actingProjectID, externalContext)
+				return
+			}
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存拒绝结果失败")
 			return
 		}
@@ -997,6 +1003,10 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			exec.PendingSecret = pending
 		}
 		if err := h.executions.CreateTx(ctx, tx, exec); err != nil {
+			if errors.Is(err, postgres.ErrDuplicateIdempotency) {
+				h.respondIdempotencyHit(w, ctx, tx, exec, res, act, actingProjectID, externalContext)
+				return
+			}
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存审批执行失败")
 			return
 		}
@@ -1045,6 +1055,10 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 	case domain.DecisionAllow:
 		exec.Status = domain.ExecQueued
 		if err := h.executions.CreateTx(ctx, tx, exec); err != nil {
+			if errors.Is(err, postgres.ErrDuplicateIdempotency) {
+				h.respondIdempotencyHit(w, ctx, tx, exec, res, act, actingProjectID, externalContext)
+				return
+			}
 			jsonError(w, http.StatusInternalServerError, "DB_ERROR", "保存执行失败")
 			return
 		}
@@ -2501,6 +2515,10 @@ func (h *Handler) ListResourceActions(w http.ResponseWriter, r *http.Request) {
 	jsonResp(w, http.StatusOK, result)
 }
 
+// connectorHeartbeatFreshWindow 心跳新鲜阈值：超过即视为离线/心跳 stale。
+// 前端 web/src/shared/api/connectors.ts 的 HEARTBEAT_FRESH_SECONDS 须与此一致。
+const connectorHeartbeatFreshWindow = 90 * time.Second
+
 var genericKubernetesConcreteTypes = map[string]bool{
 	"configmap": true, "service": true, "deployment": true, "statefulset": true, "daemonset": true,
 	"job": true, "cronjob": true, "ingress": true, "networkpolicy": true, "poddisruptionbudget": true,
@@ -2570,7 +2588,7 @@ func resourceActionAvailability(ctx context.Context, h *Handler, resource *domai
 	if connector.Status != domain.ConnectorActive {
 		return false, "CONNECTOR_NOT_ACTIVE", "执行通道未激活"
 	}
-	if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > 90*time.Second {
+	if connector.LastHeartbeat == nil || time.Since(*connector.LastHeartbeat) > connectorHeartbeatFreshWindow {
 		return false, "CONNECTOR_HEARTBEAT_TIMEOUT", "执行通道心跳已超时"
 	}
 	if resource.IntegrationID != "" {
@@ -3667,6 +3685,26 @@ func (h *Handler) UpdateApprovalRule(w http.ResponseWriter, r *http.Request) {
 		"priority":          rule.Priority,
 		"description":       rule.Description,
 	})
+}
+
+// respondIdempotencyHit 处理幂等键并发冲突：CreateTx 命中部分唯一索引返回
+// postgres.ErrDuplicateIdempotency 后，回查已存在执行并校验参数一致，幂等返回
+// 200（而非 500）。返回 true 表示已写响应，调用方应直接 return。
+func (h *Handler) respondIdempotencyHit(w http.ResponseWriter, ctx context.Context, tx pgx.Tx, exec *domain.Execution, res *domain.Resource, act *domain.ActionDefinition, actingProjectID string, externalContext map[string]any) bool {
+	existing, err := h.executions.GetByIdempotencyKey(ctx, exec.PrincipalID, exec.IdempotencyKey)
+	if err != nil || existing == nil {
+		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "查询幂等键失败")
+		return true
+	}
+	if existing.ResourceID != res.ID || existing.ActionID != act.ID || existing.ActingProjectID != actingProjectID ||
+		existing.ParameterHash != exec.ParameterHash || !externalContextsEqual(existing.ExternalContext, externalContext) {
+		jsonError(w, http.StatusConflict, "IDEMPOTENCY_CONFLICT", "相同幂等键已用于不同请求")
+		return true
+	}
+	// 唯一约束冲突已使事务进入 abort 状态，回滚后返回已存在的执行。
+	_ = tx.Rollback(ctx)
+	jsonResp(w, http.StatusOK, executionToResp(existing))
+	return true
 }
 
 func executionToResp(e *domain.Execution) map[string]any {

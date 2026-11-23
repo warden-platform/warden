@@ -1,8 +1,10 @@
 import { request } from './core'
 
+export type ExecutionStatus = 'WAITING_APPROVAL' | 'QUEUED' | 'DISPATCHED' | 'RUNNING' | 'SUCCEEDED' | 'FAILED' | 'UNKNOWN' | 'CANCELLING' | 'CANCELLED' | 'EXPIRED'
+
 export type ApiExecution = {
   id: string
-  status: string
+  status: ExecutionStatus
   tenantId?: string
   actingProjectId?: string
   principalId?: string

@@ -21,12 +21,15 @@ export type ApiConnector = {
 
 // ACTIVE is a lifecycle state. A connector is only online when its heartbeat
 // is recent; this keeps stale ACTIVE records from being shown as healthy.
+// 心跳新鲜阈值（秒）：与后端 control 的 connectorHeartbeatFreshWindow 保持一致。
+export const HEARTBEAT_FRESH_SECONDS = 90
+
 export function isConnectorHealthy(connector: ApiConnector, now = Date.now()): boolean {
   if (connector.status !== 'ACTIVE' || !connector.last_heartbeat) return false
   const heartbeat = Date.parse(connector.last_heartbeat)
   if (!Number.isFinite(heartbeat)) return false
   const ageSeconds = (now - heartbeat) / 1000
-  return ageSeconds >= 0 && ageSeconds <= 90
+  return ageSeconds >= 0 && ageSeconds <= HEARTBEAT_FRESH_SECONDS
 }
 
 export function connectorHealthLabel(connector: ApiConnector, now = Date.now()): string {

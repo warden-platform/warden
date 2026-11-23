@@ -325,9 +325,11 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 | 项目权限存在 `projectAccess` / `principalProjectAccess` / `project_scope` 三套并行判定 | 同一账号在不同页面可能被当成不同级别；成员强制开关默认关闭 | 第二阶段合并 |
 | `admin_sessions` 无 `tenant_id` 列 | 会话维度不是租户感知的 | 已知，未改 |
 | 租户过滤已有 RLS 兜底（迁移 109/110 + 角色拆分 `warden_app`/`warden_privileged`），但 `credential_leases` / `execution_resource_bindings` 等 child/绑定表无 `tenant_id`，纯靠父表 join 兜底 | 未来在这些表上的查询漏加父表租户约束即跨租户 | RLS 系统性残余盲区，见 CHANGELOG 待办 |
-| `audit_events.action` 是 PostgreSQL 枚举 | 每个新审计动作名都必须配套迁移，否则审计静默丢失 | 已有单测约束迁移清单，但枚举仍需手工补 |
+| `audit_events.action` 是 PostgreSQL 枚举 | 每个新审计动作名都必须配套迁移，否则审计静默丢失 | 已有静态校验测试 `TestAuditActionsCoveredByEnum` 扫描代码动作断言均在枚举内，漏配即 CI 失败（迁移 113 曾补 `network_connector.provisioned`） |
 | 非内置 `platform_admin` 仍被 JWT 签发兼容识别 | 直接改库或遗留数据仍可能获得 `warden:admin`，严格单超管尚未形成运行时硬约束 | 管理入口与迁移 `099` 已限制；后续需收敛 `issueJWTWithTTL` 分支及既有测试 |
 | 静态 `WARDEN_ADMIN_API_KEY` 是全局共享 break-glass 超管凭据，无运行期过期，轮换需改 `_FILE` 内容 + 重启 | 泄露即全权接管 | 已加 `auth_source` 审计溯源标记区分 break-glass 与登录会话；定期轮换按手册操作 |
+| 登录限流（10 次/5min）为进程内存 map | 多副本负载均衡下限流强度 = 单实例 ×N，重启即清零 | 已知限制（bcrypt-12 作第二道防线）；多副本需引入共享存储（DB/Redis） |
+| 在途配额检查（先 `count(*)` 后 insert）非原子，存在 TOCTOU | 并发可突破 `max_concurrent_tasks` | 代码注释已声明「运营护栏非精确计量」，属已知限制 |
 
 ### 与外部组件的关系
 
