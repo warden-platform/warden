@@ -5,34 +5,68 @@
 
 ## [未发布]
 
-### 变更（已合并 master，尚未部署生产）
+（暂无）
 
+## [0.4.2] - 2026-11-23
+
+生产加固版本：数据库行级安全（RLS）落地、任务分发令牌哈希化、可观测性与错误语义修复、
+钉钉审批链路自愈，以及 ACR 免构建部署与一键演示。
+
+### 安全
+
+- **RLS 行级安全落地**：数据库角色拆分 `warden_app`（运行时，受 RLS 约束）/ `warden_privileged`
+  （合法跨租户旁路，BYPASSRLS）；连接池按上下文注入 `app.tenant_id`，首批高风险表与其余租户表
+  全部启用行级安全（迁移 `109_rls_first_batch.sql`、`110_rls_second_batch.sql`），
+  空租户 fail-closed；同步修复应用层跨租户写漏洞与租户默认值缺失。
 - **dispatch_token 哈希落库**：任务分发令牌明文仅一次性下发给 Connector，数据库只存
   sha256 哈希（迁移 `112_dispatch_token_hash.sql`），防止库只读者回放令牌伪造执行结果；
   同步移除 `WARDEN_ENABLE_LEGACY_DISPATCH_RESULT` 旧兼容路径。
-- **钉钉卡片流自动重连**：连接失败 5 秒退避重试，避免一次网络抖动后审批卡片回调永久失联。
 - **RLS 运行时探针**：启动断言主池角色受 RLS 约束且特权 DSN 已配，配置漂移即拒绝启动
   （不再静默失效）。
 - **admin API key 审计溯源**：break-glass key 认证标记 `auth_source=admin_api_key`、
   登录会话标 `admin_session`，审计可区分来源。
-- **请求日志补状态码 + X-Request-ID**、**前端 4 处加载失败不再静默吞空态**、
-  **资源同步部分失败跳过 orphan**、**任务签名 claim 前校验**。
 
-### 部署免构建
+### 修复
 
-- 生产 Compose 示例与 Helm Chart 默认镜像改为阿里云 ACR 发布镜像
-  （`registry.cn-hangzhou.aliyuncs.com/warden-stable/{warden,warden-web,warden-operator,warden-connector}`），
-  `scripts/publish-acr.sh` 相应增补 operator/connector 两镜像；官方仓库公开、
-  匿名可拉取，私有/自建仓库才需 `docker login`（Helm 配 `imagePullSecret`），
-  自建仍为可选路径。
+- 执行取消诚实语义：对已派发/终态执行返回 409，不再伪成功；同时移除死表
+  `execution_attempts` 与无消费者的 Outbox（迁移 `111_drop_execution_attempts_outbox.sql`）。
+- Heartbeat 不再把停用/隔离态自动复活为 `ACTIVE`。
+- 幂等键并发冲突由 500 改为幂等返回 200。
+- 审批通知并发限流，避免批次风暴派生无界 goroutine。
+- 任务签名密钥在 claim 前取齐校验，避免签名失败留下孤儿任务。
+- 资源同步部分失败时跳过 orphan，避免误删仍在的资源。
+- 请求日志补状态码与 `X-Request-ID`，多租户排障可串联。
+- 前端 4 处数据加载失败不再静默吞成空态。
+- 审计动作枚举漏配：补 `network_connector.provisioned`（迁移 `113_network_connector_provisioned_audit.sql`），
+  并加静态校验测试确保新增审计动作都在枚举内。
+- 钉钉卡片流连接失败 5 秒退避自动重连，避免一次网络抖动后审批回调永久失联。
+- 删除死方法 `ExecutionRepo.UpdateStatus`，死枚举加预留标注。
 
-### 下次发版待办（逐项勾销）
+### 变更
 
-- [x] 生产部署切换到「从 ACR 拉公开镜像」（已完成，生产 compose 已指向 `warden:v0.4.1`，服务器不再 `docker build`）。
-- [x] 迁移 `112` 与上述「变更」已随 v0.4.1 部署生产（2026-11-23）。
-- [x] P2 已清（2026-11-23）：死代码清理（UpdateStatus + 死枚举标注）、Heartbeat 停用/隔离态不复活、幂等键并发 23505 幂等返回、审批通知并发限流、前端卫生（状态枚举 union / 终态时长 / 去中文控制流键 / 心跳魔数命名化）。
-- [ ] 剩余 P2 已评估登记为已知限制（见 architecture 债务表，不硬改）：登录限流单实例内存态（多副本需共享存储）、child/绑定表无 tenant_id（需设计）、在途配额 TOCTOU（护栏非精确）。
-- [ ] 长期：迁移 106 第 8 步无条件撤销会话（`migrate-release` 每次重放即全站登出）；执行列表项目过滤 SQL 下推（已定维持现状）。
+- 前端公示卫生：执行状态改 union 枚举、终态时长口径统一、移除中文控制流键、心跳魔数命名化。
+- **部署免构建**：镜像改由 Gitee Go「镜像发布（ACR）」流水线构建控制面 / 管理端 / operator /
+  connector 四个镜像并推阿里云 ACR 公开仓库；生产 Compose 与 Helm 默认从 ACR 拉取，
+  服务器不再 `docker build`。
+- 新增 `make demo` 一键本地演示（ACR 公开镜像 + 预置数据，免构建）、
+  `make sync-github` 快照同步与 `make init-prod-secrets` 生产密钥初始化。
+- README 首屏重写：禁令置顶、快速体验、curl 示例与方案对比表。
+
+### 已知限制
+
+- 登录限流为单实例内存态，多副本需共享存储。
+- child / 绑定表无 `tenant_id`，RLS 未覆盖，依赖应用层鉴权与父表隔离。
+- 在途配额校验存在 TOCTOU（护栏非精确）。
+- 迁移 `106` 第 8 步无条件撤销会话，`migrate-release` 每次重放都会全站登出。
+- 执行列表项目过滤仍在 Go 层分块扫描（SQL 下推列入后续设计）。
+
+### 部署注意
+
+- 发布迁移清单覆盖至 `113_network_connector_provisioned_audit.sql`；从 0.4.0 升级必须按
+  `deploy/release/migrations.txt` 执行（`make migrate-release`），不要重放 001–034（不幂等，仅限全新空库）。
+- RLS 依赖数据库角色拆分：升级前执行 `make init-prod-secrets` / `make init-db-roles`，
+  并配置 `WARDEN_PRIVILEGED_DATABASE_URL_FILE`（特权旁路），否则启动探针会拒绝启动。
+- 镜像统一指向 `registry.cn-hangzhou.aliyuncs.com/warden-stable/*:v0.4.2`（公开、匿名可拉取）。
 
 ## [0.4.0] - 2026-11-19
 

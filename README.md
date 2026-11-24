@@ -55,7 +55,7 @@ curl -X POST https://warden.example.com/api/v1/executions \
 |---|---|
 | 技术栈 | Go（控制面 + 多种 Connector）、React + TypeScript + Vite（管理端）、PostgreSQL |
 | 隔离模型 | 共享控制面 + 逻辑多租户（`tenant_id` 为租户 slug） |
-| 发布状态 | Release v0.4.0（2026-11-19）；生产运行 v0.4.2（CHANGELOG [未发布]）· [Apache-2.0](LICENSE) |
+| 发布状态 | Release v0.4.2（2026-11-23）· [Apache-2.0](LICENSE) |
 
 **文档入口**：[docs/README.md](docs/README.md)（按"想学 / 想做 / 想查 / 想理解"分类）· **[接口手册](docs/api.md)** · **[参与贡献](CONTRIBUTING.md)** · **[安全漏洞](SECURITY.md)**
 
@@ -198,7 +198,7 @@ flowchart LR
 server/
 ├── cmd/                      7 个可执行入口：控制面 + 各类 Connector/Operator/Helper
 ├── internal/{config,control,domain,policy,connector,storage}/
-├── migrations/               顺序 SQL 迁移（001–108）
+├── migrations/               顺序 SQL 迁移（001–113）
 └── Dockerfile*               控制面/Connector 镜像
 web/                          React + Vite 管理端
 deploy/                       本地 compose、Helm Chart、K8s 基线、安装脚本、发布迁移清单

@@ -2,7 +2,7 @@
 # 把 Warden 控制面/管理端镜像发布到阿里云 ACR（在构建机上跑，如 ECS）。
 #
 # 用法：
-#   scripts/publish-acr.sh [version]        # 默认 v0.4.0
+#   scripts/publish-acr.sh [version]        # 默认 v0.4.2
 #   ACR_REGISTRY / ACR_NAMESPACE 可覆盖（默认 registry.cn-hangzhou.aliyuncs.com / warden-stable）
 #
 # 凭据：.secrets/acr_username 与 .secrets/acr_password（600，已 gitignore）。
@@ -13,7 +13,7 @@
 #       （warden-web / warden-operator / warden-connector）。
 # 日志：追加到仓库根 acr-publish.log；建议用 systemd-run 托管以免 SSH 断开中断
 # （systemd 临时服务不继承工作目录，脚本必须用绝对路径）：
-#   systemd-run --unit=warden-acr-publish --collect bash /root/warden/scripts/publish-acr.sh v0.4.0
+#   systemd-run --unit=warden-acr-publish --collect bash /root/warden/scripts/publish-acr.sh v0.4.2
 # 失败排查：tail acr-publish.log；systemctl is-failed warden-acr-publish。
 # ACR 仓库不存在且命名空间未开自动创建时 push 会拒绝——先在 ACR 控制台建仓库。
 # 注意：必须 --provenance=false --sbom=false——ACR 个人版不支持 BuildKit 默认的
@@ -22,7 +22,7 @@
 set -euo pipefail
 
 ROOT_DIR=$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)
-VERSION="${1:-v0.4.0}"
+VERSION="${1:-v0.4.2}"
 REGISTRY="${ACR_REGISTRY:-registry.cn-hangzhou.aliyuncs.com}"
 NAMESPACE="${ACR_NAMESPACE:-warden-stable}"
 SECRETS_DIR="$ROOT_DIR/.secrets"

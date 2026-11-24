@@ -26,11 +26,11 @@
 
 ```bash
 # 官方仓库已公开，可匿名直接拉取。
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0          # 控制面
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.0      # 管理端
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.2          # 控制面
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.2      # 管理端
 # Kubernetes 形态另需：
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-operator:v0.4.0
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector:v0.4.0
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-operator:v0.4.2
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector:v0.4.2
 ```
 
 > 拉取私有仓库（如企业内网自建镜像）时才需要 `docker login <registry>`；
