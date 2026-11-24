@@ -35,6 +35,16 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO warden_ap
 GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA public TO warden_app, warden_privileged;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA public TO warden_app, warden_privileged;
 
+-- 审计事件是 append-only：应用角色即使拿到上面的通配 DML 也不能改写历史。
+-- owner/superuser（warden）保留权限，历史迁移仍可重放；存量库由迁移 114 收紧。
+DO $$
+BEGIN
+  IF to_regclass('public.audit_events') IS NOT NULL THEN
+    REVOKE UPDATE, DELETE ON TABLE public.audit_events FROM warden_app, warden_privileged;
+  END IF;
+END
+$$;
+
 -- 未来由 warden（迁移角色）新建的表/序列/函数自动授权，避免漏授
 ALTER DEFAULT PRIVILEGES FOR ROLE warden IN SCHEMA public
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO warden_app, warden_privileged;

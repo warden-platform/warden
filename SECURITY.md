@@ -4,7 +4,7 @@
 
 ## 受支持的版本
 
-安全修复只应用到主开发分支的最新版本。当前项目**尚无正式 Release / tag**，请以部署时使用的镜像 tag 与迁移清单为准（见 [CHANGELOG.md](CHANGELOG.md)）。使用旧镜像或旧 Connector 二进制的环境应先升级再报告问题。
+安全修复只应用到主开发分支的最新版本。当前正式版本为 **v0.4.2**（tag `v0.4.2`，2026-11-23），请以部署时使用的镜像 tag 与迁移清单为准（见 [CHANGELOG.md](CHANGELOG.md)）。使用旧镜像或旧 Connector 二进制的环境应先升级再报告问题。
 
 ## 报告漏洞
 
@@ -41,11 +41,11 @@ Warden 代理的是特权基础设施操作。生产部署必须满足：
 | 会话保护 | HttpOnly + Secure + SameSite=Strict Cookie，登录响应不下发可用 JWT，写操作校验 Origin |
 | SSO | 授权码 + PKCE S256 + state/nonce 校验，拒绝无 PKCE 降级 |
 | 最小权限 | 默认 `user` 仅 4 个 Scope；OIDC 默认角色不能配成 `platform_admin` |
-| 审计 | append-only 审计串联身份、决策、授权、执行；角色变更与审计在同一事务 |
+| 审计 | append-only 审计串联身份、决策、授权、执行；角色变更与审计在同一事务；`audit_events` 的应用角色已被数据库层撤销 UPDATE/DELETE（迁移 114） |
 
 ## 已知风险登记
 
 - 静态 `WARDEN_ADMIN_API_KEY` 是全局共享、当前无法在线轮换的超管凭据，应严格限制存放范围。
 - 内置 `admin` 按固定 ID 判定特权，是刻意保留的应急入口。
-- 租户过滤依赖各仓储 SQL，尚无统一 RLS；开启第二个租户前应做覆盖审计。
+- 租户过滤由各仓储 SQL 显式 `tenant_id` 条件 + PostgreSQL 行级安全（迁移 109/110，`warden_app` 受 RLS、`warden_privileged` 合法旁路）双层兜底；但 `credential_leases`、`execution_resource_bindings` 等无 `tenant_id` 的 child/绑定表不在 RLS 覆盖内，仍依赖父表 join 与应用鉴权，新增这类表时要做覆盖审计。
 - 更多已知限制见 [现状与路线](docs/architecture.md#roadmap)。
