@@ -81,6 +81,13 @@ func TestAppRoleGrantsComplete(t *testing.T) {
 			t.Fatalf("scan privilege: %v", err)
 		}
 		tableCount++
+		if name == "audit_events" {
+			// append-only：可读可写新事件，但应用角色不得改写/删除历史。
+			if !sel || !ins || upd || del {
+				t.Errorf("audit_events must be append-only for warden_app (select=%v insert=%v update=%v delete=%v)", sel, ins, upd, del)
+			}
+			continue
+		}
 		if !sel || !ins || !upd || !del {
 			t.Errorf("warden_app missing DML grant on %s (select=%v insert=%v update=%v delete=%v)", name, sel, ins, upd, del)
 		}
@@ -90,6 +97,18 @@ func TestAppRoleGrantsComplete(t *testing.T) {
 	}
 	if tableCount == 0 {
 		t.Fatal("no public tables found; schema not prepared")
+	}
+
+	var privSel, privIns, privUpd, privDel bool
+	if err := ownerPool.QueryRow(ctx, `
+		SELECT has_table_privilege('warden_privileged','public.audit_events','SELECT'),
+		       has_table_privilege('warden_privileged','public.audit_events','INSERT'),
+		       has_table_privilege('warden_privileged','public.audit_events','UPDATE'),
+		       has_table_privilege('warden_privileged','public.audit_events','DELETE')`).Scan(&privSel, &privIns, &privUpd, &privDel); err != nil {
+		t.Fatalf("query privileged audit_events privileges: %v", err)
+	}
+	if !privSel || !privIns || privUpd || privDel {
+		t.Errorf("audit_events must be append-only for warden_privileged (select=%v insert=%v update=%v delete=%v)", privSel, privIns, privUpd, privDel)
 	}
 
 	// 以 warden_app 真实连接，证明 LOGIN + schema USAGE + DML 可执行。

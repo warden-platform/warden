@@ -225,7 +225,7 @@ stateDiagram-v2
 - `tenant_id` 存的是 **slug 字符串**，外键指向 `tenants(slug)`；用 slug 而非 UUID 是为了兼容既有 API。
 - 仓储层通过 `domain.TenantIDFromContext(ctx)` 注入过滤条件，业务层不从请求体推断租户。
 - 平台级接口（租户管理、账号与权限）额外叠加 `RequirePlatformTenant`，要求身份属于 `platform` 租户。
-- **当前没有统一 RLS**，过滤靠各仓储 SQL 自己写 `WHERE tenant_id = $n`。这是已知设计债，开多租户前应做一轮覆盖审计。
+- 仓储 SQL 仍须显式写 `WHERE tenant_id = $n`；数据库层另有 RLS 兜底（迁移 109/110：`warden_app` 受 FORCE RLS、`warden_privileged` 合法旁路、空租户 fail-closed），角色漂移由启动探针拒绝。已知残余债是 `credential_leases` / `execution_resource_bindings` 等 child/绑定表无 `tenant_id`，不在 RLS 覆盖内，仍靠父表 join 约束；新增租户表必须同步补 RLS 策略与发布清单。
 
 ### 存储与迁移
 

@@ -5,7 +5,18 @@
 
 ## [未发布]
 
-（暂无）
+### 安全
+
+- **策略时长上限真正生效**：Rego/OPA 决策中的 `max_duration_seconds` 此前只被校验、未被消费，Grant 有效期实际只取动作目录的 `timeout_seconds`，导致策略给出的更短上限被静默忽略。现在创建执行与审批通过两条签发路径均取两者较小值，并把生效上限写入 `policy_decisions.opa_output.effective_grant_ttl_seconds` 便于审计。
+- **审计事件 append-only 下沉到数据库层**：迁移 `114_audit_events_append_only.sql` 撤销 `warden_app` / `warden_privileged` 对 `audit_events` 的 UPDATE/DELETE 权限（owner/superuser 保留，历史迁移仍可重放）；`deploy/db/roles.sql` 同步收紧，重放授权脚本不会把权限加回来。
+
+### 文档
+
+- 修正 `SECURITY.md` 的发布状态（已发布 v0.4.2）与 RLS 现状描述；`docs/architecture.md` 同步移除「尚无统一 RLS」的过期表述。
+
+### 部署注意
+
+- 存量库升级需按 `deploy/release/migrations.txt` 执行新增的 `114_audit_events_append_only.sql`；执行后应用角色不能再改写审计历史， owner 迁移角色不受影响。
 
 ## [0.4.2] - 2026-11-23
 

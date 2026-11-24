@@ -149,7 +149,14 @@ func (h *Handler) decideApproval(ctx context.Context, id string, approve bool, a
 				return nil, decisionError(500, "AUDIT_WRITE_FAILED", "审批审计写入失败")
 			}
 		} else {
-			expiresAt := time.Now().Add(time.Duration(action.TimeoutSeconds) * time.Second)
+			// 审批通过时重新读取不可变的策略决策，恢复创建审批单时 Rego/OPA
+			// 给出的硬上限；不能因为异步审批而丢失这层约束。
+			policyMaxDuration, capErr := h.policyMaxDurationSeconds(ctx, req.DecisionID)
+			if capErr != nil {
+				return nil, decisionError(500, "POLICY_DECISION_READ_FAILED", "读取策略决策失败")
+			}
+			ttlSeconds := effectiveGrantTTLSeconds(action.TimeoutSeconds, policyMaxDuration)
+			expiresAt := time.Now().Add(time.Duration(ttlSeconds) * time.Second)
 			grant := &domain.AccessGrant{
 				RequestID: req.ID, PrincipalID: req.PrincipalID,
 				ActingProjectID: req.ActingProjectID,
@@ -157,7 +164,7 @@ func (h *Handler) decideApproval(ctx context.Context, id string, approve bool, a
 				ActionScope:     map[string]any{"action": action.Name, "version": action.Version},
 				ParameterHash:   req.ParameterHash,
 				ScopeHash:       domain.HashScope(req.PrincipalID, req.ResourceID, req.ActionID, req.ParameterHash, req.ActingProjectID),
-				MaxUses:         1, TTLSeconds: action.TimeoutSeconds, ExpiresAt: expiresAt, Status: domain.GrantActive,
+				MaxUses:         1, TTLSeconds: ttlSeconds, ExpiresAt: expiresAt, Status: domain.GrantActive,
 			}
 			if err := h.grants.CreateTx(ctx, tx, grant); err != nil {
 				return nil, decisionError(500, "GRANT_CREATE_FAILED", "创建授权失败")
@@ -218,4 +225,47 @@ func approvalDecisionHTTPError(err error) (int, string, string) {
 		return decisionErr.Status, decisionErr.Code, decisionErr.Message
 	}
 	return 500, "APPROVAL_FAILED", "审批处理失败"
+}
+
+// effectiveGrantTTLSeconds applies the policy decision's hard upper bound to
+// the action timeout. A non-positive policy cap means the decision carries no
+// bound (legacy rows); the cap must never extend the action's timeout.
+func effectiveGrantTTLSeconds(actionTimeoutSeconds, policyMaxDurationSeconds int) int {
+	ttl := actionTimeoutSeconds
+	if policyMaxDurationSeconds > 0 && policyMaxDurationSeconds < ttl {
+		ttl = policyMaxDurationSeconds
+	}
+	return ttl
+}
+
+// policyMaxDurationSeconds reads the immutable policy decision bound attached
+// to an approval request. A missing decision yields 0 (legacy data); a database
+// error fails closed so no grant is issued without its bound.
+func (h *Handler) policyMaxDurationSeconds(ctx context.Context, decisionID string) (int, error) {
+	if h.policyDecisions == nil || decisionID == "" {
+		return 0, nil
+	}
+	outputs, err := h.policyDecisions.OutputsByIDs(ctx, []string{decisionID})
+	if err != nil {
+		return 0, err
+	}
+	return policyMaxDurationFromOutput(outputs[decisionID]), nil
+}
+
+func policyMaxDurationFromOutput(output map[string]any) int {
+	if output == nil {
+		return 0
+	}
+	switch value := output["max_duration_seconds"].(type) {
+	case int:
+		return value
+	case int32:
+		return int(value)
+	case int64:
+		return int(value)
+	case float64:
+		return int(value)
+	default:
+		return 0
+	}
 }

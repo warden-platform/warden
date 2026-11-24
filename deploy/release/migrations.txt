@@ -73,3 +73,4 @@
 111_drop_execution_attempts_outbox.sql
 112_dispatch_token_hash.sql
 113_network_connector_provisioned_audit.sql
+114_audit_events_append_only.sql

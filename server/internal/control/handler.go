@@ -921,6 +921,10 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			policyDecision.OPAOutput["database_query_cost_floor"] = true
 		}
 	}
+	// Rego/OPA 的 max_duration_seconds 是授权有效期的硬上限。若只取动作目录
+	// 的 timeout，策略给出的更短上限会被静默忽略，破坏「多层交集」的语义。
+	grantTTLSeconds := effectiveGrantTTLSeconds(act.TimeoutSeconds, decisionOutput.MaxDurationSeconds)
+	policyDecision.OPAOutput["effective_grant_ttl_seconds"] = grantTTLSeconds
 	tx, err := h.pool.Begin(ctx)
 	if err != nil {
 		jsonError(w, http.StatusInternalServerError, "DB_ERROR", "开始执行事务失败")
@@ -1130,8 +1134,8 @@ func (h *Handler) CreateExecution(w http.ResponseWriter, r *http.Request) {
 			ParameterHash:   paramHash,
 			ScopeHash:       domain.HashScope(principal.ID, res.ID, act.ID, paramHash, actingProjectID),
 			MaxUses:         1,
-			TTLSeconds:      act.TimeoutSeconds,
-			ExpiresAt:       time.Now().Add(time.Duration(act.TimeoutSeconds) * time.Second),
+			TTLSeconds:      grantTTLSeconds,
+			ExpiresAt:       time.Now().Add(time.Duration(grantTTLSeconds) * time.Second),
 			Status:          domain.GrantActive,
 		}
 		if err := h.grants.CreateTx(ctx, tx, grant); err != nil {
