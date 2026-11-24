@@ -53,7 +53,7 @@ PARENT="$(git -C "$MIRROR" rev-parse "origin/$GITHUB_BRANCH")"
 PARENT_TREE="$(git -C "$MIRROR" rev-parse "$PARENT^{tree}")"
 
 if [ "$TREE" = "$PARENT_TREE" ]; then
-  echo "树与镜像 HEAD 一致（gitee@$SHORT），无需新 commit。"
+  echo "树与镜像 HEAD 一致（gitee@${SHORT}），无需新 commit。"
   NEW_COMMIT="$PARENT"
 else
   if [ "$REF" = "HEAD" ]; then
@@ -64,7 +64,7 @@ else
   NEW_COMMIT="$(git -C "$MIRROR" commit-tree "$TREE" -p "$PARENT" -m "$MSG")"
   git -C "$MIRROR" update-ref "refs/heads/$GITHUB_BRANCH" "$NEW_COMMIT"
   git -C "$MIRROR" -c http.proxy="$GITHUB_PROXY" push origin "$GITHUB_BRANCH"
-  echo "已推送快照 commit：$(git -C "$MIRROR" rev-parse --short "$NEW_COMMIT")（gitee@$SHORT）"
+  echo "已推送快照 commit：$(git -C "$MIRROR" rev-parse --short "$NEW_COMMIT")（gitee@${SHORT}）"
 fi
 unset GIT_INDEX_FILE
 
@@ -89,7 +89,7 @@ if [ "$REF" != "HEAD" ]; then
       f { print }
     ')"
     if [ -z "$NOTES" ]; then
-      NOTES="同步自 gitee@$SHORT，变更见 CHANGELOG.md。"
+      NOTES="同步自 gitee@${SHORT}，变更见 CHANGELOG.md。"
     fi
     NOTES_FILE="$(mktemp)"
     printf '%s\n' "$NOTES" > "$NOTES_FILE"
