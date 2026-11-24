@@ -7,8 +7,8 @@
 #      切勿提交；自有密钥系统可按同名文件自行准备，见 docs/guides.md#installation）。
 #   3. 拉取发布镜像（默认免构建，官方仓库公开可匿名拉取；
 #      仅私有仓库需先 docker login <registry>）：
-#      docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0
-#      docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.0
+#      docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.2
+#      docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.2
 #      需要定制时也可自建：
 #      docker build -f server/Dockerfile --build-arg TARGET=warden-control -t warden-control:latest .
 #      docker build -t warden-web:latest web/
@@ -40,7 +40,7 @@ services:
     restart: unless-stopped
 
   warden-control:
-    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.0
+    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.2
     depends_on:
       postgresql:
         condition: service_healthy
@@ -85,7 +85,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.0
+    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.2
     depends_on:
       - warden-control
     volumes:
