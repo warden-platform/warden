@@ -29,6 +29,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # 必须完整历史：浅克隆下 git 无法证明远端 master 是本地 HEAD 的祖先，
+          # 会把正常的 fast-forward 误判为 non-fast-forward 而拒绝推送。
+          fetch-depth: 0
       - name: Push master to Gitee (fast-forward only)
         env:
           GITEE_USERNAME: ${{ secrets.GITEE_USERNAME }}
