@@ -43,7 +43,7 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 
 ## 发布与镜像同步
 
-双仓关系：**GitHub `warden-platform/warden`（master）是主仓库与合并门禁**，PR 必须通过 `server` / `web` 两项 Actions 检查（含 PostgreSQL service 的 DB 门控集成测试）方可合并；**Gitee `warden-platform/warden`（master）是国内镜像**，由 [.github/workflows/sync-gitee.yml](.github/workflows/sync-gitee.yml) 自动同步 master、tag 与 Gitee 发行版（只普通 push，绝不 force；保护分支拦截会报出同步 PR；不搬 GitHub Release 附件）。Gitee 原有的 `ci-gate` 与镜像发布流水线已停用（Gitee Go 额度耗尽）。
+双仓关系：**GitHub `warden-platform/warden`（master）是主仓库与合并门禁**，PR 必须通过 `server` / `web` 两项 Actions 检查（含 PostgreSQL service 的 DB 门控集成测试）方可合并；**Gitee `warden-platform/warden`（master）是国内镜像**，由 [.github/workflows/sync-gitee.yml](.github/workflows/sync-gitee.yml) 在 master 前进后自动快进同步 master，并在 GitHub Release 发布后同步 tag 与 Gitee 发行版（只普通 push，绝不 force；保护分支拦截会报出同步 PR；不搬 GitHub Release 附件）。Gitee 原有的 `ci-gate` 与镜像发布流水线已停用（Gitee Go 额度耗尽）。
 
 ### 代码合入 master（日常）
 

@@ -2,7 +2,7 @@ name: Sync Gitee mirror
 
 # GitHub master 是主仓库与合并门禁；Gitee 是国内镜像。本 workflow 同步：
 #   - master 分支：每次 master 前进后快进推送；
-#   - tag：master 同步时批量推送缺失 tag，Release 发布时再推对应 tag；
+#   - tag：GitHub Release 发布后推送对应 tag（Gitee 已存在则跳过，不比对历史 tag）；
 #   - Gitee 发行版：GitHub Release 发布后自动创建，正文与 GitHub Release 一致。
 # 不搬 GitHub Release 附件；只做普通 push（绝不 force），保护分支拦截会自动建 PR。
 #
@@ -82,36 +82,6 @@ jobs:
           fi
           echo "Gitee master 已同步到 ${target_sha:0:7}"
 
-          # 逐个 tag 同步：Gitee 已存在则不重复推送（Gitee 会拒绝已存在的 tag），
-          # 只推缺失的；同名 tag 指向不同提交时失败退出，绝不 force。
-          while IFS= read -r t; do
-            [ -z "$t" ] && continue
-            remote_obj="$(git "${git_auth[@]}" ls-remote "$gitee_url" "refs/tags/$t" | awk '{print $1}' | head -1)"
-            if [ -z "$remote_obj" ]; then
-              echo "推送 tag $t"
-              if ! tag_out="$(git "${git_auth[@]}" push "$gitee_url" "refs/tags/$t" 2>&1)"; then
-                printf '%s\n' "$tag_out" >&2
-                echo "推送 tag $t 到 Gitee 失败" >&2
-                exit 1
-              fi
-              printf '%s\n' "$tag_out"
-              continue
-            fi
-
-            remote_commit="$(git "${git_auth[@]}" ls-remote "$gitee_url" "refs/tags/$t^{}" | awk '{print $1}' | head -1)"
-            if [ -z "$remote_commit" ]; then
-              # 轻量 tag 没有 peeled 行，直接比较 ref 对象。
-              remote_commit="$remote_obj"
-            fi
-            local_commit="$(git rev-parse "$t^{}")"
-            if [ "$remote_commit" != "$local_commit" ]; then
-              echo "错误：Gitee tag $t 指向 $remote_commit，本地指向 $local_commit；不 force" >&2
-              exit 1
-            fi
-            echo "tag $t 已存在且一致，跳过"
-          done < <(git tag)
-          echo "Gitee tag 同步完成（本地共 $(git tag | wc -l) 个 tag）"
-
   release:
     needs: master
     if: >-
@@ -161,6 +131,8 @@ jobs:
           auth="$(printf '%s:%s' "$GITEE_USERNAME" "$GITEE_TOKEN" | base64 -w0)"
           git_auth=(-c "http.extraHeader=Authorization: Basic $auth")
 
+          # GitHub 与 Gitee 的历史 tag 可能指向不同提交（GitHub 为快照历史），
+          # 已存在的 tag 一律跳过，不重复推送、也不做历史比对；只补缺失 tag。
           remote_obj="$(git "${git_auth[@]}" ls-remote "$gitee_url" "refs/tags/$tag" | awk '{print $1}' | head -1)"
           if [ -z "$remote_obj" ]; then
             if ! tag_out="$(git "${git_auth[@]}" push "$gitee_url" "refs/tags/$tag" 2>&1)"; then
@@ -170,16 +142,7 @@ jobs:
             fi
             printf '%s\n' "$tag_out"
           else
-            remote_commit="$(git "${git_auth[@]}" ls-remote "$gitee_url" "refs/tags/$tag^{}" | awk '{print $1}' | head -1)"
-            if [ -z "$remote_commit" ]; then
-              remote_commit="$remote_obj"
-            fi
-            local_commit="$(git rev-parse "$tag^{}")"
-            if [ "$remote_commit" != "$local_commit" ]; then
-              echo "错误：Gitee tag $tag 指向 $remote_commit，本地指向 $local_commit；不 force" >&2
-              exit 1
-            fi
-            echo "Gitee tag $tag 已存在且一致"
+            echo "Gitee tag $tag 已存在，跳过推送"
           fi
 
           api="https://gitee.com/api/v5/repos/warden-platform/warden"
