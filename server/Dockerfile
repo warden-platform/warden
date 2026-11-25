@@ -31,8 +31,6 @@ COPY --from=build /out/app /app
 # work in a container without the source repository mounted beside the binary.
 COPY deploy/ /app-artifacts/deploy/
 COPY server/migrations/ /app-artifacts/server/migrations/
-# 部署机上的 /usr/local/bin/warden-deploy 从新版本镜像自更新，脚本随镜像一起发布。
-COPY scripts/deploy-compose.sh /app-artifacts/scripts/deploy-compose.sh
 COPY --from=build /out/artifacts/ /app-artifacts/
 ENV WARDEN_ARTIFACT_ROOT=/app-artifacts
 ENTRYPOINT ["/app"]

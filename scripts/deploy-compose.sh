@@ -25,12 +25,12 @@
 #   KEEP_DB_BACKUPS      保留最近几份数据库备份，默认 5
 # 迁移文件与清单直接从新版本控制面镜像的 /app-artifacts 读取，不依赖宿主机仓库。
 #
-# 脚本自更新：控制面镜像内 /app-artifacts/scripts/deploy-compose.sh 是本脚本的发布副本。
-# 通过 /usr/local/bin/warden-deploy 以 root 调用时，拉取新版本镜像后会校验并原子替换
-# 自身，再重载执行，使后续脚本变更不再需要人工 SSH 安装。覆盖前会把当前脚本备份到
-# $BACKUP_DIR/bin/ 并保留最近 KEEP_SCRIPT_BACKUPS 份。首次引入自更新逻辑仍需人工安装
-# 一次引导版本；非安装路径调用（如直接跑仓库脚本）不会覆盖宿主脚本。
-# 禁用自更新：WARDEN_DEPLOY_SELF_UPDATE=0。
+# 脚本自更新：维护者发布流水线把本脚本打成独立的 warden-deploy 小镜像
+# （scripts/Dockerfile.deployer，不进入服务镜像）。通过 /usr/local/bin/warden-deploy
+# 以 root 调用时，拉取该版本镜像后会校验并原子替换自身，再重载执行，使后续脚本变更
+# 不再需要人工 SSH 安装。覆盖前会把当前脚本备份到 $BACKUP_DIR/bin/ 并保留最近
+# KEEP_SCRIPT_BACKUPS 份。首次引入自更新逻辑仍需人工安装一次引导版本；非安装路径
+# 调用（如直接跑仓库脚本）不会覆盖宿主脚本。禁用自更新：WARDEN_DEPLOY_SELF_UPDATE=0。
 set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -56,6 +56,7 @@ PG_USER="${PG_USER:-warden}"
 PG_DB="${PG_DB:-warden}"
 MIGRATION_MODE="${MIGRATION_MODE:-auto}"
 SKIP_DB_BACKUP="${SKIP_DB_BACKUP:-0}"
+DEPLOYER_IMAGE="${DEPLOYER_IMAGE:-$REGISTRY/warden-deploy}"
 SELF_TARGET="${WARDEN_DEPLOY_SELF_PATH:-/usr/local/bin/warden-deploy}"
 SELF_BACKUP_DIR="${SELF_BACKUP_DIR:-$BACKUP_DIR/bin}"
 KEEP_SCRIPT_BACKUPS="${KEEP_SCRIPT_BACKUPS:-5}"
@@ -204,7 +205,7 @@ self_update_from_image() {
     return 0
   fi
 
-  image="$CONTROL_IMAGE:$ver"
+  image="$DEPLOYER_IMAGE:$ver"
   if ! docker image inspect "$image" >/dev/null 2>&1; then
     docker pull "$image" >/dev/null 2>&1 || {
       echo "警告：无法拉取 $image，跳过部署脚本自更新" >&2
@@ -222,7 +223,7 @@ self_update_from_image() {
     return 0
   fi
   ok=1
-  docker cp "$unit:/app-artifacts/scripts/deploy-compose.sh" "$work/deploy-compose.sh" >/dev/null 2>&1 || ok=0
+  docker cp "$unit:/deploy-compose.sh" "$work/deploy-compose.sh" >/dev/null 2>&1 || ok=0
   docker rm -f "$unit" >/dev/null 2>&1 || true
   EXTRACT_UNIT=""
   if [ "$ok" != "1" ] || [ ! -s "$work/deploy-compose.sh" ]; then

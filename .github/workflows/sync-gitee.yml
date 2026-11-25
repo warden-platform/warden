@@ -9,6 +9,7 @@ name: Sync Gitee mirror
 # 未配置时本 workflow 打印 warning 并跳过，不阻塞 master 的 CI。
 #
 # 说明：本 workflow 只同步 master 分支，不搬 tag 与 GitHub Release。
+# 仅上游仓库执行；fork 没有 Gitee 同步需求与 Secrets，job 会跳过。
 on:
   push:
     branches: [master]
@@ -23,6 +24,7 @@ concurrency:
 
 jobs:
   sync:
+    if: github.repository == 'warden-platform/warden'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
