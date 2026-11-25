@@ -24,6 +24,13 @@
 #   SKIP_DB_BACKUP=1     跳过迁移前的自动 pg_dump -Fc（默认会备份）
 #   KEEP_DB_BACKUPS      保留最近几份数据库备份，默认 5
 # 迁移文件与清单直接从新版本控制面镜像的 /app-artifacts 读取，不依赖宿主机仓库。
+#
+# 脚本自更新：维护者发布流水线把本脚本打成独立的 warden-deploy 小镜像
+# （scripts/Dockerfile.deployer，不进入服务镜像）。通过 /usr/local/bin/warden-deploy
+# 以 root 调用时，拉取该版本镜像后会校验并原子替换自身，再重载执行，使后续脚本变更
+# 不再需要人工 SSH 安装。覆盖前会把当前脚本备份到 $BACKUP_DIR/bin/ 并保留最近
+# KEEP_SCRIPT_BACKUPS 份。首次引入自更新逻辑仍需人工安装一次引导版本；非安装路径
+# 调用（如直接跑仓库脚本）不会覆盖宿主脚本。禁用自更新：WARDEN_DEPLOY_SELF_UPDATE=0。
 set -euo pipefail
 export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 
@@ -49,9 +56,15 @@ PG_USER="${PG_USER:-warden}"
 PG_DB="${PG_DB:-warden}"
 MIGRATION_MODE="${MIGRATION_MODE:-auto}"
 SKIP_DB_BACKUP="${SKIP_DB_BACKUP:-0}"
+DEPLOYER_IMAGE="${DEPLOYER_IMAGE:-$REGISTRY/warden-deploy}"
+SELF_TARGET="${WARDEN_DEPLOY_SELF_PATH:-/usr/local/bin/warden-deploy}"
+SELF_BACKUP_DIR="${SELF_BACKUP_DIR:-$BACKUP_DIR/bin}"
+KEEP_SCRIPT_BACKUPS="${KEEP_SCRIPT_BACKUPS:-5}"
 LOG_FILE="${LOG_FILE:-/var/log/warden-deploy.log}"
 
-if [ -w "$(dirname "$LOG_FILE" 2>/dev/null || echo /)" ] 2>/dev/null; then
+# 自更新会 exec 新脚本并继承旧脚本的 tee；此时不要重复套一层，否则日志双写。
+if [ "${WARDEN_DEPLOY_SELF_UPDATED:-0}" != "1" ] &&
+   [ -w "$(dirname "$LOG_FILE" 2>/dev/null || echo /)" ] 2>/dev/null; then
   exec > >(tee -a "$LOG_FILE") 2>&1
 fi
 
@@ -171,6 +184,91 @@ extract_release_artifacts() {
   docker rm -f "$unit" >/dev/null 2>&1 || true
   EXTRACT_UNIT=""
   [ "$ok" = 1 ] && [ -s "$out/migrations.txt" ]
+}
+
+# 从目标版本镜像取出部署脚本，校验后原子替换宿主安装副本并重载执行。
+# 只在通过安装路径以 root 调用时生效；失败一律降级为继续使用当前脚本。
+self_update_from_image() {
+  local ver="$1" self_path image unit work tmp ok
+  if [ "${WARDEN_DEPLOY_SELF_UPDATED:-0}" = "1" ] || [ "${WARDEN_DEPLOY_SELF_UPDATE:-1}" != "1" ]; then
+    return 0
+  fi
+  if [ "$(id -u)" != "0" ]; then
+    return 0
+  fi
+  case "$0" in
+    /*) self_path="$0" ;;
+    *) self_path="$(cd "$(dirname "$0")" && pwd)/$(basename "$0")" ;;
+  esac
+  if [ "$self_path" != "$SELF_TARGET" ]; then
+    echo "==> 非安装路径调用，跳过部署脚本自更新（$self_path）"
+    return 0
+  fi
+
+  image="$DEPLOYER_IMAGE:$ver"
+  if ! docker image inspect "$image" >/dev/null 2>&1; then
+    docker pull "$image" >/dev/null 2>&1 || {
+      echo "警告：无法拉取 $image，跳过部署脚本自更新" >&2
+      return 0
+    }
+  fi
+
+  work="$(mktemp -d)"
+  unit="warden-self-update-$$-$RANDOM"
+  EXTRACT_UNIT="$unit"
+  if ! docker create --name "$unit" "$image" >/dev/null 2>&1; then
+    EXTRACT_UNIT=""
+    rm -rf "$work"
+    echo "警告：无法读取 $image，跳过部署脚本自更新" >&2
+    return 0
+  fi
+  ok=1
+  docker cp "$unit:/deploy-compose.sh" "$work/deploy-compose.sh" >/dev/null 2>&1 || ok=0
+  docker rm -f "$unit" >/dev/null 2>&1 || true
+  EXTRACT_UNIT=""
+  if [ "$ok" != "1" ] || [ ! -s "$work/deploy-compose.sh" ]; then
+    rm -rf "$work"
+    echo "==> 镜像未携带部署脚本（旧版本镜像），跳过自更新"
+    return 0
+  fi
+  if ! bash -n "$work/deploy-compose.sh" >/dev/null 2>&1; then
+    rm -rf "$work"
+    echo "警告：镜像内部署脚本语法校验失败，拒绝自更新" >&2
+    return 0
+  fi
+  if cmp -s "$work/deploy-compose.sh" "$self_path"; then
+    rm -rf "$work"
+    return 0
+  fi
+
+  tmp="$(mktemp "$(dirname "$SELF_TARGET")/.warden-deploy.XXXXXX")" || {
+    rm -rf "$work"
+    echo "警告：无法创建自更新临时文件，继续使用当前脚本" >&2
+    return 0
+  }
+  if ! install -o root -g root -m 755 "$work/deploy-compose.sh" "$tmp" 2>/dev/null; then
+    rm -f "$tmp"
+    rm -rf "$work"
+    echo "警告：写入自更新脚本失败，继续使用当前脚本" >&2
+    return 0
+  fi
+  if ! mkdir -p "$SELF_BACKUP_DIR" 2>/dev/null; then
+    rm -f "$tmp"
+    rm -rf "$work"
+    echo "警告：创建脚本备份目录失败，取消自更新" >&2
+    return 0
+  fi
+  if ! cp -a "$SELF_TARGET" "$SELF_BACKUP_DIR/warden-deploy.$(date +%Y%m%d-%H%M%S)" 2>/dev/null; then
+    rm -f "$tmp"
+    rm -rf "$work"
+    echo "警告：备份当前部署脚本失败，取消自更新" >&2
+    return 0
+  fi
+  mv -f "$tmp" "$SELF_TARGET"
+  ls -1t "$SELF_BACKUP_DIR"/warden-deploy.* 2>/dev/null | tail -n +$((KEEP_SCRIPT_BACKUPS + 1)) | xargs -r rm -f
+  rm -rf "$work"
+  echo "==> 部署脚本已自更新，重载执行: $SELF_TARGET"
+  exec env WARDEN_DEPLOY_SELF_UPDATED=1 "$SELF_TARGET" "$ver"
 }
 
 backup_database() {
@@ -320,6 +418,10 @@ if ! docker compose -f "$COMPOSE_FILE" pull warden-control; then
   echo "控制面镜像拉取失败" >&2
   exit 1
 fi
+
+# 镜像内自带部署脚本时，先自更新再继续；会以新脚本重载执行。
+self_update_from_image "$VERSION"
+
 if [ -n "$WEB_ROOT" ] && ! docker pull "$REGISTRY/warden-web:$VERSION"; then
   echo "前端镜像拉取失败" >&2
   exit 1

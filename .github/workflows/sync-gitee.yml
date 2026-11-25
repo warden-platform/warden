@@ -1,0 +1,69 @@
+name: Sync Gitee mirror
+
+# GitHub master 是主仓库与合并门禁；每次 master 前进后，把同一提交快进推到 Gitee 镜像。
+# 只做普通 push（绝不 force）；Gitee 侧历史分叉会被拒绝，保护分支拦截会自动建 PR。
+#
+# 需要的仓库 Secrets（Settings → Secrets and variables → Actions）：
+#   GITEE_USERNAME  Gitee 账号
+#   GITEE_TOKEN     Gitee 私人令牌（作为 HTTPS 密码）
+# 未配置时本 workflow 打印 warning 并跳过，不阻塞 master 的 CI。
+#
+# 说明：本 workflow 只同步 master 分支，不搬 tag 与 GitHub Release。
+# 仅上游仓库执行；fork 没有 Gitee 同步需求与 Secrets，job 会跳过。
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-gitee
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    if: github.repository == 'warden-platform/warden'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - name: Push master to Gitee (fast-forward only)
+        env:
+          GITEE_USERNAME: ${{ secrets.GITEE_USERNAME }}
+          GITEE_TOKEN: ${{ secrets.GITEE_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${GITEE_USERNAME:-}" ] || [ -z "${GITEE_TOKEN:-}" ]; then
+            echo "::warning::未配置 GITEE_USERNAME / GITEE_TOKEN，跳过 Gitee 自动同步"
+            exit 0
+          fi
+
+          target_sha="$(git rev-parse HEAD)"
+          gitee_url="https://gitee.com/warden-platform/warden.git"
+          auth="$(printf '%s:%s' "$GITEE_USERNAME" "$GITEE_TOKEN" | base64 -w0)"
+          echo "GitHub HEAD: $target_sha"
+
+          # 凭据放 extraHeader，避免出现在 remote URL / 日志里。
+          git_auth=(-c "http.extraHeader=Authorization: Basic $auth")
+
+          if ! push_out="$(git "${git_auth[@]}" push "$gitee_url" HEAD:refs/heads/master 2>&1)"; then
+            printf '%s\n' "$push_out" >&2
+            echo "推送到 Gitee 失败：检查凭据、分支保护或历史分叉（本流程绝不 force push）" >&2
+            exit 1
+          fi
+          printf '%s\n' "$push_out"
+
+          remote_sha="$(git "${git_auth[@]}" ls-remote "$gitee_url" refs/heads/master | awk '{print $1}' | head -1)"
+          if [ "$remote_sha" != "$target_sha" ]; then
+            echo "Gitee master 未前进（当前 ${remote_sha:-unknown}）" >&2
+            pr_url="$(printf '%s\n' "$push_out" | grep -oE 'https://gitee\.com/[^ ]+/pulls/[0-9]+' | head -1 || true)"
+            if [ -n "$pr_url" ]; then
+              echo "Gitee 保护分支拦截了直推并创建了同步 PR，请合并后重跑本 workflow：$pr_url" >&2
+            fi
+            exit 1
+          fi
+
+          echo "Gitee master 已同步到 ${target_sha:0:7}"

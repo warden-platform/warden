@@ -7,7 +7,7 @@
 #
 # 凭据：.secrets/acr_username 与 .secrets/acr_password（600，已 gitignore）。
 # 流程：login → 构建 web/control/operator/connector（国内镜像源）→
-#       推 version 与 latest 双 tag → manifest 验证。
+#       构建维护者内部 warden-deploy 脚本镜像 → 推 version 与 latest 双 tag → manifest 验证。
 #       只打 warden-*:<version> 本地 tag，不改生产在用的 latest。
 # 仓库映射：warden-control→warden-stable/warden，其余同名
 #       （warden-web / warden-operator / warden-connector）。
@@ -64,6 +64,11 @@ build_server_image warden-control
 build_server_image warden-operator
 build_server_image warden-connector
 
+echo "--- build warden-deploy:$VERSION"
+docker build -f scripts/Dockerfile.deployer \
+  --provenance=false --sbom=false \
+  -t "warden-deploy:$VERSION" scripts/
+
 publish() {
   local local_name="$1" repo="$2"
   docker tag "$local_name:$VERSION" "$REGISTRY/$NAMESPACE/$repo:$VERSION"
@@ -78,5 +83,6 @@ publish warden-web warden-web
 publish warden-control warden
 publish warden-operator warden-operator
 publish warden-connector warden-connector
+publish warden-deploy warden-deploy
 
 echo "=== PUBLISH-OK $VERSION $(date -Is) ==="

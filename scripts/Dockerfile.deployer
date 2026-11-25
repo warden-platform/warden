@@ -1,0 +1,6 @@
+# 维护者内部制品：把部署脚本打成 tiny OCI 镜像，供部署机 warden-deploy 自更新。
+# 服务镜像、Compose 示例与 Helm Chart 都不引用本镜像，开源使用者无需关心。
+FROM scratch
+COPY deploy-compose.sh /deploy-compose.sh
+# 仅用于 docker create + docker cp 提取文件；本镜像不作为服务运行。
+CMD ["/deploy-compose.sh"]

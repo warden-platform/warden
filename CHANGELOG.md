@@ -5,7 +5,15 @@
 
 ## [未发布]
 
-（暂无）
+### 变更
+
+- **部署脚本自更新**：维护者发布流水线新增内部 `warden-deploy` 小镜像（`scripts/Dockerfile.deployer`），只承载部署脚本，**不进入服务镜像、不影响自行构建镜像的开源使用者**；`warden-deploy` 拉取该版本镜像后校验并原子替换宿主安装副本、重载执行，后续脚本变更不再需要人工 SSH 安装（首次引导版本仍需人工安装一次）。
+- **Gitee 自动同步**：master 前进后由 `sync-gitee.yml` 自动快进同步，只做普通 push、绝不 force；仅上游仓库执行，fork 跳过；需要 `GITEE_USERNAME` / `GITEE_TOKEN` Secrets，不搬 tag 与 Release。
+
+### 部署注意
+
+- 自更新只在通过 `/usr/local/bin/warden-deploy` 以 root 调用时生效；目标版本没有内部脚本镜像（如 v0.4.3）时继续使用当前脚本。
+- 未配置 Gitee Secrets 时同步 workflow 打印 warning 并跳过；配置后可用 `workflow_dispatch` 手动验证。镜像发布与生产部署 workflow 也只在上游仓库执行。
 
 ## [0.4.3] - 2026-11-25
 

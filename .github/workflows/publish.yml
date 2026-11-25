@@ -1,9 +1,11 @@
 name: Publish images
 
 # 发版镜像：push tag（v*）或手动触发，构建控制面 / 管理端 / operator / connector
-# 四个镜像并推送到阿里云 ACR，随后为该 tag 创建 GitHub Release（正文取
-# CHANGELOG.md 对应版本小节）。发布正式环境只需打一个新 tag，然后把部署清单
-# （compose / Helm）里的 image 版本改成该 tag。
+# 四个面向用户的镜像，以及维护者内部使用的 warden-deploy 部署脚本镜像，推送到阿里云
+# ACR，随后为该 tag 创建 GitHub Release（正文取 CHANGELOG.md 对应版本小节）。
+# 发布正式环境只需打一个新 tag，然后把部署清单（compose / Helm）里的 image 版本改成该 tag。
+#
+# 仅上游仓库执行；fork 请自行调整条件与 Secrets，不要直接依赖本 workflow。
 #
 # 需要的仓库 Secrets（Settings → Secrets and variables → Actions）：
 #   ACR_USERNAME  ACR 登录用户名（含命名空间权限）
@@ -29,6 +31,7 @@ env:
 
 jobs:
   prepare:
+    if: github.repository == 'warden-platform/warden'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.v.outputs.version }}
@@ -115,8 +118,34 @@ jobs:
           cache-from: type=gha,scope=warden-web
           cache-to: type=gha,mode=max,scope=warden-web
 
+  # 维护者内部制品：仅承载部署脚本，服务镜像与用户部署清单都不引用。
+  deployer-image:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ secrets.ACR_USERNAME }}
+          password: ${{ secrets.ACR_PASSWORD }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: scripts
+          file: Dockerfile.deployer
+          platforms: linux/amd64
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/warden-deploy:${{ needs.prepare.outputs.version }}
+            ${{ env.REGISTRY }}/${{ env.NAMESPACE }}/warden-deploy:latest
+          provenance: false
+          sbom: false
+          cache-from: type=gha,scope=warden-deploy
+          cache-to: type=gha,mode=max,scope=warden-deploy
+
   github-release:
-    needs: [prepare, server-images, web-image]
+    needs: [prepare, server-images, web-image, deployer-image]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
