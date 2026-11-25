@@ -10,7 +10,7 @@ ROOT=$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)
 cd "$ROOT"
 
 COMPOSE_DEMO="docker compose -f deploy/docker-compose.demo.yaml"
-DEMO_IMAGE_TAG="v0.4.2"
+DEMO_IMAGE_TAG="v0.4.3"
 
 # 1) 生成 secret（已存在则跳过；init-prod-secrets 遇存在即拒绝，可安全重复调用）
 if [ ! -f .secrets/warden_database_url ]; then

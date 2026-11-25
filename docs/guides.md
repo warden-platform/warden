@@ -26,11 +26,11 @@
 
 ```bash
 # 官方仓库已公开，可匿名直接拉取。
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.2          # 控制面
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.2      # 管理端
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.3          # 控制面
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.3      # 管理端
 # Kubernetes 形态另需：
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-operator:v0.4.2
-docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector:v0.4.2
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-operator:v0.4.3
+docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-connector:v0.4.3
 ```
 
 > 拉取私有仓库（如企业内网自建镜像）时才需要 `docker login <registry>`；
@@ -643,7 +643,7 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 
 | 规则 | 说明 |
 |---|---|
-| 启动不跑迁移 | `warden-control` 不会自动执行 SQL；必须显式执行 |
+| 启动不跑迁移 | `warden-control` 不会自动执行 SQL；GitHub Actions 自动部署（`warden-deploy`）会在切换版本前备份并应用新增差量迁移，手工部署仍须显式执行 |
 | 全新库 | 按 `server/migrations/*.sql` 文件名顺序执行全部迁移 |
 | 已有库 | 只按 `deploy/release/migrations.txt` 顺序重放幂等迁移（编号 ≥ 035） |
 | 新增迁移 | 编号 ≥ 035 的文件**必须登记到 `migrations.txt`**，否则 `internal/control` 单测失败 |
@@ -657,7 +657,7 @@ docker exec <postgres-container> pg_dump -U <user> -d <db> \
 
 1. **备份**：数据库 `pg_dump`、记录当前镜像 ID、保存当前前端 `dist` 与编排文件。
 2. **本地验证**：`make verify`（Go 测试 + vet + 构建 + 前端构建），见 [CONTRIBUTING.md](../CONTRIBUTING.md)。
-3. **执行迁移**：按上表区分全新库 / 已有库。
+3. **执行迁移**：按上表区分全新库 / 已有库。走 GitHub Actions 自动部署时，`warden-deploy` 会先做 `pg_dump` 备份并应用「新版本清单 − 上一版本清单」的差量迁移；手工升级仍需自己执行本步。
 4. **准备新镜像**：`docker pull registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:<new-tag>`（管理端同理换 `warden-web`）；定制部署则自建：`docker build -f server/Dockerfile --build-arg TARGET=warden-control -t <registry>/warden-control:<new-tag> .`，确认镜像内含 `deploy/` 与 `server/migrations/`。
 5. **替换控制面**：滚动或短暂停机切换，等待 `/readyz` 200。
 6. **替换前端**：保留旧 `dist` 目录（例如 `dist.prev-<timestamp>`）后再覆盖。

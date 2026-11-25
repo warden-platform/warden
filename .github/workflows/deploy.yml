@@ -3,6 +3,7 @@ name: Deploy
 # 生产部署：在自托管 runner（部署机）上把指定版本切上去。
 #   - 「Publish images」成功且由 tag 触发时自动进入，版本取该 tag；
 #   - 也可手动 workflow_dispatch 指定版本（用于回滚或重发）。
+# warden-deploy 会先做数据库备份并应用新增迁移，再切换镜像、探活与同步前端。
 #
 # 前置（部署机一次性配置，见 CONTRIBUTING「发版」）：
 #   1. 装好 GitHub Actions self-hosted runner（标签 self-hosted, Linux, X64）；
@@ -40,7 +41,7 @@ jobs:
        startsWith(github.event.workflow_run.head_branch, 'v'))
     runs-on: [self-hosted, Linux]
     environment: production
-    timeout-minutes: 30
+    timeout-minutes: 60
     steps:
       - name: Resolve version
         id: v

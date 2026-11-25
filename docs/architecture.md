@@ -229,7 +229,7 @@ stateDiagram-v2
 
 ### 存储与迁移
 
-- `server/migrations/` 是按编号排序的 SQL（001–113，其中 068–071 无文件），编号唯一性有单测保障。
+- `server/migrations/` 是按编号排序的 SQL（001–114，其中 068–071 无文件），编号唯一性有单测保障。
 - **启动不跑迁移**：全新库按文件名顺序手工执行；发布流水线按 `deploy/release/migrations.txt` 重放编号 ≥ 035 的幂等迁移。新增此类迁移必须登记清单，否则单测失败。
 - `002_seed.sql` 写入固定权限锚点；运行时 `EnsureAdminPassword` 将登录名与 `WARDEN_ADMIN_USERNAME`、密码哈希与 `WARDEN_ADMIN_PASSWORD_FILE` 同步。
 - `audit_events.action` 是 PostgreSQL 枚举，新增动作名必须补 `ALTER TYPE audit_action ADD VALUE` 迁移。
@@ -362,4 +362,4 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 
 ### 发布状态
 
-当前正式版本为 v0.4.2，阶段性变更见 `CHANGELOG.md`。生产部署以具体镜像 tag 与迁移清单为准，不要假设某个版本号对应哪次提交。生产编排脱敏示例见 `deploy/docker-compose.prod.example.yaml` 与 [生产部署](guides.md#installation)。
+当前正式版本为 v0.4.3，阶段性变更见 `CHANGELOG.md`。生产部署以具体镜像 tag 与迁移清单为准，不要假设某个版本号对应哪次提交。生产编排脱敏示例见 `deploy/docker-compose.prod.example.yaml` 与 [生产部署](guides.md#installation)。

@@ -1,7 +1,8 @@
 name: Publish images
 
 # 发版镜像：push tag（v*）或手动触发，构建控制面 / 管理端 / operator / connector
-# 四个镜像并推送到阿里云 ACR。发布正式环境只需打一个新 tag，然后把部署清单
+# 四个镜像并推送到阿里云 ACR，随后为该 tag 创建 GitHub Release（正文取
+# CHANGELOG.md 对应版本小节）。发布正式环境只需打一个新 tag，然后把部署清单
 # （compose / Helm）里的 image 版本改成该 tag。
 #
 # 需要的仓库 Secrets（Settings → Secrets and variables → Actions）：
@@ -20,7 +21,7 @@ on:
         required: true
 
 permissions:
-  contents: read
+  contents: write
 
 env:
   REGISTRY: registry.cn-hangzhou.aliyuncs.com
@@ -113,3 +114,39 @@ jobs:
           sbom: false
           cache-from: type=gha,scope=warden-web
           cache-to: type=gha,mode=max,scope=warden-web
+
+  github-release:
+    needs: [prepare, server-images, web-image]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # tag 触发时 checkout 该 tag；手动触发时按输入的版本 tag checkout。
+          ref: ${{ github.event.inputs.version || github.ref }}
+      - name: Create GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.prepare.outputs.version }}
+        run: |
+          set -euo pipefail
+          if gh release view "$VERSION" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release $VERSION 已存在，跳过。"
+            exit 0
+          fi
+
+          notes="$(mktemp)"
+          awk -v heading="## [${VERSION#v}]" '
+            index($0, heading) == 1 { capture = 1; next }
+            capture && /^## \[/ { exit }
+            capture { print }
+          ' CHANGELOG.md > "$notes"
+          sed -i '/./,$!d' "$notes"
+
+          if ! grep -q '[^[:space:]]' "$notes"; then
+            printf '版本 %s：变更见 CHANGELOG.md。\n' "$VERSION" > "$notes"
+          fi
+
+          gh release create "$VERSION" --repo "$GITHUB_REPOSITORY" \
+            --verify-tag \
+            --title "Warden $VERSION" \
+            --notes-file "$notes"
