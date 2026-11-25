@@ -47,5 +47,27 @@ if ! git merge-base --is-ancestor "$GITEE_COMMIT" "$GH_COMMIT"; then
   exit 1
 fi
 
-git push "$GITEE_REMOTE" "$GH_COMMIT:refs/heads/$GITEE_BRANCH"
+if ! push_out="$(git push "$GITEE_REMOTE" "$GH_COMMIT:refs/heads/$GITEE_BRANCH" 2>&1)"; then
+  echo "$push_out" >&2
+  echo "推送到 Gitee 失败，请检查网络或凭据。" >&2
+  exit 1
+fi
+echo "$push_out"
+
+# Gitee 保护分支会拦截直推并自动创建合并 PR，此时 master 并不会真的前进，
+# 必须复核远程分支是否已指向目标提交，避免误报成功。
+unset HTTP_PROXY HTTPS_PROXY ALL_PROXY http_proxy https_proxy all_proxy
+git fetch --quiet "$GITEE_REMOTE" "$GITEE_BRANCH"
+NEW_GITEE="$(git rev-parse "$GITEE_REMOTE/$GITEE_BRANCH")"
+if [ "$NEW_GITEE" != "$GH_COMMIT" ]; then
+  pr_url="$(printf '%s\n' "$push_out" | grep -oE 'https://gitee\.com/[^ ]+/pulls/[0-9]+' | head -1)"
+  echo "Gitee $GITEE_BRANCH 是受保护分支，直推被拦截，当前仍停在 $(git rev-parse --short "$NEW_GITEE")。" >&2
+  if [ -n "$pr_url" ]; then
+    echo "Gitee 已自动创建同步 PR，请合并后再次运行本脚本：$pr_url" >&2
+  else
+    echo "请到 Gitee 合并因保护分支生成的 PR，或调整分支保护允许同步账号直推。" >&2
+  fi
+  exit 2
+fi
+
 echo "已同步 Gitee $GITEE_BRANCH -> $(git rev-parse --short "$GH_COMMIT")（来自 GitHub）"
