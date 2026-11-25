@@ -331,6 +331,7 @@ func (h *Handler) RegisterRoutes(mux *http.ServeMux) {
 	protected.HandleFunc("POST /api/v1/executions/{id}/cancel", RequireScope("warden:executions:cancel:self", h.CancelExecution))
 	protected.HandleFunc("GET /api/v1/executions", RequireScope("warden:executions:read:self", h.ListExecutions))
 	protected.HandleFunc("GET /api/v1/resources", RequireScope("warden:resources:read", h.ListResources))
+	protected.HandleFunc("GET /api/v1/topology", RequireScope("warden:resources:read", h.GetTopology))
 	protected.HandleFunc("GET /api/v1/resources/stats", RequireScope("warden:resources:read", h.ResourceStats))
 	protected.HandleFunc("GET /api/v1/actions", RequireScope("warden:resources:read", h.ListAvailableActions))
 	protected.HandleFunc("GET /api/v1/resources/{id}/actions", RequireScope("warden:resources:read", h.ListResourceActions))

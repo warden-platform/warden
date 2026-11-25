@@ -1,4 +1,4 @@
-.PHONY: init-local init-prod-secrets init-db-roles verify migrate migrate-release sync-github server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean demo
+.PHONY: init-local init-prod-secrets init-db-roles verify migrate migrate-release sync-github sync-gitee server-test server-vet server-build server-build-linux-amd64 server-build-linux-arm64 server-build-hosts web-install web-dev web-lint web-test web-build clean demo
 
 GO_CACHE ?= $(CURDIR)/.cache/go-build
 COMPOSE ?= docker compose --env-file .env -f deploy/docker-compose.yaml
@@ -33,6 +33,10 @@ migrate-release:
 
 sync-github:
 	@bash scripts/sync-github.sh $(TAG)
+
+# 反向镜像：GitHub master（合并门禁）快进同步回 Gitee master，绝不 force push。
+sync-gitee:
+	@bash scripts/sync-gitee.sh
 
 # 一键起本地演示环境（免构建，用 ACR 公开镜像；见 scripts/demo/run-demo.sh）。
 demo:

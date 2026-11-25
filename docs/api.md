@@ -151,6 +151,7 @@ Warden 不做商业化计量：身份（Principal）与执行通道（Connector�
 | 方法 | 路径 | Scope | 说明 |
 |---|---|---|---|
 | GET | `/api/v1/resources` | `warden:resources:read` | 查询资源；支持 `availableForExecution=true` 和 `projectId=<warden-project-id>`，可执行资源同样返回有效项目、环境及各自来源；支持 `limit`（1–1000，缺省不限）与 `offset` |
+| GET | `/api/v1/topology` | `warden:resources:read` | 查询下钻拓扑树：执行通道 → 集成 / 直挂资源组 → 资源样本（每类最多 6 个）与可用动作 |
 | GET | `/api/v1/resources/stats` | `warden:resources:read` | 查询当前、活跃、异常和历史资源聚合统计 |
 | GET | `/api/v1/actions` | `warden:resources:read` | 查询动作定义 |
 | GET | `/api/v1/resources/{id}/actions` | `warden:resources:read` | 查询指定资源可执行的动作及参数 Schema |
@@ -172,6 +173,67 @@ Warden 不做商业化计量：身份（Principal）与执行通道（Connector�
   "byStatus": {"ACTIVE": 2463, "ORPHANED": 68}
 }
 ```
+
+## 拓扑树
+
+`GET /api/v1/topology` 返回按执行通道嵌套的拓扑树，用于前端逐层下钻。资源按
+`integration_id + resource_type` 折叠，`samples` 为真实资源名（ACTIVE 优先、最多 6 个），
+`actions` 为该资源类型当前可用的动作定义：
+
+```json
+{
+  "summary": {"connectors": 1, "integrations": 1, "groups": 2, "resources": 361, "actions": 42},
+  "connectors": [
+    {
+      "id": "connector-1",
+      "name": "prod-cluster",
+      "type": "kubernetes",
+      "version": "1.8.0",
+      "status": "ACTIVE",
+      "live": false,
+      "integrations": [
+        {
+          "id": "integration-1",
+          "name": "jenkins-ci",
+          "protocol": "jenkins",
+          "endpoint": "https://jenkins.example.com",
+          "status": "ACTIVE",
+          "live": false,
+          "groups": [
+            {
+              "id": "group:integration-1:jenkins_build",
+              "type": "jenkins_build",
+              "count": 359,
+              "activeCount": 359,
+              "status": "active",
+              "health": "全部正常",
+              "live": false,
+              "samples": [{"name": "platform-build", "status": "ACTIVE"}],
+              "actions": [{"name": "jenkins.job.get", "displayName": "查看 Job", "risk": "low"}]
+            }
+          ]
+        }
+      ],
+      "groups": [
+        {
+          "id": "group:connector-1:deployment",
+          "type": "deployment",
+          "count": 2,
+          "activeCount": 1,
+          "status": "warning",
+          "health": "1/2 可用",
+          "live": false,
+          "samples": [{"name": "api", "namespace": "prod", "status": "ACTIVE"}],
+          "actions": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+`status` 取值 `active` / `warning` / `error`；`live=true` 表示该路径上存在
+QUEUED / DISPATCHED / RUNNING / WAITING_APPROVAL 的执行。
 
 ## Execution
 

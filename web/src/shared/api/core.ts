@@ -64,8 +64,15 @@ export async function request<T>(method: string, path: string, body?: unknown): 
       data = text
     }
   }
+  const errObj = typeof data === 'object' && data && 'error' in (data as object) ? (data as { error?: string; message?: string }) : null
+  // 超级管理员切换组织时残留的 observe tenant 可能已被停用/删除。
+  // 这种状态下保留 header 会让登录后的 /auth/me 也失败，表现为“目标组织已停用”。
+  // 清掉残留并重试一次，让用户回到正常登录流程。
+  if (observed && (errObj?.error === 'TENANT_DISABLED' || errObj?.error === 'TENANT_NOT_FOUND')) {
+    setObservedTenant('')
+    return request<T>(method, path, body)
+  }
   if (resp.status === 401) {
-    const errObj = typeof data === 'object' && data && 'error' in (data as object) ? (data as { error?: string; message?: string }) : null
     if (errObj?.error === 'INVALID_CREDENTIALS') {
       throw new ApiError(401, errObj.error, errObj.message ?? '用户名或密码错误')
     }
@@ -81,7 +88,6 @@ export async function request<T>(method: string, path: string, body?: unknown): 
   }
   if (resp.status === 204) return undefined as T
   if (!resp.ok) {
-    const errObj = typeof data === 'object' && data && 'error' in (data as object) ? (data as { error?: string; message?: string }) : null
     throw new ApiError(resp.status, errObj?.error ?? 'HTTP_ERROR', errObj?.message ?? `请求失败 (${resp.status})`)
   }
   return data as T
