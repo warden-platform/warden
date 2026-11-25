@@ -114,13 +114,16 @@ deploy_web() {
     return 1
   fi
 
-  if ! rsync -a --delete "$tmp"/ "$WEB_ROOT"/; then
+  # 显式给定权限：镜像/临时目录可能是 700，直接 -a 会把 dist 变成不可读导致 nginx 403。
+  if ! rsync -rlt --delete --chmod=D755,F644 "$tmp"/ "$WEB_ROOT"/; then
     rm -rf "$tmp"
     echo "同步前端失败，回滚静态文件" >&2
     rm -rf "$WEB_ROOT"
     tar xzf "$backup" -C "$(dirname "$WEB_ROOT")"
+    chmod 755 "$WEB_ROOT"
     return 1
   fi
+  chmod 755 "$WEB_ROOT"
   rm -rf "$tmp"
   echo "前端已更新: $WEB_ROOT（$ver）"
 
