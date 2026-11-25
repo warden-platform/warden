@@ -2,8 +2,9 @@
 # 把 GitHub master 的合并结果快进同步到 Gitee 主仓库 master。
 #
 # 现在 GitHub 承担合并门禁（PR + CI 必过），Gitee 作为国内镜像。
-# GitHub Actions 的 .github/workflows/sync-gitee.yml 已在 master 前进后自动执行；
-# 本脚本用于兜底、人工处理保护分支拦截或在本机验证同步结果。
+# GitHub Actions 的 .github/workflows/sync-gitee.yml 已在 master 前进后自动执行，
+# 并同步 tag 与 Gitee 发行版；本脚本只做 master 兜底，用于人工处理保护分支拦截
+# 或在本机验证同步结果。
 # 与 sync-github.sh（Gitee 快照 -> GitHub）方向相反。
 #
 # 用法：

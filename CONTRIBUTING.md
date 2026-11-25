@@ -43,7 +43,7 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 
 ## 发布与镜像同步
 
-双仓关系：**GitHub `warden-platform/warden`（master）是主仓库与合并门禁**，PR 必须通过 `server` / `web` 两项 Actions 检查（含 PostgreSQL service 的 DB 门控集成测试）方可合并；**Gitee `warden-platform/warden`（master）是国内镜像**，由 [.github/workflows/sync-gitee.yml](.github/workflows/sync-gitee.yml) 在 master 前进后自动快进同步（只普通 push，绝不 force；保护分支拦截会报出同步 PR）。Gitee 原有的 `ci-gate` 与镜像发布流水线已停用（Gitee Go 额度耗尽）。
+双仓关系：**GitHub `warden-platform/warden`（master）是主仓库与合并门禁**，PR 必须通过 `server` / `web` 两项 Actions 检查（含 PostgreSQL service 的 DB 门控集成测试）方可合并；**Gitee `warden-platform/warden`（master）是国内镜像**，由 [.github/workflows/sync-gitee.yml](.github/workflows/sync-gitee.yml) 自动同步 master、tag 与 Gitee 发行版（只普通 push，绝不 force；保护分支拦截会报出同步 PR；不搬 GitHub Release 附件）。Gitee 原有的 `ci-gate` 与镜像发布流水线已停用（Gitee Go 额度耗尽）。
 
 ### 代码合入 master（日常）
 
@@ -76,7 +76,7 @@ master 是保护分支，禁止直接 push，一律走 PR：
    - **手动兜底**：备份（pg_dump `-Fc` + compose/nginx 快照）→ 应用 `deploy/release/migrations.txt` 中的新迁移（`docker exec ... psql -v ON_ERROR_STOP=1 -1 < SQL`）→ 设 `WARDEN_VERSION=vX.Y.Z` 后 `docker compose up -d`（自动 pull）→ 公网验证 health/登录/SSO 未破坏。
    - 部署机需装一次 self-hosted runner，注册标签须包含 `self-hosted` 与 `Linux`（与 [deploy.yml](.github/workflows/deploy.yml) 的 `runs-on` 一致）。
 
-注意：GitHub 是 tag 的源头，发版 tag 直接 push 到 GitHub；`sync-gitee` 只快进 master 镜像（不搬 tag 与 Release）。自动同步需要在仓库配置 `GITEE_USERNAME` / `GITEE_TOKEN` 两个 Secrets；未配置时 workflow 会 warning 跳过，不阻塞 master。`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
+注意：GitHub 是 tag 与 Release 的源头，发版 tag 直接 push 到 GitHub；Gitee 自动同步覆盖 master、tag 与 Gitee 发行版（正文取 GitHub Release，不搬附件）。自动同步需要在仓库配置 `GITEE_USERNAME` / `GITEE_TOKEN` 两个 Secrets；未配置时 workflow 会 warning 跳过，不阻塞 master。`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
 
 ## 代码约定
 
