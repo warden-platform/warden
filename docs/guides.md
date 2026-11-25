@@ -22,7 +22,7 @@
 
 ### 1. 准备制品
 
-**推荐：直接拉取阿里云 ACR 发布镜像，免本地构建**（每个版本发布时由 `scripts/publish-acr.sh` 推送）：
+**推荐：直接拉取阿里云 ACR 发布镜像，免本地构建**（每个版本由 GitHub Actions 在 tag 发布时推送，`scripts/publish-acr.sh` 可兜底）：
 
 ```bash
 # 官方仓库已公开，可匿名直接拉取。

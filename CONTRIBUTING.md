@@ -43,27 +43,28 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 
 ## 发布与镜像同步
 
-双仓关系：**gitee `warden-platform/warden`（master）是主仓库**，保留完整开发历史；**GitHub `warden-platform/warden`（main）是公开快照镜像**，每个同步点一个干净 commit，不携带主仓历史。CI（含 PostgreSQL service 的 DB 门控集成测试）跑在 GitHub 镜像；gitee 侧另有一条 `ci-gate` 门禁流水线（`.workflow/ci.yml`，push/PR 触发）。
+双仓关系：**GitHub `warden-platform/warden`（master）是主仓库与合并门禁**，PR 必须通过 `server` / `web` 两项 Actions 检查（含 PostgreSQL service 的 DB 门控集成测试）方可合并；**Gitee `warden-platform/warden`（master）是国内镜像**，用 `make sync-gitee` 从 GitHub 快进同步。Gitee 原有的 `ci-gate` 与镜像发布流水线已停用（Gitee Go 额度耗尽）。
 
 ### 代码合入 master（日常）
 
 master 是保护分支，禁止直接 push，一律走 PR：
 
-1. 按主题拆 commit，建分支 push。
-2. `gitee pr create` 建 PR，再用本地脚本 `merge-pr <PR#>` 一键合并：自动触发 `ci-gate` → 等 SUCCESS → 复核头提交未变 → 批准 → 合并删分支（脚本是个人工作流工具，位于 `~/.local/bin/merge-pr`，不进仓库）。
-3. `ci-gate` 不 SUCCESS 脚本会拒绝合并，这是 gitee 侧硬门禁；合并权限仅限 admin，**勿扩散**（admin 可在 UI 手动合并绕过脚本，等于放弃门禁）。
+1. 按主题拆 commit，建分支 `git push github <分支>`。
+2. `gh pr create --repo warden-platform/warden --base master --head <分支>` 建 PR。
+3. `server` / `web` 检查通过后可合并；PR 开启 auto-merge 时 CI 绿了会自动 Squash 合并。
+4. 合并后如需同步国内镜像，运行 `make sync-gitee`。
 
 ### 发版
 
 1. `CHANGELOG.md` 把 `[未发布]` 段转成版本化条目（破坏性变更、迁移、已知限制、部署注意写全），同步 README 发布状态与 Helm `Chart.yaml` 的 version/appVersion；对照 `[未发布]` 段的「下次发版待办」逐项勾销。
-2. `make verify` 全绿后按主题 commit、push、走上面的 PR 流程合入；打 annotated tag（如 `v0.4.1`）并 push。
-3. `make sync-github TAG=v0.4.1` 一键同步：导出 tag 树追加快照 commit、推 tag、从 CHANGELOG 对应小节提取正文创建 GitHub Release；日常不同步 tag 时直接 `make sync-github`。
-4. 镜像发布：**Gitee Go「镜像发布（ACR）」流水线手动触发、填 `VERSION=vX.Y.Z`**（`build@docker` 引用账号级凭证 `ali-docker`，见 `.workflow/流水线-*.yml`），构建 control/web/operator/connector 四镜像只打 version tag；兜底用构建机 `scripts/publish-acr.sh vX.Y.Z`（version+latest 双 tag，凭据 `.secrets/acr_*` 600）。compose 示例与 Helm Chart 默认指向 ACR 公开镜像，使用者免构建。
+2. `make verify` 全绿后按主题 commit、push、走上面的 PR 流程合入。
+3. 打 annotated tag 并 push 到 GitHub（如 `git tag -a v0.4.3 -m "..." && git push github v0.4.3`）：自动触发 [.github/workflows/publish.yml](.github/workflows/publish.yml)，构建 control/web/operator/connector 四镜像并推送 ACR（version + latest 双 tag；仓库需配置 `ACR_USERNAME` / `ACR_PASSWORD` 两个 Secrets）。
+4. 兜底：构建机上仍可 `scripts/publish-acr.sh vX.Y.Z`（凭据 `.secrets/acr_*` 600）。compose 示例与 Helm Chart 默认指向 ACR 公开镜像，使用者免构建。
 5. 生产部署（从 ACR 拉公开镜像，服务器不编译）：
    - 备份（pg_dump `-Fc` + compose/nginx 快照）→ 应用 `deploy/release/migrations.txt` 中的新迁移（`docker exec ... psql -v ON_ERROR_STOP=1 -1 < SQL`）→ 生产 compose 的 `image` 指向 `registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:vX.Y.Z` → `docker compose up -d`（自动 pull）→ 公网验证 health/登录/SSO 未破坏。
-   - 镜像由「镜像发布（ACR）」流水线构建推 ACR，公开匿名可拉（免编译、免磁盘压力、与开源使用者同源可复现）；服务器不再 `docker build`。
+   - 镜像由 GitHub Actions（tag 触发的 `publish` 工作流）构建推 ACR，公开匿名可拉（免编译、免磁盘压力、与开源使用者同源可复现）；服务器不再 `docker build`。
 
-注意：Gitee 侧删除 tag 会**级联删除**对应 Release，移动 tag 后须用 API 重建；`sync-github` 幂等（树一致跳过 commit，tag/Release 已存在跳过），GitHub 侧走系统代理（`GITHUB_PROXY` 可覆盖）；`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
+注意：GitHub 是 tag 的源头，发版 tag 直接 push 到 GitHub；`sync-gitee` 只快进 master 镜像（不搬 tag 与 Release）。`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
 
 ## 代码约定
 
