@@ -75,7 +75,7 @@ export function AppTopbar({ onMenu }: { onMenu: () => void }) {
   useEffect(() => {
     if (!isSuperAdmin) return
     listTenants()
-      .then((items) => setOrgs(items ?? []))
+      .then((items) => setOrgs((items ?? []).filter((t) => t.status === 'ACTIVE')))
       .catch(() => { setOrgs([]); notify('组织列表加载失败', 'error') })
   }, [isSuperAdmin, notify])
   const switchOrg = (slug: string) => {
