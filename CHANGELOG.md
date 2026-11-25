@@ -5,18 +5,41 @@
 
 ## [未发布]
 
+（暂无）
+
+## [0.4.3] - 2026-11-25
+
+组织拓扑重构为「执行通道 → 中间件 → 资源分组 → 动作」三层图；策略时长上限与审计
+append-only 下沉到数据库层；镜像发布与生产部署迁移到 GitHub Actions，并补齐自动迁移、
+GitHub Release 与前端静态产物发布。
+
 ### 安全
 
 - **策略时长上限真正生效**：Rego/OPA 决策中的 `max_duration_seconds` 此前只被校验、未被消费，Grant 有效期实际只取动作目录的 `timeout_seconds`，导致策略给出的更短上限被静默忽略。现在创建执行与审批通过两条签发路径均取两者较小值，并把生效上限写入 `policy_decisions.opa_output.effective_grant_ttl_seconds` 便于审计。
 - **审计事件 append-only 下沉到数据库层**：迁移 `114_audit_events_append_only.sql` 撤销 `warden_app` / `warden_privileged` 对 `audit_events` 的 UPDATE/DELETE 权限（owner/superuser 保留，历史迁移仍可重放）；`deploy/db/roles.sql` 同步收紧，重放授权脚本不会把权限加回来。
 
+### 变更
+
+- **组织拓扑重构**：拓扑页改为「执行通道 → 中间件 → 资源分组 → 动作」分层图，后端新增 `GET /api/v1/topology` 嵌套树接口（按 connector / integration / resource type 聚合，附资源样本与可用动作），替换原一层平铺画布；节点附实体徽章与执行信号。
+- **镜像发布迁移到 GitHub Actions**：tag 触发构建 control / web / operator / connector 四镜像并推 ACR（version + latest），镜像全部成功后在 `publish.yml` 内自动创建 GitHub Release，正文取本文件对应版本小节。
+- **生产部署流水线**：tag 发布成功后自动触发自托管 runner 部署（`production` 环境人工审批），切换 `WARDEN_VERSION`、探活、从 `warden-web` 镜像同步宿主机前端静态产物，失败自动回滚；手动重发/回滚用 `workflow_dispatch`。
+- **自动部署补齐数据库迁移**：`scripts/deploy-compose.sh` 在切换镜像前从新版本控制面镜像读取发布迁移清单，与上一版本做差量，先 `pg_dump -Fc` 备份再逐条应用（`ON_ERROR_STOP=1`，失败即终止且不切镜像）。默认 `MIGRATION_MODE=auto`；可设 `all` 全量重放或 `skip` 交给外部系统。已应用迁移不会随镜像自动回滚，回滚需按 `BACKUP_DIR/db-*.dump` 人工恢复。
+
+### 修复
+
+- 组织切换器只展示 ACTIVE 组织，并清理残留的 observed tenant，避免 `/auth/me` 被 `TENANT_DISABLED` 卡住。
+- `sync-gitee` 识别 Gitee 保护分支拦截，复核远程分支未前进后明确报错，避免误报同步成功。
+
 ### 文档
 
-- 修正 `SECURITY.md` 的发布状态（已发布 v0.4.2）与 RLS 现状描述；`docs/architecture.md` 同步移除「尚无统一 RLS」的过期表述。
+- 修正 `SECURITY.md` 的发布状态与 RLS 现状描述；`docs/architecture.md` 同步移除「尚无统一 RLS」的过期表述；补充 `GET /api/v1/topology` 接口与发布/部署流程说明。
 
 ### 部署注意
 
-- 存量库升级需按 `deploy/release/migrations.txt` 执行新增的 `114_audit_events_append_only.sql`；执行后应用角色不能再改写审计历史， owner 迁移角色不受影响。
+- 存量库升级需按 `deploy/release/migrations.txt` 执行新增的 `114_audit_events_append_only.sql`（自动部署会差量执行）；执行后应用角色不能再改写审计历史，owner 迁移角色不受影响。
+- 拓扑重构同时改动后端与前端：必须使用同一版本的 `warden` / `warden-web` 镜像，单独替换前端会因缺少 `GET /api/v1/topology` 路由而 404。
+- 部署机的 `/usr/local/bin/warden-deploy` 是脚本副本，须重新执行 `sudo install -m 755 scripts/deploy-compose.sh /usr/local/bin/warden-deploy` 才能用上自动迁移；数据库目标可用 `PG_SERVICE` / `PG_USER` / `PG_DB` 覆盖。
+- Compose 示例、Helm Chart 与演示镜像默认版本已升到 `v0.4.3`；Chart 版本为 `0.7.2`。
 
 ## [0.4.2] - 2026-11-23
 

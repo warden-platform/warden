@@ -55,7 +55,7 @@ curl -X POST https://warden.example.com/api/v1/executions \
 |---|---|
 | 技术栈 | Go（控制面 + 多种 Connector）、React + TypeScript + Vite（管理端）、PostgreSQL |
 | 隔离模型 | 共享控制面 + 逻辑多租户（`tenant_id` 为租户 slug） |
-| 发布状态 | Release v0.4.2（2026-11-23）· [Apache-2.0](LICENSE) |
+| 发布状态 | Release v0.4.3（2026-11-25）· [Apache-2.0](LICENSE) |
 
 **文档入口**：[docs/README.md](docs/README.md)（按"想学 / 想做 / 想查 / 想理解"分类）· **[接口手册](docs/api.md)** · **[参与贡献](CONTRIBUTING.md)** · **[安全漏洞](SECURITY.md)**
 
@@ -184,7 +184,7 @@ flowchart LR
 
 ## 当前状态
 
-**已具备**：多租户隔离、动作目录与策略决策、审批与限时授权、原子任务领取与 HMAC 任务信封、多种 Connector 与 Integration、审计、Admin Web、OIDC/SSO、统一权限模型、身份分配与邀请、账号管理页，以及权限继承的 AI 只读助手（OpenAI 兼容、SSE 流式）。
+**已具备**：多租户隔离、组织拓扑三层图、动作目录与策略决策、审批与限时授权、原子任务领取与 HMAC 任务信封、多种 Connector 与 Integration、审计、Admin Web、OIDC/SSO、统一权限模型、身份分配与邀请、账号管理页，以及权限继承的 AI 只读助手（OpenAI 兼容、SSE 流式）。
 
 **尚未实现**：MFA 与按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、协作式取消协议（已派发执行的中止；取消对已派发/终态执行诚实返回 409）、SCIM、结果脱敏增强。OpenBao / Teleport 目前未集成。
 
@@ -198,7 +198,7 @@ flowchart LR
 server/
 ├── cmd/                      7 个可执行入口：控制面 + 各类 Connector/Operator/Helper
 ├── internal/{config,control,domain,policy,connector,storage}/
-├── migrations/               顺序 SQL 迁移（001–113）
+├── migrations/               顺序 SQL 迁移（001–114）
 └── Dockerfile*               控制面/Connector 镜像
 web/                          React + Vite 管理端
 deploy/                       本地 compose、Helm Chart、K8s 基线、安装脚本、发布迁移清单

@@ -28,7 +28,7 @@ services:
       retries: 10
 
   warden-control:
-    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.2
+    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:v0.4.3
     depends_on:
       postgresql:
         condition: service_healthy
@@ -57,7 +57,7 @@ services:
       - warden_admin_password
 
   web:
-    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.2
+    image: registry.cn-hangzhou.aliyuncs.com/warden-stable/warden-web:v0.4.3
     depends_on:
       - warden-control
     volumes:
