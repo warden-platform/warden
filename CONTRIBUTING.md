@@ -61,8 +61,9 @@ master 是保护分支，禁止直接 push，一律走 PR：
 3. 打 annotated tag 并 push 到 GitHub（如 `git tag -a v0.4.3 -m "..." && git push github v0.4.3`）：自动触发 [.github/workflows/publish.yml](.github/workflows/publish.yml)，构建 control/web/operator/connector 四镜像并推送 ACR（version + latest 双 tag；仓库需配置 `ACR_USERNAME` / `ACR_PASSWORD` 两个 Secrets）。
 4. 兜底：构建机上仍可 `scripts/publish-acr.sh vX.Y.Z`（凭据 `.secrets/acr_*` 600）。compose 示例与 Helm Chart 默认指向 ACR 公开镜像，使用者免构建。
 5. 生产部署（从 ACR 拉公开镜像，服务器不编译）：
-   - 备份（pg_dump `-Fc` + compose/nginx 快照）→ 应用 `deploy/release/migrations.txt` 中的新迁移（`docker exec ... psql -v ON_ERROR_STOP=1 -1 < SQL`）→ 生产 compose 的 `image` 指向 `registry.cn-hangzhou.aliyuncs.com/warden-stable/warden:vX.Y.Z` → `docker compose up -d`（自动 pull）→ 公网验证 health/登录/SSO 未破坏。
-   - 镜像由 GitHub Actions（tag 触发的 `publish` 工作流）构建推 ACR，公开匿名可拉（免编译、免磁盘压力、与开源使用者同源可复现）；服务器不再 `docker build`。
+   - **自动化**：tag 发布成功后自动触发 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)，在自托管 runner（部署机）上执行 `scripts/deploy-compose.sh vX.Y.Z`：写 `.env` 的 `WARDEN_VERSION` → `docker compose pull && up -d` → 探活，失败自动回滚到上一版本。部署 job 绑定 `production` 环境，需人工 Approve 才执行；手动重发/回滚用 `workflow_dispatch` 指定版本。
+   - **手动兜底**：备份（pg_dump `-Fc` + compose/nginx 快照）→ 应用 `deploy/release/migrations.txt` 中的新迁移（`docker exec ... psql -v ON_ERROR_STOP=1 -1 < SQL`）→ 设 `WARDEN_VERSION=vX.Y.Z` 后 `docker compose up -d`（自动 pull）→ 公网验证 health/登录/SSO 未破坏。
+   - 部署机需装一次 self-hosted runner（标签 `self-hosted, linux`），部署目录内有 compose 文件与 `.env`，镜像引用写成 `${WARDEN_VERSION}`；可选仓库 Variables `DEPLOY_DIR`（默认 `/opt/warden`）、`HEALTH_URL`。
 
 注意：GitHub 是 tag 的源头，发版 tag 直接 push 到 GitHub；`sync-gitee` 只快进 master 镜像（不搬 tag 与 Release）。`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
 

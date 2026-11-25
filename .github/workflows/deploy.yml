@@ -1,0 +1,63 @@
+name: Deploy
+
+# 生产部署：在自托管 runner（部署机）上把指定版本切上去。
+#   - 「Publish images」成功且由 tag 触发时自动进入，版本取该 tag；
+#   - 也可手动 workflow_dispatch 指定版本（用于回滚或重发）。
+#
+# 前置：
+#   1. 在部署机安装 GitHub Actions self-hosted runner（标签含 self-hosted, linux）；
+#   2. 仓库 Settings → Environments 建 production 并要求人工审批（已配置）；
+#   3. 部署目录内有 docker-compose 文件与 .env，镜像引用使用 ${WARDEN_VERSION}；
+#   4. 可选仓库 Variables：DEPLOY_DIR（默认 /opt/warden）、HEALTH_URL。
+on:
+  workflow_run:
+    workflows: ['Publish images']
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: '要部署的版本 tag（如 v0.4.3），可用于回滚'
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'push' &&
+       startsWith(github.event.workflow_run.head_branch, 'v'))
+    runs-on: [self-hosted, linux]
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve version
+        id: v
+        env:
+          INPUT_VERSION: ${{ github.event.inputs.version }}
+          RUN_TAG: ${{ github.event.workflow_run.head_branch }}
+        run: |
+          set -euo pipefail
+          version="${INPUT_VERSION:-$RUN_TAG}"
+          case "$version" in
+            v[0-9]*) ;;
+            *) echo "无效版本（须以 v 开头）: $version" >&2; exit 1 ;;
+          esac
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy compose stack
+        env:
+          DEPLOY_DIR: ${{ vars.DEPLOY_DIR }}
+          HEALTH_URL: ${{ vars.HEALTH_URL }}
+        run: |
+          set -euo pipefail
+          args=("${{ steps.v.outputs.version }}")
+          ./scripts/deploy-compose.sh "${args[@]}"
