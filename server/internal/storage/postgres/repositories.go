@@ -143,7 +143,7 @@ func (r *PrincipalRepo) Delete(ctx context.Context, id string) error {
 		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('WAITING_APPROVAL','QUEUED')`, id, tenantID); err != nil {
 		return err
 	}
-if _, err = tx.Exec(ctx, `UPDATE executions SET status='UNKNOWN', error_code='PRINCIPAL_DISABLED_DURING_DISPATCH',
+	if _, err = tx.Exec(ctx, `UPDATE executions SET status='UNKNOWN', error_code='PRINCIPAL_DISABLED_DURING_DISPATCH',
 		error_message='任务分发后请求身份被停用，目标系统可能已经执行',dispatch_token_hash=NULL,dispatch_expires_at=NULL,updated_at=now()
 		WHERE tenant_id=$2 AND principal_id=$1 AND status IN ('DISPATCHED','RUNNING')`, id, tenantID); err != nil {
 		return err
@@ -959,6 +959,97 @@ func (r *ResourceRepo) ListTopology(ctx context.Context) ([]domain.Resource, err
 		result = append(result, res)
 	}
 	return result, rows.Err()
+}
+
+// TopologySample is one concrete resource surfaced under a topology group.
+type TopologySample struct {
+	Name      string
+	Namespace string
+	Status    string
+}
+
+// TopologyGroupStat is one folded resource type under a connector/integration.
+// It carries the sample resources so the drill-down view can show real names
+// without downloading the whole catalog.
+type TopologyGroupStat struct {
+	IntegrationID string
+	ConnectorID   string
+	ResourceType  string
+	Count         int
+	ActiveCount   int
+	Samples       []TopologySample
+}
+
+// ListTopologyGroups aggregates resources by parent + resource_type. The
+// filter matches ListTopology so the drill-down tree and the legacy folded
+// graph describe the same resource set.
+func (r *ResourceRepo) ListTopologyGroups(ctx context.Context) ([]TopologyGroupStat, error) {
+	tenantID := repositoryTenant(ctx)
+	rows, err := r.pool.Query(ctx, `SELECT COALESCE(res.integration_id::text,''), res.connector_id::text, res.resource_type,
+		count(*)::int,
+		count(*) FILTER (WHERE res.status='ACTIVE')::int,
+		(array_agg(res.name ORDER BY (res.status='ACTIVE') DESC, res.created_at DESC))[1:6],
+		(array_agg(COALESCE(res.namespace,'') ORDER BY (res.status='ACTIVE') DESC, res.created_at DESC))[1:6],
+		(array_agg(res.status::text ORDER BY (res.status='ACTIVE') DESC, res.created_at DESC))[1:6]
+		FROM resources res LEFT JOIN connectors c ON c.id=res.connector_id
+		WHERE res.tenant_id=$1 AND res.status<>'ORPHANED'
+		  AND res.management_type='connector' AND c.tenant_id=$1 AND c.archived_at IS NULL
+		  AND res.metadata->>'integrationDeleted' IS DISTINCT FROM 'true'
+		  AND res.metadata->>'connectorDeleted' IS DISTINCT FROM 'true'
+		  AND (res.resource_type !~ '^(jenkins_|grafana_|database_|huawei_|aliyun_sls_)' OR res.integration_id IS NOT NULL)
+		GROUP BY 1,2,3 ORDER BY 1,2,3`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	var result []TopologyGroupStat
+	for rows.Next() {
+		var stat TopologyGroupStat
+		var names, namespaces, statuses []string
+		if err := rows.Scan(&stat.IntegrationID, &stat.ConnectorID, &stat.ResourceType,
+			&stat.Count, &stat.ActiveCount, &names, &namespaces, &statuses); err != nil {
+			return nil, err
+		}
+		for i := range names {
+			sample := TopologySample{Name: names[i]}
+			if i < len(namespaces) {
+				sample.Namespace = namespaces[i]
+			}
+			if i < len(statuses) {
+				sample.Status = statuses[i]
+			}
+			stat.Samples = append(stat.Samples, sample)
+		}
+		result = append(result, stat)
+	}
+	return result, rows.Err()
+}
+
+// ListTopologyLiveGroups returns the connector/integration/type keys that have
+// an in-flight execution. The key format is "connector|integration|type".
+func (r *ResourceRepo) ListTopologyLiveGroups(ctx context.Context) (map[string]struct{}, error) {
+	tenantID := repositoryTenant(ctx)
+	rows, err := r.pool.Query(ctx, `SELECT DISTINCT res.connector_id::text, COALESCE(res.integration_id::text,''), res.resource_type
+		FROM executions e JOIN resources res ON res.id=e.resource_id
+		WHERE e.tenant_id=$1 AND e.status IN ('QUEUED','DISPATCHED','RUNNING','WAITING_APPROVAL')`, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	result := map[string]struct{}{}
+	for rows.Next() {
+		var connectorID, integrationID, resourceType string
+		if err := rows.Scan(&connectorID, &integrationID, &resourceType); err != nil {
+			return nil, err
+		}
+		result[topologyLiveKey(connectorID, integrationID, resourceType)] = struct{}{}
+	}
+	return result, rows.Err()
+}
+
+func topologyLiveKey(connectorID, integrationID, resourceType string) string {
+	return connectorID + "|" + integrationID + "|" + resourceType
 }
 
 func (r *ResourceRepo) ListAvailable(ctx context.Context, resourceType string) ([]domain.Resource, error) {

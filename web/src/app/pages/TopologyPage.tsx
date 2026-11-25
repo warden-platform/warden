@@ -1,36 +1,15 @@
 import { useMemo, useState } from 'react'
 import { useNavigate } from '../../shared/router'
-import { RefreshCw, Search, Share2 } from 'lucide-react'
-import { listAvailableActions, listConnectors, listExecutions, listIntegrations, listResources } from '../../shared/api'
+import { RefreshCw, Share2 } from 'lucide-react'
+import { getTopology } from '../../shared/api'
 import { LoadingState, ErrorState, EmptyState } from '../components/States'
 import { TopologyGraph } from '../components/topology/TopologyGraph'
 import { TopologyDetails } from '../components/topology/TopologyDetails'
 import { TopologyExport } from '../components/topology/TopologyExport'
-import { buildTopology, type TopoNodeData, type TopoEntity, type TopoStatus } from '../lib/topology/buildTopology'
+import { buildTopologyGraph } from '../lib/topology/graph'
+import { countLiveGroups } from '../lib/topology/tree'
 import { exportTopologyText } from '../lib/topology/exportText'
-import { EMPTY_ARRAY, useApiQuery } from '../lib/useApiQuery'
-
-const TYPE_FILTERS: { key: TopoEntity; label: string }[] = [
-  { key: 'connector', label: '通道' },
-  { key: 'integration', label: '中间件' },
-  { key: 'resource-group', label: '资源' },
-  { key: 'action', label: '动作' },
-]
-const STATUS_FILTERS: { key: TopoStatus; label: string; dot: string }[] = [
-  { key: 'active', label: '正常', dot: 'bg-green-500' },
-  { key: 'warning', label: '注意', dot: 'bg-amber-500' },
-  { key: 'error', label: '异常', dot: 'bg-red-500' },
-  { key: 'neutral', label: '中性', dot: 'bg-gray-400' },
-]
-
-const DOMAIN_LEGEND: { label: string; dot: string }[] = [
-  { label: 'Kubernetes', dot: 'bg-sky-500' },
-  { label: 'Linux', dot: 'bg-violet-500' },
-  { label: 'Jenkins', dot: 'bg-orange-500' },
-  { label: 'Grafana', dot: 'bg-yellow-500' },
-  { label: '数据库', dot: 'bg-emerald-500' },
-  { label: '华为云', dot: 'bg-red-500' },
-]
+import { useApiQuery } from '../lib/useApiQuery'
 
 function FilterChip({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
   return (
@@ -49,142 +28,93 @@ function FilterChip({ active, onClick, children }: { active: boolean; onClick: (
 
 export function TopologyPage() {
   const navigate = useNavigate()
-  const [query, setQuery] = useState('')
-  const [typeOn, setTypeOn] = useState<Set<TopoEntity>>(new Set(TYPE_FILTERS.map((t) => t.key)))
-  const [statusOn, setStatusOn] = useState<Set<TopoStatus>>(new Set(STATUS_FILTERS.map((s) => s.key)))
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [includeActions, setIncludeActions] = useState(false)
 
-  const topologyQuery = useApiQuery(
-    () => Promise.all([listConnectors(), listIntegrations(), listResources({ topology: true }), listAvailableActions(), listExecutions()]),
-    [],
-    { intervalMs: 15000 },
-  )
-  const connectors = topologyQuery.data?.[0] ?? EMPTY_ARRAY
-  const integrations = topologyQuery.data?.[1] ?? EMPTY_ARRAY
-  const resources = topologyQuery.data?.[2] ?? EMPTY_ARRAY
-  const actions = topologyQuery.data?.[3] ?? EMPTY_ARRAY
-  const executions = topologyQuery.data?.[4] ?? EMPTY_ARRAY
+  const topologyQuery = useApiQuery(() => getTopology(), [], { intervalMs: 15000 })
+  const tree = topologyQuery.data
   const loading = topologyQuery.loading
   const error = topologyQuery.error
   const load = () => topologyQuery.reload()
 
-  const liveSignals = useMemo(
-    () => executions.filter((e) => ['QUEUED', 'DISPATCHED', 'RUNNING', 'WAITING_APPROVAL'].includes(e.status)).length,
-    [executions],
-  )
+  const graph = useMemo(() => (tree ? buildTopologyGraph(tree, { includeActions }) : null), [tree, includeActions])
+  const liveCount = useMemo(() => (tree ? countLiveGroups(tree) : 0), [tree])
+  const exportText = useMemo(() => (tree ? exportTopologyText(tree) : ''), [tree])
 
-  const full = useMemo(
-    () => buildTopology(connectors, integrations, resources, actions, executions),
-    [connectors, integrations, resources, actions, executions],
-  )
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    const nodes = full.nodes.filter((n) => {
-      if (!typeOn.has(n.data.entity)) return false
-      if (!statusOn.has(n.data.status)) return false
-      if (q && !`${n.data.label} ${n.data.sublabel ?? ''} ${n.data.kind}`.toLowerCase().includes(q)) return false
-      return true
-    })
-    const keep = new Set(nodes.map((n) => n.id))
-    const edges = full.edges.filter((e) => keep.has(e.source) && keep.has(e.target))
-    return { nodes, edges }
-  }, [full, query, typeOn, statusOn])
-
-  const selectedData: TopoNodeData | null = useMemo(() => {
-    if (!selectedId) return null
-    const n = full.nodes.find((x) => x.id === selectedId)
-    return n ? n.data : null
-  }, [selectedId, full])
-
-  const exportText = useMemo(
-    () => exportTopologyText(connectors, integrations, resources, actions, executions),
-    [connectors, integrations, resources, actions, executions],
-  )
-
-  const toggle = <T,>(set: Set<T>, key: T, fn: (s: Set<T>) => void) => {
-    const next = new Set(set)
-    if (next.has(key)) next.delete(key)
-    else next.add(key)
-    fn(next)
-  }
+  const selectedData = useMemo(() => {
+    if (!selectedId || !graph) return null
+    return graph.nodes.find((node) => node.id === selectedId)?.data ?? null
+  }, [selectedId, graph])
 
   if (loading) return <LoadingState />
   if (error) return <ErrorState message={error} onRetry={load} />
-
-  if (connectors.length === 0) {
-    return <EmptyState icon={Share2} title="尚无拓扑数据" text="接入第一个执行通道后，组织拓扑图谱会在此可视化展示。" />
+  if (!tree || tree.connectors.length === 0) {
+    return <EmptyState icon={Share2} title="尚无拓扑数据" text="接入第一个执行通道后，这里会呈现一张完整的组织拓扑图。" />
   }
 
   return (
     <div className="view-stack">
       <div className="panel">
-        <div className="ops-ph">
-          <span>Topology · 组织拓扑图谱</span>
-          {liveSignals > 0 ? (
-            <span className="topbar-live" title="执行中 / 排队中 / 等待审批的动作信号">
-              <i aria-hidden="true" />
-              {liveSignals} 个执行信号
-            </span>
-          ) : (
-            <span className="font-mono text-[10px] text-content-subtle dark:text-content-dark-subtle">无执行信号</span>
-          )}
-        </div>
-        <div className="flex flex-wrap items-center gap-2 p-3">
-        <div className="search-box">
-          <Search size={16} />
-          <input value={query} onChange={(e) => setQuery(e.target.value)} placeholder="搜索节点..." />
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle dark:text-content-dark-subtle">类型</span>
-          {TYPE_FILTERS.map((t) => (
-            <FilterChip key={t.key} active={typeOn.has(t.key)} onClick={() => toggle(typeOn, t.key, setTypeOn)}>
-              {t.label}
-            </FilterChip>
-          ))}
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle dark:text-content-dark-subtle">状态</span>
-          {STATUS_FILTERS.map((s) => (
-            <FilterChip key={s.key} active={statusOn.has(s.key)} onClick={() => toggle(statusOn, s.key, setStatusOn)}>
-              <span className={`mr-1 inline-block h-1.5 w-1.5 rounded-full ${s.dot}`} />
-              {s.label}
-            </FilterChip>
-          ))}
-        </div>
-        <div className="ml-auto flex items-center gap-2">
-          <div className="hidden items-center gap-2 xl:flex" aria-label="生态图例">
-            {DOMAIN_LEGEND.map((d) => (
-              <span key={d.label} className="flex items-center gap-1 text-[10px] text-content-subtle dark:text-content-dark-subtle">
-                <span className={`inline-block h-1.5 w-1.5 rounded-full ${d.dot}`} />
-                {d.label}
-              </span>
-            ))}
+        <div className="flex flex-wrap items-start justify-between gap-3 border-b border-border px-4 py-3 dark:border-border-dark">
+          <div className="flex items-start gap-2.5">
+            <div className="grid h-9 w-9 flex-none place-items-center rounded-lg bg-brand/10 text-brand dark:bg-brand-dark/10 dark:text-brand-dark">
+              <Share2 size={17} />
+            </div>
+            <div>
+              <h1 className="text-sm font-semibold text-content dark:text-content-dark">组织拓扑图</h1>
+              <p className="mt-0.5 text-[11px] text-content-subtle dark:text-content-dark-subtle">
+                通道 → 中间件 → 资源，一张图看清组织全貌，每 15 秒自动刷新
+              </p>
+            </div>
           </div>
-          <span className="text-xs text-content-subtle dark:text-content-dark-subtle">
-            {filtered.nodes.length} 节点 · {filtered.edges.length} 连线
-          </span>
-          <button className="quiet-button" onClick={() => load()}>
-            <RefreshCw size={15} />
-            刷新
-          </button>
-          <TopologyExport text={exportText} />
+          <div className="flex flex-wrap items-center gap-2">
+            {liveCount > 0 ? (
+              <span className="topbar-live" title="执行中 / 排队中 / 等待审批的动作信号">
+                <i aria-hidden="true" />
+                {liveCount} 个执行信号
+              </span>
+            ) : (
+              <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium text-content-subtle dark:border-border-dark dark:text-content-dark-subtle">
+                无执行信号
+              </span>
+            )}
+            <span className="rounded-full border border-border px-2 py-0.5 text-[10px] font-medium tabular-nums text-content-subtle dark:border-border-dark dark:text-content-dark-subtle">
+              {graph?.nodes.length ?? 0} 节点 · {graph?.edges.length ?? 0} 连线
+            </span>
+          </div>
         </div>
+
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-2.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wider text-content-subtle dark:text-content-dark-subtle">分层</span>
+          <FilterChip active={!includeActions} onClick={() => setIncludeActions(false)}>
+            通道 · 中间件 · 资源
+          </FilterChip>
+          <FilterChip active={includeActions} onClick={() => setIncludeActions(true)}>
+            含动作层
+          </FilterChip>
+          <div className="ml-auto flex items-center gap-2">
+            <button className="quiet-button" onClick={() => load()}>
+              <RefreshCw size={15} />
+              刷新
+            </button>
+            <TopologyExport text={exportText} />
+          </div>
         </div>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_300px]">
         <TopologyGraph
-          rawNodes={filtered.nodes}
-          rawEdges={filtered.edges}
+          rawNodes={graph?.nodes ?? []}
+          rawEdges={graph?.edges ?? []}
           onNodeClick={setSelectedId}
           onNodeDoubleClick={(id) => {
-            const n = full.nodes.find((x) => x.id === id)
-            if (n?.data.detailPath) navigate(n.data.detailPath)
+            const node = graph?.nodes.find((item) => item.id === id)
+            if (node?.data.detailPath) navigate(node.data.detailPath)
           }}
-          height={600}
+          onPaneClick={() => setSelectedId(null)}
+          height={680}
         />
-        <div className="h-[600px]">
+        <div className="h-auto xl:h-[680px]">
           <TopologyDetails data={selectedData} onClose={() => setSelectedId(null)} onNavigate={navigate} />
         </div>
       </div>

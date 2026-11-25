@@ -1,43 +1,48 @@
-// Dagre layout for the topology graph: left-to-right DAG positioning.
-import dagre from '@dagrejs/dagre'
+// Manual layered layout: place nodes in fixed columns by `layer` so the
+// semantic tiers (channel → middleware → resource → action) are exact, rather
+// than letting dagre merge a middleware connector into the channel column.
 import type { Edge, Node } from '@xyflow/react'
-import type { TopoNode, TopoEdge } from './buildTopology'
+import type { TopoEdge, TopoLayer, TopoNode } from './graph'
 
-const NODE_WIDTH = 220
-const NODE_HEIGHT = 72
+const NODE_WIDTH = 232
+const NODE_HEIGHT = 64
+const COL_GAP = 150
+const ROW_GAP = 20
+const LAYER_ORDER: TopoLayer[] = ['channel', 'middleware', 'resource', 'action']
 
-export function layoutTopology(nodes: TopoNode[], edges: TopoEdge[]): { nodes: Node[]; edges: Edge[] } {
-  const g = new dagre.graphlib.Graph()
-  g.setGraph({ rankdir: 'LR', nodesep: 36, ranksep: 96, marginx: 24, marginy: 24 })
-  g.setDefaultEdgeLabel(() => ({}))
-
-  for (const n of nodes) {
-    g.setNode(n.id, { width: NODE_WIDTH, height: NODE_HEIGHT })
+export function layoutTopologyGraph(nodes: TopoNode[], edges: TopoEdge[]): { nodes: Node[]; edges: Edge[] } {
+  const columns = new Map<TopoLayer, TopoNode[]>()
+  for (const node of nodes) {
+    const layer = node.data.layer
+    const list = columns.get(layer) ?? []
+    list.push(node)
+    columns.set(layer, list)
   }
-  for (const e of edges) {
-    g.setEdge(e.source, e.target)
-  }
 
-  dagre.layout(g)
+  const laidNodes: Node[] = []
+  LAYER_ORDER.forEach((layer, colIndex) => {
+    const list = columns.get(layer) ?? []
+    list.forEach((node, rowIndex) => {
+      laidNodes.push({
+        id: node.id,
+        type: 'topology',
+        position: {
+          x: colIndex * (NODE_WIDTH + COL_GAP),
+          y: rowIndex * (NODE_HEIGHT + ROW_GAP),
+        },
+        data: node.data,
+      })
+    })
+  })
 
-  const laid: Node[] = nodes.map((n) => ({
-    id: n.id,
-    type: 'topology',
-    position: {
-      x: (g.node(n.id).x ?? 0) - NODE_WIDTH / 2,
-      y: (g.node(n.id).y ?? 0) - NODE_HEIGHT / 2,
-    },
-    data: n.data,
+  const laidEdges: Edge[] = edges.map((edge) => ({
+    id: edge.id,
+    source: edge.source,
+    target: edge.target,
+    label: edge.label,
+    animated: edge.animated,
+    type: 'topo',
   }))
 
-  const laidEdges: Edge[] = edges.map((e) => ({
-    id: e.id,
-    source: e.source,
-    target: e.target,
-    label: e.label,
-    animated: e.animated,
-    type: 'smoothstep',
-  }))
-
-  return { nodes: laid, edges: laidEdges }
+  return { nodes: laidNodes, edges: laidEdges }
 }
