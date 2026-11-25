@@ -3,7 +3,8 @@ name: Deploy
 # 生产部署：在自托管 runner（部署机）上把指定版本切上去。
 #   - 「Publish images」成功且由 tag 触发时自动进入，版本取该 tag；
 #   - 也可手动 workflow_dispatch 指定版本（用于回滚或重发）。
-# warden-deploy 会先做数据库备份并应用新增迁移，再切换镜像、探活与同步前端。
+# warden-deploy 会先从新版本镜像自更新脚本，再做数据库备份、应用新增迁移，
+# 然后切换镜像、探活与同步前端。
 #
 # 前置（部署机一次性配置，见 CONTRIBUTING「发版」）：
 #   1. 装好 GitHub Actions self-hosted runner（标签 self-hosted, Linux, X64）；
@@ -12,6 +13,7 @@ name: Deploy
 #      （内容即仓库 scripts/deploy-compose.sh），并配置
 #      /etc/sudoers.d/warden-deploy 仅对该命令免密：
 #        runner ALL=(root) NOPASSWD: /usr/local/bin/warden-deploy
+#      引导版本安装一次后，后续脚本更新随新版本控制面镜像自动完成。
 #   4. /etc/warden/deploy.env 固化本机部署目录/前端目录。
 #
 # job 不做 checkout：脚本以 root 安装在宿主机，runner 工作区不参与部署。

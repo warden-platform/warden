@@ -4,6 +4,7 @@ ARG TARGET
 COPY server/bin/linux-amd64/${TARGET} /app
 COPY deploy/ /app-artifacts/deploy/
 COPY server/migrations/ /app-artifacts/server/migrations/
+COPY scripts/deploy-compose.sh /app-artifacts/scripts/deploy-compose.sh
 COPY server/bin/linux-amd64/ /app-artifacts/server/bin/linux-amd64/
 COPY server/bin/linux-arm64/ /app-artifacts/server/bin/linux-arm64/
 ENV WARDEN_ARTIFACT_ROOT=/app-artifacts

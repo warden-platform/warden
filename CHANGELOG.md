@@ -5,7 +5,15 @@
 
 ## [未发布]
 
-（暂无）
+### 变更
+
+- **部署脚本自更新**：控制面镜像打包 `scripts/deploy-compose.sh`；`warden-deploy` 拉取目标版本镜像后校验并原子替换宿主安装副本、重载执行，后续脚本变更不再需要人工 SSH 安装（首次引导版本仍需人工安装一次）。
+- **Gitee 自动同步**：master 前进后由 `sync-gitee.yml` 自动快进同步，只做普通 push、绝不 force；需要 `GITEE_USERNAME` / `GITEE_TOKEN` Secrets，不搬 tag 与 Release。
+
+### 部署注意
+
+- 自更新只在通过 `/usr/local/bin/warden-deploy` 以 root 调用时生效；目标镜像未携带脚本（旧版本）时继续使用当前脚本。
+- 未配置 Gitee Secrets 时同步 workflow 打印 warning 并跳过；配置后可用 `workflow_dispatch` 手动验证。
 
 ## [0.4.3] - 2026-11-25
 

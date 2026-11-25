@@ -43,7 +43,7 @@ helm lint deploy/helm/warden-operator --set controlPlaneURL=https://warden.examp
 
 ## 发布与镜像同步
 
-双仓关系：**GitHub `warden-platform/warden`（master）是主仓库与合并门禁**，PR 必须通过 `server` / `web` 两项 Actions 检查（含 PostgreSQL service 的 DB 门控集成测试）方可合并；**Gitee `warden-platform/warden`（master）是国内镜像**，用 `make sync-gitee` 从 GitHub 快进同步。Gitee 原有的 `ci-gate` 与镜像发布流水线已停用（Gitee Go 额度耗尽）。
+双仓关系：**GitHub `warden-platform/warden`（master）是主仓库与合并门禁**，PR 必须通过 `server` / `web` 两项 Actions 检查（含 PostgreSQL service 的 DB 门控集成测试）方可合并；**Gitee `warden-platform/warden`（master）是国内镜像**，由 [.github/workflows/sync-gitee.yml](.github/workflows/sync-gitee.yml) 在 master 前进后自动快进同步（只普通 push，绝不 force；保护分支拦截会报出同步 PR）。Gitee 原有的 `ci-gate` 与镜像发布流水线已停用（Gitee Go 额度耗尽）。
 
 ### 代码合入 master（日常）
 
@@ -52,30 +52,31 @@ master 是保护分支，禁止直接 push，一律走 PR：
 1. 按主题拆 commit，建分支 `git push github <分支>`。
 2. `gh pr create --repo warden-platform/warden --base master --head <分支>` 建 PR。
 3. `server` / `web` 检查通过后可合并；PR 开启 auto-merge 时 CI 绿了会自动 Squash 合并。
-4. 合并后如需同步国内镜像，运行 `make sync-gitee`。
+4. 合并后 Actions 会自动同步 Gitee 镜像；如失败或需人工处理，`make sync-gitee` 仍是兜底。
 
 ### 发版
 
 1. `CHANGELOG.md` 把 `[未发布]` 段转成版本化条目（破坏性变更、迁移、已知限制、部署注意写全），同步 README 发布状态与 Helm `Chart.yaml` 的 version/appVersion；对照 `[未发布]` 段的「下次发版待办」逐项勾销。
 2. `make verify` 全绿后按主题 commit、push、走上面的 PR 流程合入。
-3. 打 annotated tag 并 push 到 GitHub（如 `git tag -a v0.4.3 -m "..." && git push github v0.4.3`）：自动触发 [.github/workflows/publish.yml](.github/workflows/publish.yml)，构建 control/web/operator/connector 四镜像并推送 ACR（version + latest 双 tag；仓库需配置 `ACR_USERNAME` / `ACR_PASSWORD` 两个 Secrets）。
+3. 打 annotated tag 并 push 到 GitHub（如 `git tag -a v0.4.3 -m "..." && git push github v0.4.3`）：自动触发 [.github/workflows/publish.yml](.github/workflows/publish.yml)，构建 control/web/operator/connector 四镜像并推送 ACR（version + latest 双 tag；仓库需配置 `ACR_USERNAME` / `ACR_PASSWORD` 两个 Secrets），镜像全部成功后自动创建 GitHub Release（正文取 `CHANGELOG.md` 对应版本小节，已存在则跳过）。
 4. 兜底：构建机上仍可 `scripts/publish-acr.sh vX.Y.Z`（凭据 `.secrets/acr_*` 600）。compose 示例与 Helm Chart 默认指向 ACR 公开镜像，使用者免构建。
 5. 生产部署（从 ACR 拉公开镜像，服务器不编译）：
    - **自动化**：tag 发布成功后自动触发 [.github/workflows/deploy.yml](.github/workflows/deploy.yml)，在自托管 runner（部署机）上执行 `sudo -n /usr/local/bin/warden-deploy vX.Y.Z`：
+     0. 从新版本控制面镜像取出 `scripts/deploy-compose.sh`，校验后原子替换宿主机安装副本并重载执行（首次引导版本仍需人工安装，之后脚本更新随镜像走）；
      1. 从新版本控制面镜像读取发布迁移清单，与 `.env` 中上一版本的清单做差量；
      2. 有新迁移时先 `pg_dump -Fc` 备份到 `BACKUP_DIR/db-*.dump`（保留最近 `KEEP_DB_BACKUPS` 份），再按清单顺序、以 `ON_ERROR_STOP=1` 应用；任一条失败即终止，**不切换镜像**；
      3. 写 `.env` 的 `WARDEN_VERSION` → `docker compose pull && up -d` → 探活 → 从 `warden-web` 镜像取静态产物同步到宿主机前端目录（先 tar 备份到 `deploy/backups/`）；容器拉起/探活失败自动切回上一镜像（已应用的迁移不会自动回退，需人工按备份恢复）。
      部署 job 绑定 `production` 环境，需人工 Approve 才执行；手动重发/回滚用 `workflow_dispatch` 指定版本。
      迁移默认 `MIGRATION_MODE=auto`（只跑新增差量，避免 106 每次重放导致全员重登）；外部托管数据库可设 `MIGRATION_MODE=skip` 自行迁移，或设 `all` 强制全量重放。
    - **部署机一次性配置**（runner 为非 root 用户，不能直接改 `/root` 与 `/var/www`）：
-     1. `sudo install -m 755 scripts/deploy-compose.sh /usr/local/bin/warden-deploy`（root:root）；**脚本更新后必须重新 install 一次**；
+     1. `sudo install -m 755 scripts/deploy-compose.sh /usr/local/bin/warden-deploy`（root:root）；自更新逻辑落地后只需人工安装一次引导版本，后续脚本变更由新版本镜像自带并在部署时自更新；
      2. `/etc/warden/deploy.env` 固化本机路径，如 `DEPLOY_DIR=/root/warden/deploy`、`COMPOSE_FILE=.../docker-compose.prod.yaml`、`WEB_ROOT=/var/www/warden/dist`、`BACKUP_DIR=/root/warden/backups`（权限 600）；数据库迁移目标默认 `PG_SERVICE=postgresql` / `PG_USER=warden` / `PG_DB=warden`，可按实际情况覆盖，或用 `MIGRATION_MODE=skip` / `SKIP_DB_BACKUP=1` 显式关闭；
      3. `/etc/sudoers.d/warden-deploy` 只放行这一条命令：`runner ALL=(root) NOPASSWD: /usr/local/bin/warden-deploy`，改完用 `visudo -cf` 校验；
      4. compose 里镜像写成 `${WARDEN_VERSION:-vX.Y.Z}`，部署脚本通过 `.env` 切换版本。
    - **手动兜底**：备份（pg_dump `-Fc` + compose/nginx 快照）→ 应用 `deploy/release/migrations.txt` 中的新迁移（`docker exec ... psql -v ON_ERROR_STOP=1 -1 < SQL`）→ 设 `WARDEN_VERSION=vX.Y.Z` 后 `docker compose up -d`（自动 pull）→ 公网验证 health/登录/SSO 未破坏。
    - 部署机需装一次 self-hosted runner，注册标签须包含 `self-hosted` 与 `Linux`（与 [deploy.yml](.github/workflows/deploy.yml) 的 `runs-on` 一致）。
 
-注意：GitHub 是 tag 的源头，发版 tag 直接 push 到 GitHub；`sync-gitee` 只快进 master 镜像（不搬 tag 与 Release）。`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
+注意：GitHub 是 tag 的源头，发版 tag 直接 push 到 GitHub；`sync-gitee` 只快进 master 镜像（不搬 tag 与 Release）。自动同步需要在仓库配置 `GITEE_USERNAME` / `GITEE_TOKEN` 两个 Secrets；未配置时 workflow 会 warning 跳过，不阻塞 master。`systemd-run`（publish-acr / 后台构建）不继承工作目录，须绝对路径。
 
 ## 代码约定
 
