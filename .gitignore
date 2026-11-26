@@ -21,6 +21,7 @@ docs/*
 !docs/README.md
 !docs/api.md
 !docs/authorization.md
+!docs/mcp.md
 # Diátaxis 文档体系：教程 / 操作指南 / 参考 / 解释
 !docs/quickstart.md
 !docs/concepts.md
