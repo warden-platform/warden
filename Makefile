@@ -58,6 +58,7 @@ server-build:
 	GOCACHE=$(GO_CACHE) go -C server build -o bin/warden-linux-connector ./cmd/warden-linux-connector
 	GOCACHE=$(GO_CACHE) go -C server build -o bin/warden-network-connector ./cmd/warden-network-connector
 	GOCACHE=$(GO_CACHE) go -C server build -o bin/warden-linux-helper ./cmd/warden-linux-helper
+	GOCACHE=$(GO_CACHE) go -C server build -o bin/warden-mcp ./cmd/warden-mcp
 
 server-build-linux-amd64:
 	mkdir -p server/bin/linux-amd64

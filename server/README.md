@@ -3,7 +3,7 @@
 > **面向**：要改后端代码的开发者。本文是服务端目录、入口与运行速查。
 > 完整上手见 [`../docs/quickstart.md`](../docs/quickstart.md)，架构与分层见 [`../docs/architecture.md`](../docs/architecture.md)，全量变量见 [`../docs/reference.md#configuration`](../docs/reference.md#configuration)，接口见 [`../docs/api.md`](../docs/api.md)，文档地图见 [`../docs/README.md`](../docs/README.md)。
 
-Go 模块同时构建控制面、Kubernetes / Linux / Host / Network Connector、Operator 与 Helper。
+Go 模块同时构建控制面、Kubernetes / Linux / Host / Network Connector、Operator、Helper 与 MCP 只读适配器。
 
 ## 可执行入口
 
@@ -15,6 +15,7 @@ cmd/warden-linux-connector/   Linux 主机 Connector Runtime（非 root）
 cmd/warden-linux-helper/      Linux systemd / Docker 固定动作 root Helper
 cmd/warden-host-connector/    macOS / Windows 主机 Connector（固定命令白名单）
 cmd/warden-network-connector/ H3C 网络设备 Connector Runtime（内网 SSH 只读）
+cmd/warden-mcp/               MCP 只读 stdio 适配器（本地 Agent 接入，见 docs/mcp.md）
 ```
 
 ## 内部包
@@ -25,6 +26,7 @@ internal/domain/              领域对象、Hash 和 TaskEnvelope
 internal/policy/              Embedded/Remote OPA Provider
 internal/connector/           Runtime、TokenRequest 和 K8s Action
 internal/storage/postgres/    pgx 存储适配器与 RLS 租户隔离
+internal/mcp/                 MCP JSON-RPC、只读工具与 Warden REST 客户端
 ```
 
 依赖方向和新代码放置规则见根目录 [`README.md`](../README.md)。
@@ -39,7 +41,7 @@ make server-vet
 make server-build
 ```
 
-构建产物写入 `server/bin/`，包括 `warden-control`、`warden-connector`、`warden-operator`、`warden-linux-connector`、`warden-network-connector` 和 `warden-linux-helper` 共 6 个；macOS / Windows 的 `warden-host-connector` 由 `make server-build-hosts` 单独交叉编译。
+构建产物写入 `server/bin/`，包括 `warden-control`、`warden-connector`、`warden-operator`、`warden-linux-connector`、`warden-network-connector`、`warden-linux-helper` 和 `warden-mcp` 共 7 个；macOS / Windows 的 `warden-host-connector` 由 `make server-build-hosts` 单独交叉编译。
 
 本地普通配置统一写在仓库根目录 `config.yaml`，用户提供的外部凭据写在已被 Git 忽略的 `.env`。
 内部签名与加密密钥由初始化命令写入独立的 `var/warden/secrets.json`，不与用户配置混放。
@@ -66,4 +68,5 @@ Network Connector 安装器可从 `/downloads/install-network.sh` 获取；安�
 - 全量环境变量：[`../docs/reference.md#configuration`](../docs/reference.md#configuration)
 - 迁移与发布清单：[`../docs/guides.md#operations`](../docs/guides.md#operations)
 - 目标系统接入：[`../docs/guides.md#onboarding`](../docs/guides.md#onboarding)
+- MCP 只读适配器：[`../docs/mcp.md`](../docs/mcp.md)
 - 贡献与验证命令：[`../CONTRIBUTING.md`](../CONTRIBUTING.md)
