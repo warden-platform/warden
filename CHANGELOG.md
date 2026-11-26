@@ -41,6 +41,7 @@ GitHub Release 与前端静态产物发布。
 ### 文档
 
 - 修正 `SECURITY.md` 的发布状态与 RLS 现状描述；`docs/architecture.md` 同步移除「尚无统一 RLS」的过期表述；补充 `GET /api/v1/topology` 接口与发布/部署流程说明。
+- 新增 [MCP 接入设计](docs/mcp.md)：首期 stdio 只读适配器、写工具默认关闭、审批仍由 Admin Web 完成；MCP 尚未实现。
 
 ### 部署注意
 

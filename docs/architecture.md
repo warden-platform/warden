@@ -340,7 +340,7 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 | OpenBao | 静态 / 动态凭据签发 | 未集成 |
 | Teleport | 基础设施身份与代理 | 未集成 |
 | Jenkins | 构建执行 | 已实现结构化 Integration，待真实环境生产验收 |
-| 通用 MCP Plugin / Remote MCP | 目标架构中的插件化接入 | 尚未实现（属目标架构文档） |
+| 通用 MCP Plugin / Remote MCP | Agent 标准协议接入：stdio 适配器与 Remote MCP | 设计中（见 [mcp.md](mcp.md)；首期 stdio 只读，尚未实现） |
 
 > 历史架构文档（目标架构草案，未随仓库发布）描述的是**目标架构**，不代表当前实现；阅读时务必看文档里的基线日期与状态标注。
 

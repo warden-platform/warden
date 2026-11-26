@@ -2,7 +2,7 @@
 
 这里是 Warden 的**文档入口**。目标很简单：新人看完能回答三个问题——这个项目是干什么的、我怎么把它跑起来、它为什么这样设计。
 
-> 当前文档体系：**9 篇用户文档**，按读者意图分类。操作指南、配置、动作等同类内容已合并为带章节锚点的单篇 hub 文档，减少散落与重复。
+> 当前文档体系：**10 篇用户文档**，按读者意图分类。操作指南、配置、动作等同类内容已合并为带章节锚点的单篇 hub 文档，减少散落与重复。
 
 ## 组织方式
 
@@ -13,7 +13,7 @@
 | **教程 Tutorial** | "教我，我是新来的" | quickstart |
 | **操作指南 How-to** | "帮我完成 X" | guides（含部署/接入/SSO/运维四部分）、troubleshooting |
 | **参考 Reference** | "Y 的准确取值是什么" | reference（配置+动作）、api |
-| **解释 Explanation** | "为什么是这样设计的" | concepts（含术语表）、architecture（含现状路线）、authorization（含联邦授权） |
+| **解释 Explanation** | "为什么是这样设计的" | concepts（含术语表）、architecture（含现状路线）、authorization（含联邦授权）、mcp（设计稿） |
 
 一篇文档只做一件事。教程中途不列举全部配置项（那是参考），操作指南不展开原理（那是解释），参考不写"让我们一步步来"（那是教程）——需要时用链接串起来。
 
@@ -25,6 +25,7 @@
 | 要部署到生产的人 | [guides · 部署](guides.md#installation) → [reference · 配置](reference.md#configuration) → [guides · 运维](guides.md#operations) |
 | 要接 SSO / 配账号权限的人 | [guides · SSO](guides.md#oidc) → [authorization](authorization.md) |
 | 要接入新目标系统 / Agent 的人 | [guides · 接入](guides.md#onboarding) → [reference · 动作](reference.md#actions) → [api](api.md) |
+| 要给外部 Agent 接 MCP / 看设计边界 | [mcp](mcp.md) → [guides · 接入](guides.md#onboarding) → [api](api.md) |
 | 值班排障 / 运维 | [troubleshooting](troubleshooting.md) → [guides · 运维](guides.md#operations) → [reference · 配置](reference.md#configuration) |
 | 想了解现状与未来 | [architecture · 现状路线](architecture.md#roadmap) → [architecture](architecture.md) |
 | 想贡献代码 | [`../CONTRIBUTING.md`](../CONTRIBUTING.md) → [architecture](architecture.md) |
@@ -41,6 +42,7 @@
 | [concepts.md](concepts.md) | 解释 | 所有新人、需要查术语的人 | 领域模型、租户/项目层级或术语含义变化时 |
 | [architecture.md](architecture.md) | 解释 | 开发者、评审者、决策者 | 组件、链路、状态机或功能完成状态变化时 |
 | [authorization.md](authorization.md) | 解释 | 使用者、管理员、集成方 | 角色、能力清单或联邦授权边界变化时 |
+| [mcp.md](mcp.md) | 解释（设计稿） | 要给外部 Agent 接 MCP 的维护者、集成方与安全评审者 | MCP transport、工具契约、安全边界或落地阶段变化时 |
 
 ### 根目录文档
 
