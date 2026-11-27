@@ -187,7 +187,7 @@ flowchart LR
 
 **已具备**：多租户隔离、组织拓扑三层图、动作目录与策略决策、审批与限时授权、原子任务领取与 HMAC 任务信封、多种 Connector 与 Integration、审计、Admin Web、OIDC/SSO、统一权限模型、身份分配与邀请、账号管理页，以及权限继承的 AI 只读助手（OpenAI 兼容、SSE 流式）。
 
-**尚未实现**：MFA 与按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、协作式取消协议（已派发执行的中止；取消对已派发/终态执行诚实返回 409）、SCIM、结果脱敏增强；MCP 接入（设计中，首期 stdio 只读适配器，见 [docs/mcp.md](docs/mcp.md)）。OpenBao / Teleport 目前未集成。
+**尚未实现**：MFA 与按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管理、协作式取消协议（已派发执行的中止；取消对已派发/终态执行诚实返回 409）、SCIM、结果脱敏增强；MCP 写工具与 Remote MCP（首期只读 stdio 适配器 `warden-mcp` 已实现，见 [docs/mcp.md](docs/mcp.md)）。OpenBao / Teleport 目前未集成。
 
 完整清单与已知设计债见 [现状与路线](docs/architecture.md#roadmap)。
 

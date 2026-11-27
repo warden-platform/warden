@@ -2,7 +2,7 @@
 
 > **面向**：要给外部 Agent / MCP 客户端接 Warden 的维护者、集成方与安全评审者。
 > **读完你能**：判断 MCP 该做什么、不该做什么，知道首期工具契约、审批语义、安全边界和落地顺序。
-> **状态**：设计稿（2026-11-26）。**MCP 尚未实现**；本文描述目标方案，不代表已上线能力。
+> **状态**：设计稿（2026-11-26）。P1 只读 stdio 适配器已在 `server/cmd/warden-mcp` 实现（尚未发布）；写工具与 Remote MCP 仍为设计。
 > **相关**：[architecture](architecture.md#roadmap) · [api](api.md#execution) · [authorization](authorization.md) · [guides · 接入](guides.md#onboarding)
 
 ## 1. 背景与目标
@@ -34,7 +34,7 @@ Warden 已经提供面向外部 Agent 的 REST API：Agent 用独立 API Key 查
 | 策略与审批 | Rego 决策、`WAITING_APPROVAL`、AccessRequest、AccessGrant | 已实现 |
 | 审计 | Execution / 审批 / 审计事件，`execution_id`、`trace_id` 串联 | 已实现 |
 | 只读查询工具 | AI 助手已有 `query_resources` / `query_executions` / `query_audit_events`，服务端重校验 Scope | 已实现，可复用查询函数 |
-| MCP 协议与传输 | — | **设计中（本文）** |
+| MCP 协议与传输 | P1 只读 stdio 适配器（`server/cmd/warden-mcp`） | P1 已实现（未发布）；Remote MCP 设计中 |
 
 结论：MCP 不需要重做授权与执行，只需要一层**薄的、受同一套守卫约束**的协议适配。
 
@@ -326,6 +326,16 @@ SUCCEEDED / FAILED / UNKNOWN    AccessGrant → 执行
 | `WARDEN_MCP_TIMEOUT_SECONDS` | 否 | 调 REST 的超时，默认 30 |
 | `WARDEN_MCP_MAX_WAIT_SECONDS` | 否 | `wait_execution` 上限，默认 60 |
 
+构建：
+
+```bash
+make server-build                 # 产出 server/bin/warden-mcp
+# 或
+go -C server build -o bin/warden-mcp ./cmd/warden-mcp
+```
+
+P1 只暴露 `warden_list_resources` / `warden_list_resource_actions` / `warden_get_execution` / `warden_wait_execution` 四个只读工具；没有写工具、没有审批工具。MCP 客户端配置见 §4.1，`command` 指向构建出的 `warden-mcp` 二进制。
+
 不上控制面镜像，不改变现有 Compose / Helm / Nginx；开源用户自行构建即可。
 
 ### 9.2 Remote MCP
@@ -345,8 +355,8 @@ SUCCEEDED / FAILED / UNKNOWN    AccessGrant → 执行
 
 | 阶段 | 交付 | 验收 |
 |---|---|---|
-| P0 设计 | 本文；工具契约与安全边界；文档索引 | 评审通过，明确首期范围 |
-| P1 只读 stdio | `cmd/warden-mcp`：资源/动作发现、`get_execution`、`wait_execution`；无写工具 | MCP handshake；Scope 越权不可见；结果脱敏；Claude 示例可跑通 |
+| P0 设计 | 本文；工具契约与安全边界；文档索引 | 已完成（本文已合入） |
+| P1 只读 stdio | `server/cmd/warden-mcp` + `server/internal/mcp`：资源/动作发现、`get_execution`、`wait_execution`；无写工具 | 已实现（待发布）：MCP handshake、Scope 过滤、结果脱敏、等待轮询已有测试 |
 | P2 写闭环 | `request_action`、`cancel_execution`；审批链接；幂等；审计 `source=mcp`；写开关 | 生产变更进 `WAITING_APPROVAL`；Agent 无法审批；重试幂等；审计可追溯 |
 | P3 Remote MCP | `/api/v1/mcp` Streamable HTTP；Bearer Key；限流；租户隔离；可选 OAuth/通知 | 多租户负向测试；远程客户端接入；限流与降级可控 |
 
@@ -380,4 +390,4 @@ P1/P2 复用 AI 助手的只读查询函数与现有 Scope 校验，不另写一
 
 ## 14. 状态与下一步
 
-当前状态：**设计稿，未实现**。下一步建议先做 P0 评审，再合入 P1（只读 stdio 适配器）的最小实现；在 P1 验收前不启用任何写工具，也不部署 Remote MCP。
+当前状态：**P1 只读 stdio 适配器已实现（未发布）**；P2 写工具与 P3 Remote MCP 未实现。在 P1 验收前不启用任何写工具，也不部署 Remote MCP。下一步是 P2（`request_action` + 审批链接 + 幂等 + 审计来源）。

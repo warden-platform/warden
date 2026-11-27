@@ -293,7 +293,7 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 | 资源治理 | `sync_generation` + `last_seen_at`、ORPHANED 历史视图与保留期、归档 Connector 资源隐藏、执行目录按活跃心跳过滤、项目与环境继承链 |
 | 部署与发布 | 本地 Docker Compose、K8s 基线清单、多阶段 Dockerfile / distroless 发布镜像、Helm Chart、Linux / Host / Network 安装脚本、发布迁移清单 |
 | Admin Web | 管理员密码登录与 HttpOnly 会话、全量页面接真实 API（无 Mock）、拓扑图谱、分类资源目录、结构化 Action 面板、配对向导 |
-| Agent 接入 | 每 Agent 独立 Hash 存储 API Key、Scope 最小权限、Execution 所有权隔离、撤销 / 轮换、`scripts/warden-agent.sh` 只读巡检脚本、Agent 身份管理页 |
+| Agent 接入 | 每 Agent 独立 Hash 存储 API Key、Scope 最小权限、Execution 所有权隔离、撤销 / 轮换、`scripts/warden-agent.sh` 只读巡检脚本、Agent 身份管理页、MCP P1 只读 stdio 适配器（`server/cmd/warden-mcp`，未发布） |
 | 多租户 | 租户 slug 隔离、`tenant_id` 上下文注入、租户管理接口与并发保护、平台级接口的 `RequirePlatformTenant` 守卫 |
 | **OIDC / SSO** | 授权码 + PKCE S256、state/nonce 校验、联邦身份自动建档（稳定内部标识 + IdP 展示名 / 邮箱 / 头像）、RP-initiated logout；未配置 issuer 时行为与旧版完全一致 |
 | **统一权限模型** | 角色 / Scope / `capabilities` 集中在 `authorization.go`；后端守卫与前端菜单读同一份能力清单；OIDC 默认角色禁止配成 `platform_admin` |
@@ -340,7 +340,7 @@ MFA、按 IdP claim 自动授权、Connector mTLS/SPIFFE、Rego Bundle 版本管
 | OpenBao | 静态 / 动态凭据签发 | 未集成 |
 | Teleport | 基础设施身份与代理 | 未集成 |
 | Jenkins | 构建执行 | 已实现结构化 Integration，待真实环境生产验收 |
-| 通用 MCP Plugin / Remote MCP | Agent 标准协议接入：stdio 适配器与 Remote MCP | 设计中（见 [mcp.md](mcp.md)；首期 stdio 只读，尚未实现） |
+| 通用 MCP Plugin / Remote MCP | Agent 标准协议接入：stdio 适配器与 Remote MCP | P1 只读 stdio 已实现（`server/cmd/warden-mcp`，未发布）；写工具与 Remote MCP 设计中（见 [mcp.md](mcp.md)） |
 
 > 历史架构文档（目标架构草案，未随仓库发布）描述的是**目标架构**，不代表当前实现；阅读时务必看文档里的基线日期与状态标注。
 
